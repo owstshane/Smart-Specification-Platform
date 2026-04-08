@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orange Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: #f4f4f2; display: flex; gap: 24px; padding: 40px; min-height: 100vh; align-items: flex-start; justify-content: center; }
+
+  .option { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .label { font-size: 13px; font-weight: 600; color: #444; text-align: center; }
+  .sublabel { font-size: 11px; color: #888; text-align: center; }
+
+  .sidebar-mock {
+    width: 180px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  }
+
+  .sidebar-top {
+    padding: 20px 16px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+  }
+
+  .wordmark { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 2px; }
+  .tagline { font-size: 10px; color: rgba(255,255,255,0.3); }
+
+  .nav { padding: 10px 0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    border-left: 3px solid transparent;
+  }
+  .nav-item.active {
+    color: white;
+    border-left-color: rgba(255,255,255,0.6);
+    font-weight: 500;
+  }
+  .nav-item.active { background: rgba(255,255,255,0.12); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); flex-shrink: 0; }
+  .dot.active { background: rgba(255,255,255,0.8); }
+
+  .footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 10px; color: rgba(255,255,255,0.25); }
+
+  /* Three colours */
+  .burnt   { background: #7c3010; }
+  .vivid   { background: #e8500a; }
+  .warm    { background: #c04a10; }
+</style>
+</head>
+<body>
+
+  <!-- Option 1: Deep Burnt Orange -->
+  <div class="option">
+    <div class="sidebar-mock">
+      <div class="sidebar-top burnt">
+        <div class="wordmark">SMART Advisers</div>
+        <div class="tagline">Specification Platform</div>
+      </div>
+      <div class="nav burnt">
+        <div class="nav-item active burnt"><div class="dot active"></div> All Projects</div>
+        <div class="nav-item burnt"><div class="dot"></div> Decks & Rooms</div>
+        <div class="nav-item burnt"><div class="dot"></div> Equipment</div>
+      </div>
+      <div class="footer burnt">v1.0 · SMART</div>
+    </div>
+    <div class="label">Option A</div>
+    <div class="sublabel">Deep Burnt Orange<br>#7c3010 — dark, professional</div>
+  </div>
+
+  <!-- Option 2: Bright Vivid Orange -->
+  <div class="option">
+    <div class="sidebar-mock">
+      <div class="sidebar-top vivid">
+        <div class="wordmark">SMART Advisers</div>
+        <div class="tagline">Specification Platform</div>
+      </div>
+      <div class="nav vivid">
+        <div class="nav-item active vivid"><div class="dot active"></div> All Projects</div>
+        <div class="nav-item vivid"><div class="dot"></div> Decks & Rooms</div>
+        <div class="nav-item vivid"><div class="dot"></div> Equipment</div>
+      </div>
+      <div class="footer vivid">v1.0 · SMART</div>
+    </div>
+    <div class="label">Option B</div>
+    <div class="sublabel">Bright Vivid Orange<br>#e8500a — bold, energetic</div>
+  </div>
+
+  <!-- Option 3: Warm Mid Orange -->
+  <div class="option">
+    <div class="sidebar-mock">
+      <div class="sidebar-top warm">
+        <div class="wordmark">SMART Advisers</div>
+        <div class="tagline">Specification Platform</div>
+      </div>
+      <div class="nav warm">
+        <div class="nav-item active warm"><div class="dot active"></div> All Projects</div>
+        <div class="nav-item warm"><div class="dot"></div> Decks & Rooms</div>
+        <div class="nav-item warm"><div class="dot"></div> Equipment</div>
+      </div>
+      <div class="footer warm">v1.0 · SMART</div>
+    </div>
+    <div class="label">Option C</div>
+    <div class="sublabel">Warm Mid Orange<br>#c04a10 — balanced</div>
+  </div>
+
+</body>
+</html>
