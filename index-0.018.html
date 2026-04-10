@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMART Advisers — Specification Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f4f4f2; --surface: #ffffff; --surface2: #f0f0ee;
+    --border: #e2e2de; --border-strong: #c8c8c4;
+    --text: #1a1a18; --text-2: #5a5a56; --text-3: #9a9a96;
+    --accent: #e8500a; --accent-light: #fdf0ea; --accent-mid: #d04508;
+    --green: #2a7a4b; --green-light: #e6f4ec;
+    --amber: #b85c00; --amber-light: #fef3e6;
+    --red: #c0392b; --red-light: #fdecea;
+    --blue: #1a6fa8; --blue-light: #e6f2fa;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow: 0 4px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 16px 40px rgba(0,0,0,0.12);
+    --radius: 10px; --radius-sm: 6px;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; }
+  .app { display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar { width: 240px; min-width: 240px; background: var(--accent); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+  .sidebar-logo { padding: 22px 20px 18px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-logo .wordmark { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 2px; }
+  .sidebar-logo .tagline { font-size: 11px; color: rgba(255,255,255,0.3); }
+  .sidebar-nav { padding: 8px 0; flex: 1; overflow-y: auto; }
+  .nav-section { padding: 14px 20px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
+  .nav-project-name { padding: 4px 20px 2px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 13px; font-weight: 400; transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-item:hover { background: rgba(255,255,255,0.07); color: white; }
+  .nav-item.active { background: rgba(255,255,255,0.12); color: white; border-left-color: rgba(255,255,255,0.6); font-weight: 500; }
+  .nav-item.disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+  .nav-item svg { opacity: 0.7; flex-shrink: 0; }
+  .nav-item.active svg { opacity: 1; }
+  .nav-item.sub { padding-left: 36px; font-size: 12.5px; }
+  .divider { height: 1px; background: rgba(255,255,255,0.1); margin: 8px 0; }
+
+  /* AVATAR */
+  .sidebar-user { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); position: relative; }
+  .avatar-btn { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: var(--radius-sm); transition: background 0.15s; width: 100%; border: none; background: transparent; font-family: 'DM Sans', sans-serif; }
+  .avatar-btn:hover { background: rgba(255,255,255,0.08); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: white; flex-shrink: 0; }
+  .avatar-info { flex: 1; text-align: left; overflow: hidden; }
+  .avatar-name { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .avatar-role { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+  .avatar-chevron { color: rgba(255,255,255,0.4); flex-shrink: 0; transition: transform 0.2s; }
+  .avatar-popup { position: absolute; bottom: calc(100% + 6px); left: 12px; right: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); overflow: hidden; opacity: 0; pointer-events: none; transform: translateY(6px); transition: all 0.15s; z-index: 200; }
+  .avatar-popup.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+  .avatar-popup-header { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .avatar-popup-email { font-size: 12px; color: var(--text-2); font-weight: 500; word-break: break-all; }
+  .avatar-popup-role { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .avatar-popup-item { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px; color: var(--text); cursor: pointer; transition: background 0.12s; border: none; background: transparent; width: 100%; font-family: 'DM Sans', sans-serif; }
+  .avatar-popup-item:hover { background: var(--surface2); }
+  .avatar-popup-item.danger { color: var(--red); }
+  .avatar-popup-item.danger:hover { background: var(--red-light); }
+
+  /* MAIN */
+  .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .topbar-title { font-size: 15px; font-weight: 600; }
+  .topbar-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .content { padding: 28px 32px; flex: 1; }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-mid); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-danger { background: var(--red-light); color: var(--red); border: 1px solid #f5c6c2; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-icon { padding: 6px; border-radius: var(--radius-sm); background: transparent; border: 1px solid var(--border); cursor: pointer; display: inline-flex; align-items: center; transition: all 0.15s; color: var(--text-2); font-family: inherit; }
+  .btn-icon:hover { background: var(--surface2); }
+
+  /* BADGES */
+  .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .badge-active { background: var(--green-light); color: var(--green); }
+  .badge-hold { background: var(--amber-light); color: var(--amber); }
+  .badge-complete { background: var(--surface2); color: var(--text-2); }
+  .badge-design { background: var(--blue-light); color: var(--blue); }
+  .badge-engineering { background: #f0e6fa; color: #6b21a8; }
+  .badge-install { background: var(--amber-light); color: var(--amber); }
+  .badge-testing { background: #fef9e6; color: #92610a; }
+  .badge-delivered { background: var(--green-light); color: var(--green); }
+  .badge-newbuild { background: var(--accent-light); color: var(--accent); }
+  .badge-refit { background: #fef0e6; color: #c05000; }
+  .badge-residential { background: var(--surface2); color: var(--text-2); }
+
+  /* FORMS */
+  .form-group { margin-bottom: 16px; }
+  .form-row { display: grid; gap: 16px; margin-bottom: 16px; }
+  .form-row-2 { grid-template-columns: 1fr 1fr; }
+  .form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 5px; }
+  label .required { color: var(--red); margin-left: 2px; }
+  label .optional { color: var(--text-3); font-weight: 400; margin-left: 4px; font-size: 11px; }
+  input, select, textarea { width: 100%; padding: 8px 11px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13.5px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,80,10,0.08); }
+  textarea { resize: vertical; min-height: 80px; }
+  .form-section { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 16px; }
+  .form-section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 14px; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; transform: translateY(12px); transition: transform 0.2s; }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .modal-title { font-size: 16px; font-weight: 600; }
+  .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+
+  /* DASHBOARD */
+  .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow-sm); }
+  .stat-value { font-size: 28px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+  .stat-label { font-size: 12px; color: var(--text-3); font-weight: 500; }
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .search-wrap { position: relative; flex: 1; max-width: 300px; }
+  .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+  .search-wrap input { padding-left: 32px; }
+
+  /* PROJECT CARDS */
+  .projects-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 1200px) { .projects-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 900px) { .projects-grid { grid-template-columns: repeat(2, 1fr); } }
+  .project-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow-sm); position: relative; }
+  .project-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-1px); }
+  .project-card-code { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-3); margin-bottom: 3px; }
+  .project-card-name { font-size: 13px; font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
+  .project-card-badges { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+  .project-card-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .meta-label { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .meta-value { font-size: 11px; color: var(--text-2); margin-top: 1px; font-weight: 500; }
+  .project-card-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 3px; opacity: 0; transition: opacity 0.15s; }
+  .project-card:hover .project-card-actions { opacity: 1; }
+  @media (hover: none) { .project-card-actions { opacity: 1; } }
+
+  /* PROJECT INFO */
+  .project-banner { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
+  .project-banner-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .project-banner-code { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-3); margin-bottom: 4px; }
+  .project-banner-name { font-size: 24px; font-weight: 600; line-height: 1.2; margin-bottom: 10px; }
+  .project-banner-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .project-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .project-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow-sm); text-align: center; cursor: pointer; transition: all 0.15s; }
+  .project-stat:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .project-stat-value { font-size: 28px; font-weight: 600; color: var(--accent); line-height: 1; margin-bottom: 4px; }
+  .project-stat-label { font-size: 11px; color: var(--text-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+  .project-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .project-info-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm); }
+  .project-info-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); margin-bottom: 14px; }
+  .project-info-field { margin-bottom: 12px; }
+  .project-info-field:last-child { margin-bottom: 0; }
+  .project-info-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin-bottom: 3px; }
+  .project-info-value { font-size: 13px; color: var(--text); font-weight: 500; }
+  .project-info-value.empty { color: var(--text-3); font-style: italic; font-weight: 400; }
+  .project-shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .shortcut-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow-sm); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 14px; }
+  .shortcut-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-1px); }
+  .shortcut-icon { width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--accent-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .shortcut-icon svg { color: var(--accent); }
+  .shortcut-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .shortcut-sub { font-size: 11px; color: var(--text-3); }
+
+  /* DECKS */
+  .decks-list { display: flex; flex-direction: column; gap: 10px; }
+  .deck-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-sm); transition: all 0.15s; }
+  .deck-row:hover { border-color: var(--accent); }
+  .deck-order-badge { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; color: var(--text-3); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; flex-shrink: 0; min-width: 32px; text-align: center; }
+  .deck-id-pill { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); background: var(--accent-light); border-radius: 4px; padding: 2px 8px; font-weight: 600; flex-shrink: 0; }
+  .deck-row-name { font-size: 14px; font-weight: 600; flex: 1; }
+  .deck-row-count { font-size: 12px; color: var(--text-3); flex-shrink: 0; }
+  .row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  @media (hover: none) { .row-actions { opacity: 1; } }
+
+  /* ROOMS TABLE */
+  .rooms-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; box-shadow: var(--shadow-sm); }
+  .rooms-table-header { display: grid; grid-template-columns: 40px 60px 80px 1fr 100px 50px 90px 70px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .rooms-table-header-cell { padding: 10px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); }
+  .room-table-row { display: grid; grid-template-columns: 40px 60px 80px 1fr 100px 50px 90px 70px; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.1s; }
+  .room-table-row:last-child { border-bottom: none; }
+  .room-table-row:hover { background: var(--surface2); }
+  .room-cell { padding: 10px 12px; font-size: 13px; }
+  .room-cell.mono { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-2); }
+  .room-cell.num { color: var(--text-3); font-family: 'DM Mono', monospace; font-size: 11px; }
+  .room-cell.actions { display: flex; gap: 4px; justify-content: flex-end; }
+  @media (hover: none) { .room-cell.actions { opacity: 1; } }
+  .pos-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 4px; font-size: 11px; font-weight: 700; background: var(--surface2); color: var(--text-2); }
+  .deck-filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .deck-filter-tab { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+  .deck-filter-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .deck-filter-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .room-search-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .room-search-wrap { position: relative; flex: 1; max-width: 280px; }
+  .room-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+  .room-search-wrap input { padding-left: 32px; }
+
+  /* RACK ZONES */
+  .zones-list { display: flex; flex-direction: column; gap: 12px; }
+  .zone-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .zone-card-header { display: flex; align-items: center; gap: 12px; padding: 16px 18px; }
+  .zone-colour-strip { width: 4px; height: 40px; border-radius: 2px; flex-shrink: 0; }
+  .zone-id-pill { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 4px; flex-shrink: 0; }
+  .zone-name { font-size: 15px; font-weight: 600; flex: 1; }
+  .zone-meta { display: flex; gap: 16px; font-size: 12px; color: var(--text-3); }
+  .zone-meta-item { display: flex; align-items: center; gap: 4px; }
+  .zone-rooms-section { border-top: 1px solid var(--border); padding: 12px 18px; }
+  .zone-rooms-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 10px; }
+  .zone-room-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .zone-room-chip { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-2); font-weight: 500; }
+  .zone-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .assign-deck-group { margin-bottom: 14px; }
+  .assign-deck-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); padding: 6px 0; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+  .assign-room-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-radius: var(--radius-sm); cursor: pointer; transition: background 0.1s; }
+  .assign-room-row:hover { background: var(--surface2); }
+  .assign-room-row.other-zone { opacity: 0.45; cursor: not-allowed; }
+  .assign-room-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+  .assign-room-id { font-family: 'DM Mono', monospace; font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
+  .assign-room-name { font-size: 13px; font-weight: 500; flex: 1; }
+  .assign-zone-badge { font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 500; }
+
+  /* SECTION TABS */
+  .section-tabs { display: flex; gap: 2px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; width: fit-content; margin-bottom: 20px; }
+  .section-tab { padding: 6px 18px; border-radius: 5px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-2); transition: all 0.15s; border: none; background: transparent; font-family: 'DM Sans', sans-serif; }
+  .section-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+
+  /* EMPTY / LOADING */
+  .empty-state { text-align: center; padding: 56px 32px; color: var(--text-3); }
+  .empty-state-icon { font-size: 36px; margin-bottom: 14px; opacity: 0.4; }
+  .empty-state-title { font-size: 15px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+  .empty-state-text { font-size: 13px; margin-bottom: 18px; }
+  .loading { display: flex; align-items: center; justify-content: center; padding: 56px; color: var(--text-3); font-size: 13px; gap: 10px; }
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* CONFIRM */
+  .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+  .confirm-overlay.open { opacity: 1; pointer-events: all; }
+  .confirm-box { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 28px; max-width: 400px; width: 100%; transform: scale(0.95); transition: transform 0.15s; }
+  .confirm-overlay.open .confirm-box { transform: scale(1); }
+  .confirm-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .confirm-text { font-size: 13px; color: var(--text-2); margin-bottom: 20px; line-height: 1.6; }
+  .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* CONN / TOAST */
+  .conn-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 10px; border-radius: 20px; font-weight: 500; }
+  .conn-status .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .conn-status.connected { background: var(--green-light); color: var(--green); }
+  .conn-status.connected .dot { background: var(--green); }
+  .conn-status.disconnected { background: var(--red-light); color: var(--red); }
+  .conn-status.disconnected .dot { background: var(--red); }
+  .conn-status.checking { background: var(--surface2); color: var(--text-3); }
+  .conn-status.checking .dot { background: var(--text-3); }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: white; padding: 12px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; z-index: 9999; box-shadow: var(--shadow-lg); transform: translateY(80px); opacity: 0; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+
+  /* LOGIN */
+  .login-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); width: 100%; max-width: 400px; padding: 40px; }
+  .login-logo .wordmark { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; }
+  .login-logo .tagline { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .login-title { font-size: 20px; font-weight: 600; margin: 20px 0 4px; }
+  .login-sub { font-size: 13px; color: var(--text-3); margin-bottom: 28px; }
+  .login-error { background: var(--red-light); color: var(--red); border: 1px solid #f5c6c2; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; margin-bottom: 16px; display: none; }
+  .login-error.show { display: block; }
+  .login-footer { margin-top: 16px; font-size: 12px; color: var(--text-3); text-align: center; }
+
+
+  /* ── IMPORT/EXPORT ── */
+  .ie-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+  .ie-section-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .ie-section-sub { font-size: 13px; color: var(--text-3); margin-bottom: 20px; }
+  .ie-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .ie-upload-area { border: 2px dashed var(--border-strong); border-radius: var(--radius); padding: 32px; text-align: center; cursor: pointer; transition: all 0.15s; margin-bottom: 16px; }
+  .ie-upload-area:hover { border-color: var(--accent); background: var(--accent-light); }
+  .ie-upload-area.dragover { border-color: var(--accent); background: var(--accent-light); }
+  .ie-upload-icon { font-size: 32px; margin-bottom: 10px; opacity: 0.5; }
+  .ie-upload-text { font-size: 13px; color: var(--text-2); margin-bottom: 4px; font-weight: 500; }
+  .ie-upload-sub { font-size: 12px; color: var(--text-3); }
+  .ie-preview { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+  .ie-preview-header { padding: 14px 18px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .ie-preview-title { font-size: 13px; font-weight: 600; }
+  .ie-preview-count { font-size: 12px; color: var(--text-3); }
+  .ie-preview-table { overflow-x: auto; max-height: 360px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .ie-preview-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .ie-preview-table th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); background: var(--surface2); position: sticky; top: 0; border-bottom: 1px solid var(--border); }
+  .ie-preview-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+  .ie-preview-table tr:last-child td { border-bottom: none; }
+  .ie-preview-table tr.row-error td { background: var(--red-light); color: var(--red); }
+  .ie-preview-table tr.row-ok td { }
+  .ie-error-badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; background: var(--red-light); color: var(--red); }
+  .ie-ok-badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; background: var(--green-light); color: var(--green); }
+  .ie-import-options { display: flex; gap: 12px; margin-bottom: 16px; }
+  .ie-option { flex: 1; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 14px; cursor: pointer; transition: all 0.15s; }
+  .ie-option.selected { border-color: var(--accent); background: var(--accent-light); }
+  .ie-option-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .ie-option-sub { font-size: 11px; color: var(--text-3); }
+  .ie-option.selected .ie-option-sub { color: var(--accent-mid); }
+
+  /* ── EQUIPMENT ── */
+  .equip-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .equip-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; box-shadow: var(--shadow-sm); }
+  .equip-table table { min-width: 600px; }
+  .equip-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .equip-table th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+  .equip-table th:hover { color: var(--accent); }
+  .equip-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  .equip-table tr:last-child td { border-bottom: none; }
+  .equip-table tr:hover td { background: var(--surface2); }
+  .equip-table .td-mono { font-family: "DM Mono", monospace; font-size: 11px; color: var(--text-2); }
+  .equip-table .td-actions { display: flex; gap: 4px; justify-content: flex-end; white-space: nowrap; }
+  .category-badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; font-family: "DM Mono", monospace; background: var(--accent-light); color: var(--accent); }
+  .group-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; background: var(--surface2); color: var(--text-2); }
+  .pull-btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 500; cursor: pointer; border: 1px solid var(--accent); background: var(--accent-light); color: var(--accent); font-family: "DM Sans", sans-serif; transition: all 0.15s; white-space: nowrap; }
+  .pull-btn:hover { background: var(--accent); color: white; }
+  .pull-btn.pulled { border-color: var(--green); background: var(--green-light); color: var(--green); cursor: default; }
+  .device-id-badge { font-family: "DM Mono", monospace; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-2); }
+  .hidden { display: none !important; }
+  .flex { display: flex; } .items-center { align-items: center; } .gap-12 { gap: 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="wordmark">SMART Advisers</div>
+      <div class="tagline">Specification Platform</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Workspace</div>
+      <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        All Projects
+      </div>
+      <div class="divider"></div>
+      <div class="nav-section">Current Project</div>
+      <div class="nav-project-name" id="nav-project-name">— None open —</div>
+      <div class="nav-item sub disabled" onclick="showPage('project-info')" id="nav-project-info">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Project Info
+      </div>
+      <div class="nav-item sub disabled" onclick="showPage('decks-rooms')" id="nav-decks-rooms">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+        Decks &amp; Rooms
+      </div>
+      <div class="nav-item sub disabled" onclick="showPage('rack-zones')" id="nav-rack-zones">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/></svg>
+        Rack Zones
+      </div>
+      <div class="nav-item sub disabled" onclick="showPage('import-export')" id="nav-import-export">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import / Export
+      </div>
+      <div class="nav-item sub disabled" onclick="showPage('equipment')" id="nav-equipment">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+        Equipment
+      </div>
+      <div class="divider"></div>
+      <div class="nav-section">Global</div>
+      <div class="nav-item" onclick="showPage('global-library')" id="nav-global-library">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Device Types
+      </div>
+      <div class="nav-item" onclick="showPage('product-catalogue')" id="nav-product-catalogue">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+        Product Catalogue
+      </div>
+    </nav>
+    <div class="sidebar-user">
+      <div class="avatar-popup" id="avatar-popup">
+        <div class="avatar-popup-header">
+          <div class="avatar-popup-email" id="popup-email">—</div>
+          <div class="avatar-popup-role">Administrator</div>
+        </div>
+        <button class="avatar-popup-item danger" onclick="doLogout()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign Out
+        </button>
+        <div style="padding:8px 14px;font-size:10px;color:var(--text-3);border-top:1px solid var(--border)">v1.0 · SMART Technology Advisers</div>
+      </div>
+      <button class="avatar-btn" onclick="toggleAvatarPopup()" id="avatar-btn">
+        <div class="avatar" id="avatar-initials">—</div>
+        <div class="avatar-info">
+          <div class="avatar-name" id="avatar-email">Signed out</div>
+          <div class="avatar-role">Administrator</div>
+        </div>
+        <svg class="avatar-chevron" id="avatar-chevron" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="18,15 12,9 6,15"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title" id="topbar-title">All Projects</div>
+        <div class="topbar-sub" id="topbar-sub">SMART Advisers Specification Platform</div>
+      </div>
+      <div class="flex items-center gap-12">
+        <div class="conn-status checking" id="conn-status"><div class="dot"></div>Connecting…</div>
+        <button class="btn btn-primary" id="topbar-btn" onclick="openNewProjectModal()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Project
+        </button>
+      </div>
+    </header>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div id="page-dashboard">
+        <div class="stats-bar">
+          <div class="stat-card"><div class="stat-value" id="stat-total">—</div><div class="stat-label">Total Projects</div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-active">—</div><div class="stat-label">Active</div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-newbuild">—</div><div class="stat-label">New Builds</div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-refit">—</div><div class="stat-label">Refits</div></div>
+        </div>
+        <div class="toolbar">
+          <div class="search-wrap">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="Search projects…" id="search-input" oninput="filterProjects()">
+          </div>
+          <select id="filter-status" onchange="filterProjects()" style="width:auto;padding:8px 11px">
+            <option value="">All statuses</option>
+            <option value="Active">Active</option>
+            <option value="On Hold">On Hold</option>
+            <option value="Complete">Complete</option>
+          </select>
+          <select id="filter-type" onchange="filterProjects()" style="width:auto;padding:8px 11px">
+            <option value="">All types</option>
+            <option value="New Build">New Build</option>
+            <option value="Refit">Refit</option>
+            <option value="Residential">Residential</option>
+          </select>
+        </div>
+        <div id="projects-container"><div class="loading"><div class="spinner"></div> Loading projects…</div></div>
+      </div>
+
+      <!-- PROJECT INFO -->
+      <div id="page-project-info" class="hidden">
+        <div id="project-info-content"></div>
+      </div>
+
+      <!-- DECKS & ROOMS -->
+      <div id="page-decks-rooms" class="hidden">
+        <div class="section-tabs">
+          <button class="section-tab active" id="tab-btn-decks" onclick="switchDeckRoomTab('decks')">Decks</button>
+          <button class="section-tab" id="tab-btn-rooms" onclick="switchDeckRoomTab('rooms')">Rooms</button>
+        </div>
+        <div id="decks-tab-content">
+          <div id="decks-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+        </div>
+        <div id="rooms-tab-content" class="hidden">
+          <div class="room-search-bar">
+            <div class="room-search-wrap">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="room-search-input" placeholder="Search rooms…" oninput="renderRoomsTable()">
+            </div>
+          </div>
+          <div class="deck-filter-tabs" id="deck-filter-tabs"></div>
+          <div id="rooms-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- PRODUCT CATALOGUE -->
+      <div id="page-product-catalogue" class="hidden">
+        <div class="equip-toolbar">
+          <div class="search-wrap" style="max-width:280px">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="pc-search" placeholder="Search products…" oninput="renderProductCatalogue()">
+          </div>
+          <select id="pc-filter-type" onchange="renderProductCatalogue()" style="width:auto;padding:8px 11px">
+            <option value="">All device types</option>
+          </select>
+          <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="pc-count"></div>
+        </div>
+        <div id="product-catalogue-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+      </div>
+
+      <!-- GLOBAL LIBRARY -->
+      <div id="page-global-library" class="hidden">
+        <div class="equip-toolbar">
+          <div class="search-wrap" style="max-width:280px">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="gl-search" placeholder="Search library…" oninput="renderGlobalLibrary()">
+          </div>
+          <select id="gl-filter-group" onchange="renderGlobalLibrary()" style="width:auto;padding:8px 11px">
+            <option value="">All systems</option>
+          </select>
+          <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="gl-count"></div>
+        </div>
+        <div id="global-library-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+      </div>
+
+      <!-- EQUIPMENT -->
+      <div id="page-equipment" class="hidden">
+        <div class="section-tabs">
+          <button class="section-tab active" id="tab-btn-proj-eq" onclick="switchEquipTab('project')">Project Library</button>
+          <button class="section-tab" id="tab-btn-placed" onclick="switchEquipTab('placed')">Placed Equipment</button>
+        </div>
+        <div id="equip-project-tab">
+          <div class="equip-toolbar">
+            <div class="search-wrap" style="max-width:280px">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="pe-search" placeholder="Search project equipment…" oninput="renderProjectEquipment()">
+            </div>
+            <select id="pe-filter-group" onchange="renderProjectEquipment()" style="width:auto;padding:8px 11px">
+              <option value="">All systems</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="showPage('global-library')">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              Pull from Library
+            </button>
+          </div>
+          <div id="project-equipment-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+        </div>
+        <div id="equip-placed-tab" class="hidden">
+          <div class="equip-toolbar">
+            <div class="search-wrap" style="max-width:280px">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="pl-search" placeholder="Search placed equipment…" oninput="renderPlacedEquipment()">
+            </div>
+            <select id="pl-filter-location" onchange="renderPlacedEquipment()" style="width:auto;padding:8px 11px">
+              <option value="">All locations</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="openPlaceModal()">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Place Equipment
+            </button>
+          </div>
+          <div id="placed-equipment-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- IMPORT / EXPORT -->
+      <div id="page-import-export" class="hidden">
+        <!-- EXPORT -->
+        <div class="ie-section">
+          <div class="ie-section-title">Export to Excel</div>
+          <div class="ie-section-sub">Download all decks, rooms and rack zone assignments for this project as an Excel file. You can use this as a template for importing.</div>
+          <div class="ie-actions">
+            <button class="btn btn-primary" onclick="exportToExcel()">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download Excel File
+            </button>
+          </div>
+        </div>
+        <!-- IMPORT -->
+        <div class="ie-section">
+          <div class="ie-section-title">Import from Excel</div>
+          <div class="ie-section-sub">Upload an Excel file to import decks, rooms and rack zone assignments. Use the export above as a template to get the correct column format.</div>
+          <div class="ie-upload-area" id="ie-upload-area" onclick="document.getElementById('ie-file-input').click()" ondragover="ieDragOver(event)" ondragleave="ieDragLeave(event)" ondrop="ieDrop(event)">
+            <div class="ie-upload-icon">📂</div>
+            <div class="ie-upload-text">Click to choose file or drag and drop</div>
+            <div class="ie-upload-sub">Excel files only (.xlsx)</div>
+          </div>
+          <input type="file" id="ie-file-input" accept=".xlsx" style="display:none" onchange="ieFileSelected(event)">
+          <div id="ie-preview-area" class="hidden">
+            <div class="ie-import-options">
+              <div class="ie-option selected" id="ie-opt-add" onclick="selectImportOption('add')">
+                <div class="ie-option-title">Add to existing</div>
+                <div class="ie-option-sub">Keep current rooms and add new ones from the file</div>
+              </div>
+              <div class="ie-option" id="ie-opt-replace" onclick="selectImportOption('replace')">
+                <div class="ie-option-title">Replace all</div>
+                <div class="ie-option-sub">Delete all current rooms and replace with file contents</div>
+              </div>
+            </div>
+            <div class="ie-preview" id="ie-preview"></div>
+            <div style="display:flex;gap:10px;margin-top:12px">
+              <button class="btn btn-secondary" onclick="ieReset()">Cancel</button>
+              <button class="btn btn-primary" id="ie-confirm-btn" onclick="ieConfirmImport()">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>
+                Confirm Import
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RACK ZONES -->
+      <div id="page-rack-zones" class="hidden">
+        <div id="rack-zones-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- PROJECT MODAL -->
+<div class="modal-overlay" id="project-modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">New Project</div>
+      <button class="btn-icon" onclick="closeProjectModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section">
+        <div class="form-section-title">Project Identity</div>
+        <div class="form-row form-row-2">
+          <div><label>Project Code <span class="required">*</span></label><input type="text" id="f-code" placeholder="e.g. SAP-2024-001"></div>
+          <div><label>Project Name <span class="required">*</span></label><input type="text" id="f-name" placeholder="e.g. M/Y Ocean Dream"></div>
+        </div>
+        <div class="form-row form-row-3">
+          <div><label>Project Type <span class="required">*</span></label><select id="f-type" onchange="toggleLengthField()"><option value="">Select type…</option><option value="New Build">New Build Superyacht</option><option value="Refit">Refit Superyacht</option><option value="Residential">Residential</option></select></div>
+          <div id="length-field" class="hidden"><label>Length (metres)</label><input type="number" id="f-length" placeholder="e.g. 72" min="0" step="0.1"></div>
+          <div><label>Status</label><select id="f-status"><option value="Active">Active</option><option value="On Hold">On Hold</option><option value="Complete">Complete</option></select></div>
+          <div><label>Phase</label><select id="f-phase"><option value="">— Select —</option><option value="Design">Design</option><option value="Engineering">Engineering</option><option value="Install">Install</option><option value="Testing">Testing</option><option value="Delivered">Delivered</option></select></div>
+        </div>
+        <div class="form-row form-row-2">
+          <div><label>Start Date</label><input type="date" id="f-start"></div>
+          <div><label>Target Completion</label><input type="date" id="f-target"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Key Contacts &amp; Companies</div>
+        <div class="form-row form-row-2">
+          <div><label>Owner's Representative</label><input type="text" id="f-owners-rep" placeholder="Name or company"></div>
+          <div><label>Management Team</label><input type="text" id="f-management" placeholder="Name or company"></div>
+        </div>
+        <div class="form-row form-row-2">
+          <div><label>Shipyard</label><input type="text" id="f-shipyard" placeholder="Name or company"></div>
+          <div><label>Exterior Designer</label><input type="text" id="f-exterior" placeholder="Name or company"></div>
+        </div>
+        <div class="form-row form-row-2">
+          <div><label>Interior Designer</label><input type="text" id="f-interior" placeholder="Name or company"></div>
+          <div><label>AV/IT Integrator</label><input type="text" id="f-avit" placeholder="Name or company"></div>
+        </div>
+        <div class="form-row form-row-2">
+          <div><label>Security Integrator</label><input type="text" id="f-security" placeholder="Name or company"></div>
+          <div></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Notes</div>
+        <textarea id="f-notes" placeholder="Any additional notes…" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeProjectModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProject()" id="save-btn">Save Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- DECK MODAL -->
+<div class="modal-overlay" id="deck-modal-overlay">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" id="deck-modal-title">Add Deck</div>
+      <button class="btn-icon" onclick="closeDeckModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div><label>Deck No. <span class="required">*</span></label><input type="number" id="fd-order" placeholder="e.g. 1" min="1"></div>
+        <div><label>Deck ID <span class="required">*</span></label><input type="text" id="fd-id" placeholder="e.g. MD" maxlength="6" oninput="this.value=this.value.toUpperCase()"></div>
+      </div>
+      <div class="form-group"><label>Deck Name <span class="required">*</span></label><input type="text" id="fd-name" placeholder="e.g. Main Deck"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDeckModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDeck()" id="deck-save-btn">Save Deck</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROOM MODAL -->
+<div class="modal-overlay" id="room-modal-overlay">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title" id="room-modal-title">Add Room</div>
+      <button class="btn-icon" onclick="closeRoomModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div><label>Deck <span class="required">*</span></label><select id="fr-deck"></select></div>
+        <div><label>Position</label><select id="fr-position"><option value="">— Any —</option><option value="P">Port (P)</option><option value="S">Starboard (S)</option><option value="C">Central (C)</option></select></div>
+      </div>
+      <div class="form-row form-row-3">
+        <div><label>Room No. <span class="required">*</span></label><input type="number" id="fr-number" placeholder="e.g. 1" min="1"></div>
+        <div><label>Room ID <span class="optional">optional</span></label><input type="text" id="fr-id" placeholder="e.g. SL" maxlength="8" oninput="this.value=this.value.toUpperCase()"></div>
+        <div><label>Frame Number <span class="optional">optional</span></label><input type="text" id="fr-frame" placeholder="e.g. FR42–FR58"></div>
+      </div>
+      <div class="form-group"><label>Room Name <span class="required">*</span></label><input type="text" id="fr-name" placeholder="e.g. Saloon"></div>
+      <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="fr-notes" rows="2" placeholder="Any notes about this room…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeRoomModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRoom()" id="room-save-btn">Save Room</button>
+    </div>
+  </div>
+</div>
+
+<!-- ZONE MODAL -->
+<div class="modal-overlay" id="zone-modal-overlay">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title" id="zone-modal-title">Add Rack Zone</div>
+      <button class="btn-icon" onclick="closeZoneModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-3">
+        <div><label>Zone ID <span class="required">*</span></label><input type="text" id="fz-id" placeholder="e.g. MEC" maxlength="8" oninput="this.value=this.value.toUpperCase()"></div>
+        <div><label>Zone Name <span class="required">*</span></label><input type="text" id="fz-name" placeholder="e.g. Main Engine Room"></div>
+        <div><label>Colour</label><input type="color" id="fz-colour" value="#e8500a" style="padding:4px;height:38px;cursor:pointer"></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div><label>Rack Room <span class="optional">optional</span></label><select id="fz-rack-room"><option value="">— Select room —</option></select></div>
+        <div><label>Number of Racks <span class="required">*</span></label><input type="number" id="fz-rack-count" placeholder="e.g. 4" min="1" value="1"></div>
+      </div>
+      <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="fz-notes" rows="2" placeholder="Any notes about this zone…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeZoneModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveZone()" id="zone-save-btn">Save Zone</button>
+    </div>
+  </div>
+</div>
+
+<!-- ASSIGN ROOMS MODAL -->
+<div class="modal-overlay" id="assign-modal-overlay">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title" id="assign-modal-title">Assign Rooms to Zone</div>
+      <button class="btn-icon" onclick="closeAssignModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div style="padding:16px 24px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-2)">Tick all rooms that should be served by this rack zone.</div>
+      <div id="assign-rooms-list" style="max-height:400px;overflow-y:auto;padding:12px 24px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAssignModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRoomAssignments()" id="assign-save-btn">Save Assignments</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- GLOBAL DEVICE MODAL -->
+<div class="modal-overlay" id="global-device-modal-overlay">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <div class="modal-title" id="gd-modal-title">Add Device to Library</div>
+      <button class="btn-icon" onclick="closeGlobalDeviceModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div><label>Device Type ID <span class="required">*</span></label><input type="text" id="gd-type-id" placeholder="e.g. DISP-65" oninput="this.value=this.value.toUpperCase()"></div>
+        <div><label>Description <span class="required">*</span></label><input type="text" id="gd-desc" placeholder="e.g. Display 65&quot;"></div>
+      </div>
+      <div class="form-row form-row-3">
+        <div><label>Category Code</label><input type="text" id="gd-cat" placeholder="e.g. 01-TV"></div>
+        <div><label>System Group</label><input type="text" id="gd-group" placeholder="e.g. Displays"></div>
+        <div><label>Spec Reference</label><input type="text" id="gd-spec" placeholder="e.g. A22"></div>
+      </div>
+      <div class="form-row form-row-3">
+        <div><label>LAN Ports</label><input type="number" id="gd-lan" placeholder="0" min="0"></div>
+        <div><label>Speaker Channels</label><input type="number" id="gd-spk" placeholder="0" min="0"></div>
+        <div>
+          <label>POE Type</label>
+          <select id="gd-poe">
+            <option value="">None</option>
+            <option value="802.3af">802.3af (15.4W)</option>
+            <option value="802.3at">802.3at (30W)</option>
+            <option value="802.3bt">802.3bt (90W)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Power Types (select all that apply)</label>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400"><input type="checkbox" class="gd-pwr-type" value="12V"> 12V DC</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400"><input type="checkbox" class="gd-pwr-type" value="24V"> 24V DC</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400"><input type="checkbox" class="gd-pwr-type" value="120V"> 120V AC</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400"><input type="checkbox" class="gd-pwr-type" value="230V"> 230V AC</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400"><input type="checkbox" class="gd-pwr-type" value="POE"> POE</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeGlobalDeviceModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGlobalDevice()" id="gd-save-btn">Save Device</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT EQUIPMENT MODAL (edit make/model) -->
+<div class="modal-overlay" id="pe-modal-overlay">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title" id="pe-modal-title">Edit Equipment Details</div>
+      <button class="btn-icon" onclick="closePeModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:16px">
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:4px">Device Type</div>
+        <div style="font-size:14px;font-weight:600" id="pe-device-type"></div>
+        <div style="font-size:12px;color:var(--text-2);margin-top:2px" id="pe-device-desc"></div>
+      </div>
+      <div class="form-row form-row-3">
+        <div><label>Make</label><input type="text" id="pe-make" placeholder="e.g. Samsung"></div>
+        <div><label>Model</label><input type="text" id="pe-model" placeholder="e.g. QN65Q80C"></div>
+        <div><label>Supplier</label><input type="text" id="pe-supplier" placeholder="e.g. Samsung UK"></div>
+      </div>
+      <div class="form-row form-row-3">
+        <div><label>Power (W)</label><input type="number" id="pe-power" placeholder="0" min="0"></div>
+        <div><label>Weight (kg)</label><input type="number" id="pe-weight" placeholder="0" min="0" step="0.1"></div>
+        <div><label>Heat (BTU)</label><input type="number" id="pe-heat" placeholder="0" min="0"></div>
+      </div>
+      <div class="form-group"><label>Comments</label><textarea id="pe-comments" rows="2" placeholder="Any project-specific notes…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closePeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePeItem()" id="pe-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PLACE EQUIPMENT MODAL -->
+<div class="modal-overlay" id="place-modal-overlay">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title" id="place-modal-title">Place Equipment</div>
+      <button class="btn-icon" onclick="closePlaceModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div><label>Device Type <span class="required">*</span></label><select id="pl-device-type"><option value="">— Select —</option></select></div>
+        <div><label>Quantity <span class="required">*</span></label><input type="number" id="pl-qty" value="1" min="1"></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div>
+          <label>Location Type <span class="required">*</span></label>
+          <select id="pl-loc-type" onchange="updatePlaceLocationSelect()">
+            <option value="room">Room</option>
+            <option value="zone">Rack Zone</option>
+          </select>
+        </div>
+        <div><label>Location <span class="required">*</span></label><select id="pl-location"><option value="">— Select —</option></select></div>
+      </div>
+      <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="pl-notes" rows="2" placeholder="Any notes about this placement…"></textarea></div>
+      <div style="background:var(--accent-light);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--accent-mid)">
+        <strong>Device IDs</strong> will be auto-generated as <strong>RoomNo-0001</strong>, <strong>RoomNo-0002</strong> etc.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closePlaceModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePlacement()" id="place-save-btn">Place Equipment</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- PRODUCT MODAL -->
+<div class="modal-overlay" id="product-modal-overlay">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title" id="product-modal-title">Add Product</div>
+      <button class="btn-icon" onclick="closeProductModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div>
+          <label>Device Type <span class="required">*</span></label>
+          <select id="prod-device-type"><option value="">— Select device type —</option></select>
+        </div>
+        <div><label>Part Number</label><input type="text" id="prod-part" placeholder="e.g. QN65Q80CAFXZA"></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div><label>Make <span class="required">*</span></label><input type="text" id="prod-make" placeholder="e.g. Samsung"></div>
+        <div><label>Model <span class="required">*</span></label><input type="text" id="prod-model" placeholder="e.g. QN65Q80C"></div>
+      </div>
+      <div class="form-row form-row-3">
+        <div><label>LAN Ports</label><input type="number" id="prod-lan" placeholder="0" min="0"></div>
+        <div><label>Speaker Channels</label><input type="number" id="prod-spk" placeholder="0" min="0"></div>
+        <div>
+          <label>POE Type</label>
+          <select id="prod-poe">
+            <option value="">None</option>
+            <option value="802.3af">802.3af (15.4W)</option>
+            <option value="802.3at">802.3at (30W)</option>
+            <option value="802.3bt">802.3bt (90W)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Power Types (select all that apply)</label>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400"><input type="checkbox" class="prod-pwr-type" value="12V"> 12V DC</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400"><input type="checkbox" class="prod-pwr-type" value="24V"> 24V DC</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400"><input type="checkbox" class="prod-pwr-type" value="120V"> 120V AC</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400"><input type="checkbox" class="prod-pwr-type" value="230V"> 230V AC</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);font-weight:400"><input type="checkbox" class="prod-pwr-type" value="POE"> POE</label>
+        </div>
+      </div>
+      <div class="form-row form-row-3">
+        <div><label>Power Draw (W)</label><input type="number" id="prod-power" placeholder="0" min="0"></div>
+        <div><label>Weight (kg)</label><input type="number" id="prod-weight" placeholder="0" min="0" step="0.1"></div>
+        <div><label>Heat (BTU)</label><input type="number" id="prod-heat" placeholder="0" min="0"></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div><label>Supplier</label><input type="text" id="prod-supplier" placeholder="e.g. Samsung UK"></div>
+        <div></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="prod-notes" rows="2" placeholder="Any notes about this product…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeProductModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProduct()" id="product-save-btn">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- SELECT PRODUCT MODAL -->
+<div class="modal-overlay" id="select-product-modal-overlay">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <div class="modal-title" id="select-product-title">Select Product</div>
+      <button class="btn-icon" onclick="closeSelectProductModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div style="padding:12px 24px;border-bottom:1px solid var(--border)">
+        <input type="text" id="sp-search" placeholder="Search products…" oninput="renderSelectProducts()" style="max-width:300px">
+      </div>
+      <div id="select-products-list" style="max-height:440px;overflow-y:auto;padding:12px 24px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSelectProductModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirm-title">Are you sure?</div>
+    <div class="confirm-text" id="confirm-text"></div>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="login-overlay" id="login-overlay" style="display:none">
+  <div class="login-box">
+    <div class="login-logo"><div class="wordmark">SMART Advisers</div><div class="tagline">Specification Platform</div></div>
+    <div class="login-title">Sign in</div>
+    <div class="login-sub">Enter your credentials to continue</div>
+    <div class="login-error" id="login-error">Incorrect email or password.</div>
+    <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="login-password" placeholder="Your password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px" onclick="doLogin()" id="login-btn">Sign In</button>
+    <div class="login-footer">SMART Technology Advisers &nbsp;·&nbsp; v1.0</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://ezpmgpftfqifruyfkcbs.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6cG1ncGZ0ZnFpZnJ1eWZrY2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMTA0NTYsImV4cCI6MjA5MDg4NjQ1Nn0.eHJo_C7iC3-S9hPwduNg4VFV4R-ebsweak6wZZwuzK8';
+
+let allProjects = [], currentProject = null, editingProjectId = null;
+let currentDecks = [], currentRooms = [], editingDeckId = null, editingRoomId = null;
+let currentZones = [], editingZoneId = null, assigningZoneId = null;
+let activeRoomFilter = 'all', roomSortCol = 'room_number', roomSortDir = 'asc';
+let activeDeckRoomTab = 'decks';
+let currentUser = null;
+
+// ── AUTH ──
+function getAuthHeader() { return currentUser ? 'Bearer ' + currentUser.access_token : 'Bearer ' + SUPABASE_KEY; }
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  if (!email || !password) { errEl.classList.add('show'); return; }
+  btn.textContent = 'Signing in…'; btn.disabled = true; errEl.classList.remove('show');
+  try {
+    const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.access_token) throw new Error('Login failed');
+    currentUser = data;
+    localStorage.setItem('smart_session', JSON.stringify({ access_token: data.access_token, refresh_token: data.refresh_token, expires_at: Date.now() + data.expires_in * 1000, email: data.user.email }));
+    document.getElementById('login-overlay').style.display = 'none';
+    setAvatarUser(data.user.email);
+    setConn('connected');
+    seedGlobalLibrary().catch(console.error);
+    await loadProjects();
+  } catch(e) {
+    errEl.textContent = 'Incorrect email or password. Please try again.';
+    errEl.classList.add('show');
+  } finally { btn.textContent = 'Sign In'; btn.disabled = false; }
+}
+
+async function doLogout() {
+  try { await fetch(SUPABASE_URL + '/auth/v1/logout', { method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': getAuthHeader() } }); } catch(e) {}
+  currentUser = null;
+  localStorage.removeItem('smart_session');
+  closeAvatarPopup();
+  setAvatarUser(null);
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+}
+
+async function tryRestoreSession() {
+  try {
+    const stored = localStorage.getItem('smart_session');
+    if (!stored) return null;
+    const session = JSON.parse(stored);
+    if (Date.now() > session.expires_at - 60000) {
+      const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: session.refresh_token })
+      });
+      if (!res.ok) { localStorage.removeItem('smart_session'); return null; }
+      const data = await res.json();
+      currentUser = data;
+      const email = data.user ? data.user.email : session.email;
+      localStorage.setItem('smart_session', JSON.stringify({ access_token: data.access_token, refresh_token: data.refresh_token, expires_at: Date.now() + data.expires_in * 1000, email }));
+      return email;
+    } else {
+      currentUser = session;
+      return session.email;
+    }
+  } catch(e) { return null; }
+}
+
+// ── DB ──
+async function supaFetch(method, table, body, id, params) {
+  let url = SUPABASE_URL + '/rest/v1/' + table;
+  if (id) url += '?id=eq.' + id;
+  if (params) url += (id ? '&' : '?') + params;
+  const res = await fetch(url, {
+    method,
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': getAuthHeader(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'HTTP ' + res.status); }
+  const t = await res.text(); return t ? JSON.parse(t) : [];
+}
+const dbGet = (t, p) => supaFetch('GET', t, null, null, p || 'order=created_at.desc');
+const dbInsert = (t, b) => supaFetch('POST', t, b);
+const dbUpdate = (t, id, b) => supaFetch('PATCH', t, b, id);
+const dbDelete = (t, id) => supaFetch('DELETE', t, null, id);
+
+// ── CONN / TOAST ──
+function setConn(s) {
+  const el = document.getElementById('conn-status'); if (!el) return;
+  el.className = 'conn-status ' + s;
+  el.innerHTML = '<div class="dot"></div>' + (s==='connected'?'Connected':s==='disconnected'?'Disconnected':'Connecting…');
+}
+function showToast(msg, type) {
+  const t = document.getElementById('toast'); if (!t) return;
+  t.textContent = msg; t.className = 'toast' + (type?' '+type:'');
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── AVATAR ──
+function setAvatarUser(email) {
+  const ini = document.getElementById('avatar-initials');
+  const eml = document.getElementById('avatar-email');
+  const pop = document.getElementById('popup-email');
+  if (email) {
+    const initials = email.split('@')[0].substring(0,2).toUpperCase();
+    if(ini) ini.textContent = initials;
+    if(eml) eml.textContent = email;
+    if(pop) pop.textContent = email;
+  } else {
+    if(ini) ini.textContent = '—';
+    if(eml) eml.textContent = 'Signed out';
+    if(pop) pop.textContent = '—';
+  }
+}
+function toggleAvatarPopup() {
+  const popup = document.getElementById('avatar-popup');
+  const chevron = document.getElementById('avatar-chevron');
+  const isOpen = popup.classList.toggle('open');
+  if(chevron) chevron.style.transform = isOpen ? 'rotate(180deg)' : '';
+}
+function closeAvatarPopup() {
+  const popup = document.getElementById('avatar-popup');
+  const chevron = document.getElementById('avatar-chevron');
+  if(popup) popup.classList.remove('open');
+  if(chevron) chevron.style.transform = '';
+}
+
+// ── NAVIGATION ──
+const pages = ['dashboard','project-info','decks-rooms','rack-zones','import-export','equipment','global-library','product-catalogue'];
+const navIds = { 'dashboard':'nav-dashboard', 'project-info':'nav-project-info', 'decks-rooms':'nav-decks-rooms', 'rack-zones':'nav-rack-zones', 'import-export':'nav-import-export', 'equipment':'nav-equipment', 'global-library':'nav-global-library', 'product-catalogue':'nav-product-catalogue' };
+const titles = { 'dashboard':['All Projects','SMART Advisers Specification Platform'], 'project-info':['Project Info','Full details for the current project'], 'decks-rooms':['Decks & Rooms','Manage decks and rooms for this project'], 'rack-zones':['Rack Zones','Define rack zones and assign rooms'], 'import-export':['Import / Export','Bulk import and export project data'], 'equipment':['Equipment','Project equipment library and placements'], 'global-library':['Device Types','Global device type template library'], 'product-catalogue':['Product Catalogue','Global manufacturer product database'] };
+
+function showPage(page) {
+  pages.forEach(p => document.getElementById('page-'+p).classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.remove('hidden');
+  if(navIds[page]) document.getElementById(navIds[page]).classList.add('active');
+  const [title, sub] = titles[page];
+  document.getElementById('topbar-title').textContent = title;
+  document.getElementById('topbar-sub').textContent = currentProject && page!=='dashboard' ? currentProject.project_code+' — '+currentProject.name : sub;
+  const btn = document.getElementById('topbar-btn');
+  if(page==='dashboard') { btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Project'; btn.onclick=openNewProjectModal; btn.style.display=''; }
+  else if(page==='decks-rooms') { updateDecksRoomsBtn(); btn.style.display=''; }
+  else if(page==='rack-zones') { btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Zone'; btn.onclick=openNewZoneModal; btn.style.display=''; }
+  else if(page==='import-export') { btn.style.display='none'; }
+  else if(page==='equipment') { updateEquipBtn(); btn.style.display=''; }
+  else if(page==='global-library') { btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Device Type'; btn.onclick=openGlobalDeviceModal; btn.style.display=''; }
+  else if(page==='product-catalogue') { btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Product'; btn.onclick=openProductModal; btn.style.display=''; }
+  else btn.style.display='none';
+  if(page==='dashboard') loadProjects();
+  else if(page==='project-info') renderProjectInfo();
+  else if(page==='decks-rooms') { activeDeckRoomTab==='rooms' ? loadRooms() : loadDecks(); }
+  else if(page==='rack-zones') loadRackZones();
+  else if(page==='import-export') iePageLoad();
+  else if(page==='equipment') loadEquipmentPage();
+  else if(page==='global-library') loadGlobalLibrary();
+  else if(page==='product-catalogue') loadProductCatalogue();
+}
+
+function switchDeckRoomTab(tab) {
+  activeDeckRoomTab = tab;
+  document.getElementById('decks-tab-content').classList.toggle('hidden', tab!=='decks');
+  document.getElementById('rooms-tab-content').classList.toggle('hidden', tab!=='rooms');
+  document.getElementById('tab-btn-decks').classList.toggle('active', tab==='decks');
+  document.getElementById('tab-btn-rooms').classList.toggle('active', tab==='rooms');
+  updateDecksRoomsBtn();
+  if(tab==='decks') loadDecks(); else loadRooms();
+}
+
+function updateDecksRoomsBtn() {
+  const btn = document.getElementById('topbar-btn'); if(!btn) return;
+  if(activeDeckRoomTab==='decks') { btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Deck'; btn.onclick=openNewDeckModal; }
+  else { btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Room'; btn.onclick=()=>openNewRoomModal(null); }
+}
+
+function updateSidebarProject() {
+  const has = !!currentProject;
+  document.getElementById('nav-project-name').textContent = has ? currentProject.name : '— None open —';
+  ['nav-project-info','nav-decks-rooms','nav-rack-zones','nav-import-export','nav-equipment'].forEach(id => document.getElementById(id).classList.toggle('disabled', !has));
+}
+
+function openProject(id) {
+  currentProject = allProjects.find(p => p.id===id);
+  if(!currentProject) return;
+  updateSidebarProject();
+  showPage('project-info');
+}
+
+// ── PROJECTS ──
+async function loadProjects() {
+  document.getElementById('projects-container').innerHTML = '<div class="loading"><div class="spinner"></div> Loading projects…</div>';
+  try {
+    allProjects = await dbGet('projects');
+    updateStats(allProjects); renderProjects(allProjects);
+  } catch(e) {
+    document.getElementById('projects-container').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';
+    showToast('Failed to load projects','error');
+  }
+}
+
+function updateStats(p) {
+  document.getElementById('stat-total').textContent = p.length;
+  document.getElementById('stat-active').textContent = p.filter(x=>x.status==='Active').length;
+  document.getElementById('stat-newbuild').textContent = p.filter(x=>x.type==='New Build').length;
+  document.getElementById('stat-refit').textContent = p.filter(x=>x.type==='Refit').length;
+}
+
+function filterProjects() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const s = document.getElementById('filter-status').value;
+  const t = document.getElementById('filter-type').value;
+  renderProjects(allProjects.filter(p => (!q||p.name.toLowerCase().includes(q)||(p.project_code||'').toLowerCase().includes(q))&&(!s||p.status===s)&&(!t||p.type===t)));
+}
+
+function renderProjects(projects) {
+  const c = document.getElementById('projects-container');
+  if(!projects.length) { c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🚢</div><div class="empty-state-title">No projects yet</div><div class="empty-state-text">Create your first project to get started.</div><button class="btn btn-primary" onclick="openNewProjectModal()">+ New Project</button></div>'; return; }
+  c.innerHTML = '<div class="projects-grid">'+projects.map(p => {
+    const tb = p.type?'<span class="badge badge-'+(p.type==='New Build'?'newbuild':p.type==='Refit'?'refit':'residential')+'">'+p.type+'</span>':'';
+    const sb = '<span class="badge badge-'+(p.status==='Active'?'active':p.status==='On Hold'?'hold':'complete')+'">'+(p.status||'Active')+'</span>';
+    const pb = p.phase?'<span class="badge badge-'+p.phase.toLowerCase()+'">'+p.phase+'</span>':'';
+    const meta = [{l:'Start',v:p.start_date?formatDate(p.start_date):null},{l:'Target',v:p.target_completion?formatDate(p.target_completion):null}].filter(m=>m.v).map(m=>'<div><div class="meta-label">'+m.l+'</div><div class="meta-value">'+m.v+'</div></div>').join('');
+    const pj = JSON.stringify(p).replace(/"/g,'&quot;');
+    return '<div class="project-card" onclick="openProject(\''+p.id+'\')"><div class="project-card-actions" onclick="event.stopPropagation()"><button class="btn-icon btn-sm" onclick="openEditProjectModal('+pj+')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-sm" onclick="confirmDeleteProject(\''+p.id+'\',\''+escHtml(p.name)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button></div><div class="project-card-code">'+escHtml(p.project_code||'')+'</div><div class="project-card-name">'+escHtml(p.name)+'</div><div class="project-card-badges">'+tb+sb+pb+'</div>'+(meta?'<div class="project-card-meta">'+meta+'</div>':'')+'</div>';
+  }).join('')+'</div>';
+}
+
+// ── PROJECT INFO ──
+function renderProjectInfo() {
+  const p = currentProject; if(!p) return;
+  const tb = p.type?'<span class="badge badge-'+(p.type==='New Build'?'newbuild':p.type==='Refit'?'refit':'residential')+'">'+p.type+(p.length_metres?' &middot; '+p.length_metres+'m':'')+'</span>':'';
+  const sb = '<span class="badge badge-'+(p.status==='Active'?'active':p.status==='On Hold'?'hold':'complete')+'">'+(p.status||'Active')+'</span>';
+  const pb = p.phase?'<span class="badge badge-'+p.phase.toLowerCase()+'">'+p.phase+'</span>':'';
+  const iF = (label,value) => '<div class="project-info-field"><div class="project-info-label">'+label+'</div><div class="project-info-value'+(value?'':' empty')+'">'+( value?escHtml(value):'Not set')+'</div></div>';
+  const contacts = [{l:"Owner's Rep",v:p.owners_rep},{l:'Management Team',v:p.management_team},{l:'Shipyard',v:p.shipyard},{l:'Exterior Designer',v:p.exterior_designer},{l:'Interior Designer',v:p.interior_designer},{l:'AV/IT Integrator',v:p.avit_integrator},{l:'Security Integrator',v:p.security_integrator}];
+  const banner = '<div class="project-banner"><div class="project-banner-top"><div><div class="project-banner-code">'+escHtml(p.project_code||'')+'</div><div class="project-banner-name">'+escHtml(p.name)+'</div><div class="project-banner-badges">'+tb+sb+pb+'</div></div><button class="btn btn-secondary btn-sm" onclick="openEditProjectModal(currentProject)"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button></div></div>';
+  const stats = '<div class="project-stats"><div class="project-stat" id="ps-decks"><div class="project-stat-value" id="pv-decks">—</div><div class="project-stat-label">Decks</div></div><div class="project-stat" id="ps-rooms"><div class="project-stat-value" id="pv-rooms">—</div><div class="project-stat-label">Rooms</div></div><div class="project-stat" id="ps-zones"><div class="project-stat-value" id="pv-zones">—</div><div class="project-stat-label">Rack Zones</div></div><div class="project-stat" id="ps-racks"><div class="project-stat-value" id="pv-racks">—</div><div class="project-stat-label">Total Racks</div></div></div>';
+  const details = '<div class="project-info-grid"><div class="project-info-card"><div class="project-info-card-title">Project Details</div>'+iF('Start Date',p.start_date?formatDate(p.start_date):null)+iF('Target Completion',p.target_completion?formatDate(p.target_completion):null)+(p.notes?iF('Notes',p.notes):'')+'</div><div class="project-info-card"><div class="project-info-card-title">Key Contacts</div>'+contacts.map(f=>iF(f.l,f.v)).join('')+'</div></div>';
+  const shortcuts = '<div class="project-shortcuts"><div class="shortcut-card" id="sc-dr"><div class="shortcut-icon"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div><div><div class="shortcut-title">Decks &amp; Rooms</div><div class="shortcut-sub">Manage vessel spaces</div></div></div><div class="shortcut-card" id="sc-rz"><div class="shortcut-icon"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/></svg></div><div><div class="shortcut-title">Rack Zones</div><div class="shortcut-sub">Define zones and assign rooms</div></div></div></div>';
+  document.getElementById('project-info-content').innerHTML = banner+stats+details+shortcuts;
+  setTimeout(() => {
+    const g = id => document.getElementById(id);
+    if(g('sc-dr')) g('sc-dr').onclick = () => showPage('decks-rooms');
+    if(g('sc-rz')) g('sc-rz').onclick = () => showPage('rack-zones');
+    if(g('ps-decks')) g('ps-decks').onclick = () => { showPage('decks-rooms'); switchDeckRoomTab('decks'); };
+    if(g('ps-rooms')) g('ps-rooms').onclick = () => { showPage('decks-rooms'); switchDeckRoomTab('rooms'); };
+    if(g('ps-zones')) g('ps-zones').onclick = () => showPage('rack-zones');
+    if(g('ps-racks')) g('ps-racks').onclick = () => showPage('rack-zones');
+    const pid = p.id;
+    loadProjectStats(pid);
+  }, 50);
+}
+
+async function loadProjectStats(projectId) {
+  try {
+    const decks = await dbGet('decks','project_id=eq.'+projectId+'&order=deck_order.asc');
+    const rooms = decks.length ? await dbGet('rooms','deck_id=in.('+decks.map(d=>d.id).join(',')+')')  : [];
+    const zones = await dbGet('rack_zones','project_id=eq.'+projectId);
+    const totalRacks = zones.reduce((s,z)=>s+(parseInt(z.rack_count)||0),0);
+    const g = id => document.getElementById(id);
+    ['pv-decks','pv-rooms','pv-zones','pv-racks'].forEach(id => { if(g(id)) g(id).textContent = '0'; });
+    if(g('pv-decks')) g('pv-decks').textContent = decks.length;
+    if(g('pv-rooms')) g('pv-rooms').textContent = rooms.length;
+    if(g('pv-zones')) g('pv-zones').textContent = zones.length;
+    if(g('pv-racks')) g('pv-racks').textContent = totalRacks;
+  } catch(e) { console.error('Stats error',e); showToast('Stats error: '+e.message,'error'); }
+}
+
+// ── PROJECT MODAL ──
+function openNewProjectModal() { editingProjectId=null; document.getElementById('modal-title').textContent='New Project'; document.getElementById('save-btn').textContent='Save Project'; clearProjectForm(); document.getElementById('project-modal-overlay').classList.add('open'); }
+function openEditProjectModal(p) {
+  editingProjectId=p.id; document.getElementById('modal-title').textContent='Edit Project'; document.getElementById('save-btn').textContent='Save Changes';
+  document.getElementById('f-code').value=p.project_code||''; document.getElementById('f-name').value=p.name||''; document.getElementById('f-type').value=p.type||''; document.getElementById('f-length').value=p.length_metres||'';
+  document.getElementById('f-status').value=p.status||'Active'; document.getElementById('f-phase').value=p.phase||''; document.getElementById('f-start').value=p.start_date||''; document.getElementById('f-target').value=p.target_completion||'';
+  document.getElementById('f-owners-rep').value=p.owners_rep||''; document.getElementById('f-management').value=p.management_team||''; document.getElementById('f-shipyard').value=p.shipyard||'';
+  document.getElementById('f-exterior').value=p.exterior_designer||''; document.getElementById('f-interior').value=p.interior_designer||''; document.getElementById('f-avit').value=p.avit_integrator||'';
+  document.getElementById('f-security').value=p.security_integrator||''; document.getElementById('f-notes').value=p.notes||'';
+  toggleLengthField(); document.getElementById('project-modal-overlay').classList.add('open');
+}
+function closeProjectModal() { document.getElementById('project-modal-overlay').classList.remove('open'); }
+function clearProjectForm() {
+  ['f-code','f-name','f-type','f-length','f-start','f-target','f-owners-rep','f-management','f-shipyard','f-exterior','f-interior','f-avit','f-security','f-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-status').value='Active'; document.getElementById('f-phase').value=''; toggleLengthField();
+}
+function toggleLengthField() { document.getElementById('length-field').classList.toggle('hidden', document.getElementById('f-type').value!=='New Build'); }
+async function saveProject() {
+  const code=document.getElementById('f-code').value.trim(), name=document.getElementById('f-name').value.trim(), type=document.getElementById('f-type').value;
+  if(!code){showToast('Please enter a project code','error');return;} if(!name){showToast('Please enter a project name','error');return;} if(!type){showToast('Please select a project type','error');return;}
+  const payload={project_code:code,name,type,length_metres:type==='New Build'&&document.getElementById('f-length').value?parseFloat(document.getElementById('f-length').value):null,status:document.getElementById('f-status').value,phase:document.getElementById('f-phase').value||null,start_date:document.getElementById('f-start').value||null,target_completion:document.getElementById('f-target').value||null,owners_rep:document.getElementById('f-owners-rep').value.trim()||null,management_team:document.getElementById('f-management').value.trim()||null,shipyard:document.getElementById('f-shipyard').value.trim()||null,exterior_designer:document.getElementById('f-exterior').value.trim()||null,interior_designer:document.getElementById('f-interior').value.trim()||null,avit_integrator:document.getElementById('f-avit').value.trim()||null,security_integrator:document.getElementById('f-security').value.trim()||null,notes:document.getElementById('f-notes').value.trim()||null};
+  const btn=document.getElementById('save-btn'); btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    if(editingProjectId){await dbUpdate('projects',editingProjectId,payload);showToast('Project updated','success');if(currentProject&&currentProject.id===editingProjectId){currentProject={...currentProject,...payload};updateSidebarProject();renderProjectInfo();}}
+    else{await dbInsert('projects',payload);showToast('Project created','success');}
+    closeProjectModal(); loadProjects();
+  } catch(e){showToast(e.message.includes('unique')?'Project code already in use':'Could not save: '+e.message,'error');}
+  finally{btn.textContent=editingProjectId?'Save Changes':'Save Project';btn.disabled=false;}
+}
+function confirmDeleteProject(id,name) {
+  openConfirm('Delete Project','Delete "'+name+'"? All data will be removed.',async()=>{
+    try{await dbDelete('projects',id);showToast('Project deleted','success');if(currentProject&&currentProject.id===id){currentProject=null;updateSidebarProject();}loadProjects();showPage('dashboard');}
+    catch(e){showToast('Could not delete: '+e.message,'error');}
+  });
+}
+
+// ── DECKS ──
+async function loadDecks() {
+  document.getElementById('decks-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try {
+    currentDecks = await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    let roomCounts={};
+    if(currentDecks.length){const rooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')');rooms.forEach(r=>{roomCounts[r.deck_id]=(roomCounts[r.deck_id]||0)+1;});}
+    renderDecks(roomCounts);
+  } catch(e){document.getElementById('decks-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+}
+
+function renderDecks(roomCounts) {
+  const c=document.getElementById('decks-container');
+  if(!currentDecks.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏗️</div><div class="empty-state-title">No decks yet</div><div class="empty-state-text">Add your first deck to define the structure of this vessel.</div></div>';return;}
+  c.innerHTML='<div class="decks-list">'+currentDecks.map((d,i)=>{
+    const count=(roomCounts&&roomCounts[d.id])||0;
+    const isFirst=i===0, isLast=i===currentDecks.length-1;
+    return '<div class="deck-row" data-deck-id="'+d.id+'">'
+      +'<div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">'
+      +'<button class="btn-icon btn-sm" style="padding:3px 5px'+(isFirst?';opacity:0.25;pointer-events:none':'')+'" onclick="moveDeck(\''+d.id+'\',-1)"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18,15 12,9 6,15"/></svg></button>'
+      +'<button class="btn-icon btn-sm" style="padding:3px 5px'+(isLast?';opacity:0.25;pointer-events:none':'')+'" onclick="moveDeck(\''+d.id+'\',1)"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button>'
+      +'</div>'
+      +'<div class="deck-order-badge">'+(d.deck_order||'—')+'</div>'
+      +'<div class="deck-id-pill">'+escHtml(d.deck_id||'')+'</div>'
+      +'<div class="deck-row-name">'+escHtml(d.name)+'</div>'
+      +'<div class="deck-row-count">'+count+' room'+(count!==1?'s':'')+'</div>'
+      +'<div class="row-actions">'
+      +'<button class="btn-icon btn-sm" onclick="openEditDeckModal(\''+d.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+      +'<button class="btn-icon btn-sm" onclick="confirmDeleteDeck(\''+d.id+'\',\''+escHtml(d.name)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+      +'</div></div>';
+  }).join('')+'</div>';
+}
+
+async function moveDeck(id, direction) {
+  const idx=currentDecks.findIndex(d=>d.id===id), newIdx=idx+direction;
+  if(newIdx<0||newIdx>=currentDecks.length) return;
+  const [moved]=currentDecks.splice(idx,1); currentDecks.splice(newIdx,0,moved);
+  currentDecks.forEach((d,i)=>d.deck_order=i+1);
+  renderDecks();
+  try{await Promise.all(currentDecks.map((d,i)=>dbUpdate('decks',d.id,{deck_order:i+1})));}
+  catch(e){showToast('Could not save order','error');loadDecks();}
+}
+
+function openNewDeckModal(){editingDeckId=null;document.getElementById('deck-modal-title').textContent='Add Deck';document.getElementById('deck-save-btn').textContent='Save Deck';document.getElementById('fd-order').value=currentDecks.length+1;document.getElementById('fd-id').value='';document.getElementById('fd-name').value='';document.getElementById('deck-modal-overlay').classList.add('open');}
+function openEditDeckModal(id){const d=currentDecks.find(d=>d.id===id);if(!d)return;editingDeckId=id;document.getElementById('deck-modal-title').textContent='Edit Deck';document.getElementById('deck-save-btn').textContent='Save Changes';document.getElementById('fd-order').value=d.deck_order||'';document.getElementById('fd-id').value=d.deck_id||'';document.getElementById('fd-name').value=d.name||'';document.getElementById('deck-modal-overlay').classList.add('open');}
+function closeDeckModal(){document.getElementById('deck-modal-overlay').classList.remove('open');}
+async function saveDeck(){
+  const order=parseInt(document.getElementById('fd-order').value),deckId=document.getElementById('fd-id').value.trim().toUpperCase(),name=document.getElementById('fd-name').value.trim();
+  if(!order){showToast('Please enter a deck number','error');return;} if(!deckId){showToast('Please enter a deck ID','error');return;} if(!name){showToast('Please enter a deck name','error');return;}
+  const btn=document.getElementById('deck-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  try{if(editingDeckId){await dbUpdate('decks',editingDeckId,{deck_order:order,deck_id:deckId,name});showToast('Deck updated','success');}else{await dbInsert('decks',{deck_order:order,deck_id:deckId,name,project_id:currentProject.id});showToast('Deck added','success');}closeDeckModal();loadDecks();}
+  catch(e){showToast('Could not save: '+e.message,'error');}
+  finally{btn.textContent=editingDeckId?'Save Changes':'Save Deck';btn.disabled=false;}
+}
+function confirmDeleteDeck(id,name){openConfirm('Delete Deck','Delete "'+name+'"? All rooms on this deck will also be removed.',async()=>{try{await dbDelete('decks',id);showToast('Deck deleted','success');loadDecks();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+
+// ── ROOMS ──
+async function loadRooms() {
+  document.getElementById('rooms-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try{
+    currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    currentRooms=currentDecks.length?await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc'):[];
+    currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
+    renderDeckFilterTabs(); renderRoomsTable();
+  }catch(e){document.getElementById('rooms-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+}
+
+function renderDeckFilterTabs(){
+  const tabs=document.getElementById('deck-filter-tabs');
+  tabs.innerHTML='<button class="deck-filter-tab'+(activeRoomFilter==='all'?' active':'')+'" onclick="setRoomFilter(\'all\')">All Rooms</button>'+currentDecks.map(d=>'<button class="deck-filter-tab'+(activeRoomFilter===d.id?' active':'')+'" onclick="setRoomFilter(\''+d.id+'\')">'+escHtml(d.name)+'</button>').join('');
+}
+function setRoomFilter(f){activeRoomFilter=f;renderDeckFilterTabs();renderRoomsTable();}
+
+function sortArrow(col){if(roomSortCol!==col)return' <span style="opacity:0.4">&#8645;</span>';return' <span style="color:var(--accent)">'+(roomSortDir==='asc'?'&#8593;':'&#8595;')+'</span>';}
+function setRoomSort(col){if(roomSortCol===col)roomSortDir=roomSortDir==='asc'?'desc':'asc';else{roomSortCol=col;roomSortDir='asc';}renderRoomsTable();}
+
+function renderRoomsTable(){
+  const c=document.getElementById('rooms-container');
+  const searchEl=document.getElementById('room-search-input');
+  const q=searchEl?searchEl.value.toLowerCase().trim():'';
+  let filtered=activeRoomFilter==='all'?[...currentRooms]:currentRooms.filter(r=>r.deck_id===activeRoomFilter);
+  if(q)filtered=filtered.filter(r=>(r.name||'').toLowerCase().includes(q)||(r.room_id||'').toLowerCase().includes(q)||String(r.room_number||'').includes(q)||(r.frame_number||'').toLowerCase().includes(q));
+  filtered.sort((a,b)=>{
+    let av,bv;
+    if(roomSortCol==='room_number'){av=parseInt(a.room_number)||0;bv=parseInt(b.room_number)||0;}
+    else if(roomSortCol==='deck_order'){const da=currentDecks.find(d=>d.id===a.deck_id),db=currentDecks.find(d=>d.id===b.deck_id);av=parseInt(da?da.deck_order:0)||0;bv=parseInt(db?db.deck_order:0)||0;}
+    else{av=(a[roomSortCol]||'').toLowerCase();bv=(b[roomSortCol]||'').toLowerCase();}
+    if(av<bv)return roomSortDir==='asc'?-1:1;if(av>bv)return roomSortDir==='asc'?1:-1;return 0;
+  });
+  if(!filtered.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🚪</div><div class="empty-state-title">No rooms found</div><div class="empty-state-text">'+(q?'No rooms match your search.':activeRoomFilter==='all'?'Add rooms using the button above.':'No rooms on this deck yet.')+'</div></div>';return;}
+  const mkHdr=(label,col)=>'<div class="rooms-table-header-cell" style="cursor:pointer;user-select:none" onclick="setRoomSort(\''+col+'\')">'+label+sortArrow(col)+'</div>';
+  c.innerHTML='<div class="rooms-table"><div class="rooms-table-header">'+mkHdr('#','room_number')+mkHdr('ID','room_id')+mkHdr('Deck','deck_order')+'<div class="rooms-table-header-cell">Name</div>'+'<div class="rooms-table-header-cell">Frame</div><div class="rooms-table-header-cell">Pos</div><div class="rooms-table-header-cell">Zone</div><div class="rooms-table-header-cell"></div></div>'
+    +filtered.map(r=>{
+      const deck=currentDecks.find(d=>d.id===r.deck_id);
+      const zone=currentZones.find(z=>z.id===r.rack_zone_id);
+      const zoneHtml=zone?'<span style="font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;background:'+zone.colour+'22;color:'+zone.colour+'">'+escHtml(zone.zone_id)+'</span>':'<span style="color:var(--text-3)">—</span>';
+      return '<div class="room-table-row">'
+        +'<div class="room-cell num">'+(r.room_number||'—')+'</div>'
+        +'<div class="room-cell mono">'+escHtml(r.room_id||'—')+'</div>'
+        +'<div class="room-cell"><span class="deck-id-pill" style="font-size:10px;padding:1px 6px">'+escHtml(deck?deck.deck_id:'?')+'</span></div>'
+        +'<div class="room-cell" style="font-weight:500">'+escHtml(r.name)+'</div>'
+        +'<div class="room-cell mono">'+escHtml(r.frame_number||'')+'</div>'
+        +'<div class="room-cell">'+(r.position?'<span class="pos-badge">'+r.position+'</span>':'')+'</div>'
+        +'<div class="room-cell">'+zoneHtml+'</div>'
+        +'<div class="room-cell actions">'
+        +'<button class="btn-icon btn-sm" onclick="openEditRoomModal(\''+r.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+        +'<button class="btn-icon btn-sm" onclick="confirmDeleteRoom(\''+r.id+'\',\''+escHtml(r.name)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+        +'</div></div>';
+    }).join('')+'</div>';
+}
+
+function populateDeckSelect(selectedId){const sel=document.getElementById('fr-deck');sel.innerHTML=currentDecks.map(d=>'<option value="'+d.id+'"'+(d.id===selectedId?' selected':'')+'>'+escHtml(d.name)+' ('+escHtml(d.deck_id)+')</option>').join('');}
+function openNewRoomModal(deckId){if(!currentDecks.length){showToast('Please add a deck first','error');return;}editingRoomId=null;document.getElementById('room-modal-title').textContent='Add Room';document.getElementById('room-save-btn').textContent='Save Room';populateDeckSelect(deckId||(activeRoomFilter!=='all'?activeRoomFilter:currentDecks[0].id));const dr=currentRooms.filter(r=>r.deck_id===(deckId||currentDecks[0].id));document.getElementById('fr-number').value=dr.length+1;document.getElementById('fr-id').value='';document.getElementById('fr-name').value='';document.getElementById('fr-position').value='';document.getElementById('fr-frame').value='';document.getElementById('fr-notes').value='';document.getElementById('room-modal-overlay').classList.add('open');}
+function openEditRoomModal(roomId){const r=currentRooms.find(r=>r.id===roomId);if(!r)return;editingRoomId=roomId;document.getElementById('room-modal-title').textContent='Edit Room';document.getElementById('room-save-btn').textContent='Save Changes';populateDeckSelect(r.deck_id);document.getElementById('fr-number').value=r.room_number||'';document.getElementById('fr-id').value=r.room_id||'';document.getElementById('fr-name').value=r.name||'';document.getElementById('fr-position').value=r.position||'';document.getElementById('fr-frame').value=r.frame_number||'';document.getElementById('fr-notes').value=r.notes||'';document.getElementById('room-modal-overlay').classList.add('open');}
+function closeRoomModal(){document.getElementById('room-modal-overlay').classList.remove('open');}
+async function saveRoom(){
+  const deckId=document.getElementById('fr-deck').value,num=parseInt(document.getElementById('fr-number').value),name=document.getElementById('fr-name').value.trim();
+  if(!deckId){showToast('Please select a deck','error');return;} if(!num){showToast('Please enter a room number','error');return;} if(!name){showToast('Please enter a room name','error');return;}
+  const payload={deck_id:deckId,room_number:num,room_id:document.getElementById('fr-id').value.trim().toUpperCase()||null,name,position:document.getElementById('fr-position').value||null,frame_number:document.getElementById('fr-frame').value.trim()||null,notes:document.getElementById('fr-notes').value.trim()||null};
+  const btn=document.getElementById('room-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  try{if(editingRoomId){await dbUpdate('rooms',editingRoomId,payload);showToast('Room updated','success');}else{await dbInsert('rooms',payload);showToast('Room added','success');}closeRoomModal();loadRooms();}
+  catch(e){showToast('Could not save: '+e.message,'error');}
+  finally{btn.textContent=editingRoomId?'Save Changes':'Save Room';btn.disabled=false;}
+}
+function confirmDeleteRoom(id,name){openConfirm('Delete Room','Delete room "'+name+'"? This cannot be undone.',async()=>{try{await dbDelete('rooms',id);showToast('Room deleted','success');loadRooms();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+
+// ── RACK ZONES ──
+async function loadRackZones(){
+  const c=document.getElementById('rack-zones-container');c.innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try{
+    currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id+'&order=created_at.asc');
+    if(!currentDecks.length)currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
+    renderRackZones();
+  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+}
+
+function renderRackZones(){
+  const c=document.getElementById('rack-zones-container');
+  if(!currentZones.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🗄️</div><div class="empty-state-title">No rack zones yet</div><div class="empty-state-text">Create your first rack zone then assign rooms to it.</div></div>';return;}
+  c.innerHTML='<div class="zones-list">'+currentZones.map(z=>{
+    const colour=z.colour||'#6b7280',light=colour+'22';
+    const rackRoom=currentRooms.find(r=>r.id===z.rack_room_id);
+    const assigned=currentRooms.filter(r=>r.rack_zone_id===z.id);
+    const chips=assigned.length?assigned.map(r=>'<span class="zone-room-chip">'+escHtml(r.name)+'</span>').join(''):'<span style="font-size:12px;color:var(--text-3);font-style:italic">No rooms assigned yet</span>';
+    return '<div class="zone-card"><div class="zone-card-header">'
+      +'<div class="zone-colour-strip" style="background:'+colour+'"></div>'
+      +'<div class="zone-id-pill" style="background:'+light+';color:'+colour+'">'+escHtml(z.zone_id)+'</div>'
+      +'<div class="zone-name">'+escHtml(z.name)+'</div>'
+      +'<div class="zone-meta"><div class="zone-meta-item"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/></svg>'+(z.rack_count||1)+' rack'+(z.rack_count!==1?'s':'')+'</div>'
+      +(rackRoom?'<div class="zone-meta-item"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>'+escHtml(rackRoom.name)+'</div>':'')
+      +'<div class="zone-meta-item"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>'+assigned.length+' room'+(assigned.length!==1?'s':'')+'</div></div>'
+      +'<div class="zone-actions"><button class="btn btn-secondary btn-sm" onclick="openAssignModal(\''+z.id+'\')">Assign Rooms</button>'
+      +'<button class="btn-icon btn-sm" onclick="openEditZoneModal(\''+z.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+      +'<button class="btn-icon btn-sm" onclick="confirmDeleteZone(\''+z.id+'\',\''+escHtml(z.name)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+      +'</div></div>'
+      +'<div class="zone-rooms-section"><div class="zone-rooms-title">Assigned Rooms ('+assigned.length+')</div><div class="zone-room-chips">'+chips+'</div></div></div>';
+  }).join('')+'</div>';
+}
+
+function populateRackRoomSelect(selectedId){const sel=document.getElementById('fz-rack-room');sel.innerHTML='<option value="">— Select room —</option>'+currentDecks.map(d=>{const dr=currentRooms.filter(r=>r.deck_id===d.id);if(!dr.length)return'';return'<optgroup label="'+escHtml(d.name)+'">'+dr.map(r=>'<option value="'+r.id+'"'+(r.id===selectedId?' selected':'')+'>'+escHtml(r.name)+'</option>').join('')+'</optgroup>';}).join('');}
+function openNewZoneModal(){editingZoneId=null;document.getElementById('zone-modal-title').textContent='Add Rack Zone';document.getElementById('zone-save-btn').textContent='Save Zone';document.getElementById('fz-id').value='';document.getElementById('fz-name').value='';document.getElementById('fz-colour').value='#e8500a';document.getElementById('fz-rack-count').value='1';document.getElementById('fz-notes').value='';populateRackRoomSelect(null);document.getElementById('zone-modal-overlay').classList.add('open');}
+function openEditZoneModal(id){const z=currentZones.find(z=>z.id===id);if(!z)return;editingZoneId=id;document.getElementById('zone-modal-title').textContent='Edit Rack Zone';document.getElementById('zone-save-btn').textContent='Save Changes';document.getElementById('fz-id').value=z.zone_id||'';document.getElementById('fz-name').value=z.name||'';document.getElementById('fz-colour').value=z.colour||'#e8500a';document.getElementById('fz-rack-count').value=z.rack_count||1;document.getElementById('fz-notes').value=z.notes||'';populateRackRoomSelect(z.rack_room_id);document.getElementById('zone-modal-overlay').classList.add('open');}
+function closeZoneModal(){document.getElementById('zone-modal-overlay').classList.remove('open');}
+async function saveZone(){
+  const zoneId=document.getElementById('fz-id').value.trim().toUpperCase(),name=document.getElementById('fz-name').value.trim();
+  if(!zoneId){showToast('Please enter a zone ID','error');return;} if(!name){showToast('Please enter a zone name','error');return;}
+  const payload={zone_id:zoneId,name,colour:document.getElementById('fz-colour').value,rack_count:parseInt(document.getElementById('fz-rack-count').value)||1,rack_room_id:document.getElementById('fz-rack-room').value||null,notes:document.getElementById('fz-notes').value.trim()||null,project_id:currentProject.id};
+  const btn=document.getElementById('zone-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  try{if(editingZoneId){await dbUpdate('rack_zones',editingZoneId,payload);showToast('Zone updated','success');}else{await dbInsert('rack_zones',payload);showToast('Zone added','success');}closeZoneModal();loadRackZones();}
+  catch(e){showToast('Could not save: '+e.message,'error');}
+  finally{btn.textContent=editingZoneId?'Save Changes':'Save Zone';btn.disabled=false;}
+}
+function confirmDeleteZone(id,name){openConfirm('Delete Zone','Delete zone "'+name+'"? Rooms assigned will be unassigned but not deleted.',async()=>{try{await dbDelete('rack_zones',id);showToast('Zone deleted','success');loadRackZones();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+
+function openAssignModal(zoneId){
+  assigningZoneId=zoneId;const z=currentZones.find(z=>z.id===zoneId);if(!z)return;
+  document.getElementById('assign-modal-title').textContent='Assign Rooms — '+z.name;
+  const list=document.getElementById('assign-rooms-list');
+  list.innerHTML=currentDecks.map(d=>{
+    const rooms=currentRooms.filter(r=>r.deck_id===d.id);if(!rooms.length)return'';
+    return'<div class="assign-deck-group"><div class="assign-deck-label">'+escHtml(d.name)+' ('+escHtml(d.deck_id)+')</div>'
+      +rooms.map(r=>{
+        const otherZone=r.rack_zone_id&&r.rack_zone_id!==zoneId;
+        const oz=otherZone?currentZones.find(z=>z.id===r.rack_zone_id):null;
+        const checked=r.rack_zone_id===zoneId;
+        return'<label class="assign-room-row'+(otherZone?' other-zone':'')+'">'
+          +'<input type="checkbox" value="'+r.id+'"'+(checked?' checked':'')+(otherZone?' disabled':'')+'>'
+          +(r.room_id?'<span class="assign-room-id">'+escHtml(r.room_id)+'</span>':'')
+          +'<span class="assign-room-name">'+escHtml(r.name)+'</span>'
+          +(oz?'<span class="assign-zone-badge" style="background:'+oz.colour+'22;color:'+oz.colour+'">'+escHtml(oz.zone_id)+'</span>':'')
+          +'</label>';
+      }).join('')+'</div>';
+  }).join('');
+  document.getElementById('assign-modal-overlay').classList.add('open');
+}
+function closeAssignModal(){document.getElementById('assign-modal-overlay').classList.remove('open');}
+async function saveRoomAssignments(){
+  const btn=document.getElementById('assign-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  try{
+    const checkboxes=document.querySelectorAll('#assign-rooms-list input[type=checkbox]:not(:disabled)');
+    const updates=[];
+    checkboxes.forEach(cb=>{
+      const room=currentRooms.find(r=>r.id===cb.value);if(!room)return;
+      const cur=room.rack_zone_id===assigningZoneId;
+      if(cb.checked&&!cur)updates.push(dbUpdate('rooms',cb.value,{rack_zone_id:assigningZoneId}));
+      else if(!cb.checked&&cur)updates.push(dbUpdate('rooms',cb.value,{rack_zone_id:null}));
+    });
+    await Promise.all(updates);
+    if(currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
+    showToast('Room assignments saved','success');closeAssignModal();loadRackZones();
+  }catch(e){showToast('Could not save: '+e.message,'error');}
+  finally{btn.textContent='Save Assignments';btn.disabled=false;}
+}
+
+
+// ── IMPORT / EXPORT ──
+let ieImportData = null;
+let ieImportOption = 'add';
+
+function iePageLoad() {
+  // reset state when page loads
+  ieReset();
+}
+
+function ieReset() {
+  ieImportData = null;
+  document.getElementById('ie-file-input').value = '';
+  document.getElementById('ie-preview-area').classList.add('hidden');
+  document.getElementById('ie-upload-area').classList.remove('hidden');
+  selectImportOption('add');
+}
+
+function selectImportOption(opt) {
+  ieImportOption = opt;
+  document.getElementById('ie-opt-add').classList.toggle('selected', opt === 'add');
+  document.getElementById('ie-opt-replace').classList.toggle('selected', opt === 'replace');
+}
+
+function ieDragOver(e) { e.preventDefault(); document.getElementById('ie-upload-area').classList.add('dragover'); }
+function ieDragLeave() { document.getElementById('ie-upload-area').classList.remove('dragover'); }
+function ieDrop(e) { e.preventDefault(); ieDragLeave(); const f = e.dataTransfer.files[0]; if(f) ieProcessFile(f); }
+function ieFileSelected(e) { const f = e.target.files[0]; if(f) ieProcessFile(f); }
+
+function ieProcessFile(file) {
+  if(!file.name.endsWith('.xlsx')) { showToast('Please upload an Excel (.xlsx) file', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      ieParseWorkbook(wb);
+    } catch(err) { showToast('Could not read file: ' + err.message, 'error'); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function ieParseWorkbook(wb) {
+  // Parse Decks sheet
+  const deckSheet = wb.Sheets['Decks'];
+  const roomSheet = wb.Sheets['Rooms'];
+  if(!roomSheet) { showToast('Could not find a Rooms sheet in this file', 'error'); return; }
+
+  const deckRows = deckSheet ? XLSX.utils.sheet_to_json(deckSheet) : [];
+  const roomRows = XLSX.utils.sheet_to_json(roomSheet);
+
+  // Map deck names to IDs from current project
+  const deckMap = {};
+  currentDecks.forEach(d => {
+    deckMap[d.name.toLowerCase()] = d;
+    deckMap[(d.deck_id||'').toLowerCase()] = d;
+  });
+
+  // Also include decks from the file that match existing
+  const parsedDecks = deckRows.map(row => ({
+    deck_order: parseInt(row['Deck No.']) || null,
+    deck_id: (row['Deck ID'] || '').toString().toUpperCase(),
+    name: (row['Deck Name'] || '').toString().trim(),
+  })).filter(d => d.name);
+
+  // Parse rooms
+  const parsedRooms = roomRows.map((row, i) => {
+    const deckName = (row['Deck'] || row['Deck Name'] || '').toString().trim();
+    const matchedDeck = currentDecks.find(d => d.name.toLowerCase() === deckName.toLowerCase() || (d.deck_id||'').toLowerCase() === deckName.toLowerCase());
+    const errors = [];
+    const name = (row['Room Name'] || row['Name'] || '').toString().trim();
+    if(!name) errors.push('Missing room name');
+    if(!deckName) errors.push('Missing deck');
+    else if(!matchedDeck) errors.push('Deck "' + deckName + '" not found');
+    return {
+      row: i + 2,
+      room_number: parseInt(row['Room No.'] || row['Room Number']) || null,
+      room_id: (row['Room ID'] || '').toString().toUpperCase() || null,
+      name,
+      deck_name: deckName,
+      deck_id: matchedDeck ? matchedDeck.id : null,
+      position: (row['Position'] || '').toString().toUpperCase() || null,
+      frame_number: (row['Frame Number'] || '').toString().trim() || null,
+      notes: (row['Notes'] || '').toString().trim() || null,
+      zone_name: (row['Rack Zone'] || '').toString().trim() || null,
+      errors,
+      valid: errors.length === 0
+    };
+  });
+
+  ieImportData = parsedRooms;
+  ieShowPreview(parsedRooms);
+}
+
+function ieShowPreview(rows) {
+  const valid = rows.filter(r => r.valid).length;
+  const invalid = rows.filter(r => !r.valid).length;
+  const previewEl = document.getElementById('ie-preview');
+  previewEl.innerHTML = '<div class="ie-preview-header">'
+    + '<div class="ie-preview-title">Preview — ' + rows.length + ' rows found</div>'
+    + '<div style="display:flex;gap:8px">'
+    + (valid > 0 ? '<span class="ie-ok-badge">✓ ' + valid + ' valid</span>' : '')
+    + (invalid > 0 ? '<span class="ie-error-badge">⚠ ' + invalid + ' errors</span>' : '')
+    + '</div></div>'
+    + '<div class="ie-preview-table"><table>'
+    + '<thead><tr><th>Row</th><th>Deck</th><th>#</th><th>Room ID</th><th>Room Name</th><th>Position</th><th>Frame</th><th>Zone</th><th>Status</th></tr></thead>'
+    + '<tbody>' + rows.map(r =>
+      '<tr class="' + (r.valid ? 'row-ok' : 'row-error') + '">'
+      + '<td>' + r.row + '</td>'
+      + '<td>' + escHtml(r.deck_name) + '</td>'
+      + '<td>' + (r.room_number || '—') + '</td>'
+      + '<td>' + escHtml(r.room_id || '—') + '</td>'
+      + '<td>' + escHtml(r.name) + '</td>'
+      + '<td>' + escHtml(r.position || '—') + '</td>'
+      + '<td>' + escHtml(r.frame_number || '—') + '</td>'
+      + '<td>' + escHtml(r.zone_name || '—') + '</td>'
+      + '<td>' + (r.valid ? '<span class="ie-ok-badge">✓ OK</span>' : '<span class="ie-error-badge">' + r.errors.join(', ') + '</span>') + '</td>'
+      + '</tr>'
+    ).join('') + '</tbody></table></div>';
+
+  document.getElementById('ie-preview-area').classList.remove('hidden');
+  document.getElementById('ie-upload-area').classList.add('hidden');
+  const btn = document.getElementById('ie-confirm-btn');
+  if(valid === 0) { btn.disabled = true; btn.textContent = 'No valid rows to import'; }
+  else { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import (' + valid + ' rooms)'; }
+}
+
+async function ieConfirmImport() {
+  if(!ieImportData) return;
+  const valid = ieImportData.filter(r => r.valid);
+  if(!valid.length) { showToast('No valid rows to import', 'error'); return; }
+  const btn = document.getElementById('ie-confirm-btn');
+  btn.textContent = 'Importing…'; btn.disabled = true;
+  try {
+    if(ieImportOption === 'replace') {
+      // Delete all existing rooms
+      for(const room of currentRooms) { await dbDelete('rooms', room.id); }
+    }
+    // Insert valid rows
+    for(const r of valid) {
+      // Find zone if specified
+      let rack_zone_id = null;
+      if(r.zone_name) {
+        const z = currentZones.find(z => z.name.toLowerCase() === r.zone_name.toLowerCase() || z.zone_id.toLowerCase() === r.zone_name.toLowerCase());
+        if(z) rack_zone_id = z.id;
+      }
+      await dbInsert('rooms', { room_number: r.room_number, room_id: r.room_id, name: r.name, deck_id: r.deck_id, position: r.position, frame_number: r.frame_number, notes: r.notes, rack_zone_id });
+    }
+    showToast(valid.length + ' rooms imported successfully', 'success');
+    // Refresh local data
+    currentRooms = currentDecks.length ? await dbGet('rooms', 'deck_id=in.(' + currentDecks.map(d=>d.id).join(',') + ')&order=room_number.asc') : [];
+    ieReset();
+  } catch(e) { showToast('Import failed: ' + e.message, 'error'); }
+  finally { btn.textContent = 'Confirm Import'; btn.disabled = false; }
+}
+
+async function exportToExcel() {
+  try {
+    // Load fresh data
+    const decks = await dbGet('decks', 'project_id=eq.' + currentProject.id + '&order=deck_order.asc');
+    const rooms = decks.length ? await dbGet('rooms', 'deck_id=in.(' + decks.map(d=>d.id).join(',') + ')&order=room_number.asc') : [];
+    const zones = await dbGet('rack_zones', 'project_id=eq.' + currentProject.id);
+
+    const wb = XLSX.utils.book_new();
+
+    // Decks sheet
+    const deckData = [['Deck No.', 'Deck ID', 'Deck Name']];
+    decks.forEach(d => deckData.push([d.deck_order, d.deck_id, d.name]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(deckData), 'Decks');
+
+    // Rooms sheet
+    const roomData = [['Room No.', 'Room ID', 'Deck', 'Room Name', 'Position', 'Frame Number', 'Rack Zone', 'Notes']];
+    rooms.forEach(r => {
+      const deck = decks.find(d => d.id === r.deck_id);
+      const zone = zones.find(z => z.id === r.rack_zone_id);
+      roomData.push([r.room_number, r.room_id || '', deck ? deck.name : '', r.name, r.position || '', r.frame_number || '', zone ? zone.zone_id : '', r.notes || '']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(roomData), 'Rooms');
+
+    // Rack Zones sheet
+    const zoneData = [['Zone ID', 'Zone Name', 'Rack Room', 'Rack Count', 'Colour', 'Notes']];
+    zones.forEach(z => {
+      const rackRoom = rooms.find(r => r.id === z.rack_room_id);
+      zoneData.push([z.zone_id, z.name, rackRoom ? rackRoom.name : '', z.rack_count, z.colour, z.notes || '']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(zoneData), 'Rack Zones');
+
+    // Download
+    const filename = (currentProject.project_code || 'project') + '_export.xlsx';
+    XLSX.writeFile(wb, filename);
+    showToast('Excel file downloaded', 'success');
+  } catch(e) { showToast('Export failed: ' + e.message, 'error'); }
+}
+
+// ── PRODUCT CATALOGUE ──
+let globalProducts = [], editingProductId = null, selectingProductForPeId = null;
+
+async function loadProductCatalogue() {
+  document.getElementById('product-catalogue-container').innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try {
+    globalProducts = await dbGet('global_products', 'order=device_type_id.asc,make.asc,model.asc');
+    if(!globalLibrary.length) globalLibrary = await dbGet('global_equipment', 'order=system_group.asc,device_type_id.asc');
+    const types = [...new Set(globalProducts.map(p => p.device_type_id))].sort();
+    const sel = document.getElementById('pc-filter-type');
+    sel.innerHTML = '<option value="">All device types</option>' + types.map(t => '<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>').join('');
+    renderProductCatalogue();
+  } catch(e) { document.getElementById('product-catalogue-container').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>'; }
+}
+
+function renderProductCatalogue() {
+  const q = (document.getElementById('pc-search')||{}).value?.toLowerCase().trim()||'';
+  const type = (document.getElementById('pc-filter-type')||{}).value||'';
+  let items = globalProducts.filter(p =>
+    (!q || p.make.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || p.device_type_id.toLowerCase().includes(q)) &&
+    (!type || p.device_type_id === type)
+  );
+  document.getElementById('pc-count').textContent = items.length + ' products';
+  const c = document.getElementById('product-catalogue-container');
+  if(!items.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No products yet</div><div class="empty-state-text">Add products to the catalogue using the button above.</div></div>'; return; }
+  c.innerHTML = '<div class="equip-table"><table><thead><tr>'
+    + '<th>Device Type</th><th>Make</th><th>Model</th><th>Part No.</th><th>POE</th><th>Power</th><th>LAN</th><th>Spk</th><th>Watts</th><th>Weight</th><th></th>'
+    + '</tr></thead><tbody>'
+    + items.map(p => '<tr>'
+      + '<td><span class="td-mono">'+escHtml(p.device_type_id)+'</span></td>'
+      + '<td style="font-weight:500">'+escHtml(p.make)+'</td>'
+      + '<td>'+escHtml(p.model)+'</td>'
+      + '<td class="td-mono">'+escHtml(p.part_number||'—')+'</td>'
+      + '<td>'+(p.poe_type?'<span class="category-badge">'+escHtml(p.poe_type)+'</span>':'—')+'</td>'
+      + '<td style="font-size:11px">'+(p.power_types&&p.power_types.length?p.power_types.join(', '):'—')+'</td>'
+      + '<td style="text-align:center">'+(p.lan_ports||'—')+'</td>'
+      + '<td style="text-align:center">'+(p.speaker_channels||'—')+'</td>'
+      + '<td style="text-align:center">'+(p.power_watts?p.power_watts+'W':'—')+'</td>'
+      + '<td style="text-align:center">'+(p.weight_kg?p.weight_kg+'kg':'—')+'</td>'
+      + '<td class="td-actions">'
+      + '<button class="btn-icon btn-sm" onclick="openEditProduct(\''+p.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+      + '<button class="btn-icon btn-sm" onclick="confirmDeleteProduct(\''+p.id+'\',\''+escHtml(p.make+' '+p.model)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+      + '</td></tr>'
+    ).join('') + '</tbody></table></div>';
+}
+
+function populateProductDeviceTypeSelect(selectedTypeId) {
+  const sel = document.getElementById('prod-device-type');
+  if(!globalLibrary.length) { sel.innerHTML = '<option value="">Loading…</option>'; return; }
+  sel.innerHTML = '<option value="">— Select device type —</option>'
+    + globalLibrary.map(d => '<option value="'+escHtml(d.device_type_id)+'"'+(d.device_type_id===selectedTypeId?' selected':'')+'>'+escHtml(d.device_type_id)+' — '+escHtml(d.description)+'</option>').join('');
+}
+
+function openProductModal() {
+  editingProductId = null;
+  document.getElementById('product-modal-title').textContent = 'Add Product';
+  document.getElementById('product-save-btn').textContent = 'Save Product';
+  populateProductDeviceTypeSelect(null);
+  ['prod-part','prod-make','prod-model','prod-supplier','prod-notes'].forEach(id => document.getElementById(id).value = '');
+  ['prod-lan','prod-spk','prod-power','prod-weight','prod-heat'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('prod-poe').value = '';
+  document.querySelectorAll('.prod-pwr-type').forEach(c => c.checked = false);
+  document.getElementById('product-modal-overlay').classList.add('open');
+}
+
+function openEditProduct(id) {
+  const p = globalProducts.find(p => p.id === id); if(!p) return;
+  editingProductId = id;
+  document.getElementById('product-modal-title').textContent = 'Edit Product';
+  document.getElementById('product-save-btn').textContent = 'Save Changes';
+  populateProductDeviceTypeSelect(p.device_type_id);
+  document.getElementById('prod-part').value = p.part_number||'';
+  document.getElementById('prod-make').value = p.make||'';
+  document.getElementById('prod-model').value = p.model||'';
+  document.getElementById('prod-lan').value = p.lan_ports||'';
+  document.getElementById('prod-spk').value = p.speaker_channels||'';
+  document.getElementById('prod-poe').value = p.poe_type||'';
+  document.getElementById('prod-power').value = p.power_watts||'';
+  document.getElementById('prod-weight').value = p.weight_kg||'';
+  document.getElementById('prod-heat').value = p.heat_btu||'';
+  document.getElementById('prod-supplier').value = p.supplier||'';
+  document.getElementById('prod-notes').value = p.notes||'';
+  document.querySelectorAll('.prod-pwr-type').forEach(c => c.checked = (p.power_types||[]).includes(c.value));
+  document.getElementById('product-modal-overlay').classList.add('open');
+}
+
+function closeProductModal() { document.getElementById('product-modal-overlay').classList.remove('open'); }
+
+async function saveProduct() {
+  const deviceTypeId = document.getElementById('prod-device-type').value;
+  const make = document.getElementById('prod-make').value.trim();
+  const model = document.getElementById('prod-model').value.trim();
+  if(!deviceTypeId){showToast('Please select a device type','error');return;}
+  if(!make){showToast('Please enter a make','error');return;}
+  if(!model){showToast('Please enter a model','error');return;}
+  const pwrTypes = Array.from(document.querySelectorAll('.prod-pwr-type:checked')).map(c => c.value);
+  const payload = {
+    device_type_id: deviceTypeId, make, model,
+    part_number: document.getElementById('prod-part').value.trim()||null,
+    lan_ports: parseInt(document.getElementById('prod-lan').value)||0,
+    speaker_channels: parseInt(document.getElementById('prod-spk').value)||0,
+    poe_type: document.getElementById('prod-poe').value||null,
+    power_types: pwrTypes.length ? pwrTypes : null,
+    power_watts: parseFloat(document.getElementById('prod-power').value)||null,
+    weight_kg: parseFloat(document.getElementById('prod-weight').value)||null,
+    heat_btu: parseFloat(document.getElementById('prod-heat').value)||null,
+    supplier: document.getElementById('prod-supplier').value.trim()||null,
+    notes: document.getElementById('prod-notes').value.trim()||null
+  };
+  const btn = document.getElementById('product-save-btn'); btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    if(editingProductId){await dbUpdate('global_products',editingProductId,payload);showToast('Product updated','success');}
+    else{await dbInsert('global_products',payload);showToast('Product added','success');}
+    closeProductModal(); loadProductCatalogue();
+  } catch(e){showToast('Could not save: '+e.message,'error');}
+  finally{btn.textContent=editingProductId?'Save Changes':'Save Product';btn.disabled=false;}
+}
+
+function confirmDeleteProduct(id,name){openConfirm('Delete Product','Delete "'+name+'" from the catalogue?',async()=>{try{await dbDelete('global_products',id);showToast('Product deleted','success');loadProductCatalogue();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+
+// ── SELECT PRODUCT (for project equipment) ──
+async function openSelectProductModal(peId) {
+  selectingProductForPeId = peId;
+  const pe = projectEquipment.find(e => e.id === peId); if(!pe) return;
+  document.getElementById('select-product-title').textContent = 'Select Product — ' + pe.device_type_id;
+  document.getElementById('sp-search').value = '';
+  if(!globalProducts.length) globalProducts = await dbGet('global_products','order=make.asc,model.asc');
+  renderSelectProducts(pe.device_type_id);
+  document.getElementById('select-product-modal-overlay').classList.add('open');
+}
+
+function closeSelectProductModal() { document.getElementById('select-product-modal-overlay').classList.remove('open'); }
+
+function renderSelectProducts(filterTypeId) {
+  const pe = projectEquipment.find(e => e.id === selectingProductForPeId);
+  const typeId = filterTypeId || (pe ? pe.device_type_id : '');
+  const q = document.getElementById('sp-search').value.toLowerCase().trim();
+  const items = globalProducts.filter(p =>
+    p.device_type_id === typeId &&
+    (!q || p.make.toLowerCase().includes(q) || p.model.toLowerCase().includes(q))
+  );
+  const list = document.getElementById('select-products-list');
+  if(!items.length) { list.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px">No products found for '+escHtml(typeId)+'. <a href="#" onclick="closeSelectProductModal();showPage(\'product-catalogue\')" style="color:var(--accent)">Add products to catalogue</a></div>'; return; }
+  list.innerHTML = items.map(p => '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">'
+    + '<div style="flex:1">'
+    + '<div style="font-size:13px;font-weight:600">'+escHtml(p.make)+' '+escHtml(p.model)+'</div>'
+    + '<div style="font-size:11px;color:var(--text-3);margin-top:2px">'
+    + (p.part_number?'Part: '+escHtml(p.part_number)+' &nbsp;·&nbsp; ':'')
+    + (p.power_watts?p.power_watts+'W &nbsp;·&nbsp; ':'')
+    + (p.weight_kg?p.weight_kg+'kg &nbsp;·&nbsp; ':'')
+    + (p.poe_type?'POE: '+escHtml(p.poe_type)+' &nbsp;·&nbsp; ':'')
+    + (p.power_types&&p.power_types.length?p.power_types.join('/'):'')
+    + '</div></div>'
+    + '<button class="btn btn-primary btn-sm" onclick="selectProduct(\''+p.id+'\')">Select</button>'
+    + '</div>'
+  ).join('');
+}
+
+async function selectProduct(productId) {
+  const p = globalProducts.find(p => p.id === productId); if(!p||!selectingProductForPeId) return;
+  try {
+    await dbUpdate('project_equipment', selectingProductForPeId, {
+      global_product_id: productId,
+      make: p.make, model: p.model,
+      lan_ports: p.lan_ports, speaker_channels: p.speaker_channels,
+      poe_type: p.poe_type, power_types: p.power_types,
+      power_watts: p.power_watts, weight_kg: p.weight_kg, heat_btu: p.heat_btu,
+      supplier: p.supplier
+    });
+    showToast(p.make+' '+p.model+' selected','success');
+    closeSelectProductModal();
+    await loadProjectEquipment();
+  } catch(e) { showToast('Could not select: '+e.message,'error'); }
+}
+
+
+// ── EQUIPMENT STATE ──
+let globalLibrary = [], projectEquipment = [], placedEquipment = [];
+let editingGlobalId = null, editingPeId = null, editingPlaceId = null;
+let activeEquipTab = 'project';
+
+// ── GLOBAL LIBRARY ──
+async function loadGlobalLibrary() {
+  document.getElementById('global-library-container').innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try {
+    globalLibrary = await dbGet('global_equipment', 'order=system_group.asc,device_type_id.asc');
+    const groups = [...new Set(globalLibrary.map(d => d.system_group).filter(Boolean))].sort();
+    const sel = document.getElementById('gl-filter-group');
+    sel.innerHTML = '<option value="">All systems</option>' + groups.map(g => '<option value="'+escHtml(g)+'">'+escHtml(g)+'</option>').join('');
+    renderGlobalLibrary();
+  } catch(e) { document.getElementById('global-library-container').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>'; }
+}
+
+function renderGlobalLibrary() {
+  const q = (document.getElementById('gl-search')||{}).value?.toLowerCase().trim()||'';
+  const group = (document.getElementById('gl-filter-group')||{}).value||'';
+  let items = globalLibrary.filter(d =>
+    (!q || d.device_type_id.toLowerCase().includes(q) || d.description.toLowerCase().includes(q)) &&
+    (!group || d.system_group === group)
+  );
+  document.getElementById('gl-count').textContent = items.length + ' devices';
+  const c = document.getElementById('global-library-container');
+  if(!items.length) { c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📚</div><div class="empty-state-title">No devices found</div><div class="empty-state-text">Try adjusting your search or add a new device.</div></div>'; return; }
+
+  // Check which are already in project library
+  const pulledIds = new Set(projectEquipment.map(p => p.global_equipment_id).filter(Boolean));
+
+  c.innerHTML = '<div class="equip-table"><table><thead><tr>'
+    + '<th>Type ID</th><th>Description</th><th>System</th><th>Category</th><th>Spec</th><th>LAN</th><th>Spk</th>'
+    + (currentProject ? '<th></th>' : '')
+    + '<th></th></tr></thead><tbody>'
+    + items.map(d => '<tr>'
+      + '<td><span class="td-mono">'+escHtml(d.device_type_id)+'</span></td>'
+      + '<td style="font-weight:500">'+escHtml(d.description)+'</td>'
+      + '<td><span class="group-badge">'+escHtml(d.system_group||'—')+'</span></td>'
+      + '<td><span class="category-badge">'+escHtml(d.category_code||'—')+'</span></td>'
+      + '<td class="td-mono">'+escHtml(d.spec_ref||'—')+'</td>'
+      + '<td style="text-align:center">'+( d.lan_ports||'—')+'</td>'
+      + '<td style="text-align:center">'+(d.speaker_channels||'—')+'</td>'
+      + (currentProject ? '<td>'+(pulledIds.has(d.id) ? '<span class="pull-btn pulled">✓ In Project</span>' : '<button class="pull-btn" onclick="pullToProject(\''+d.id+'\')">+ Pull</button>')+'</td>' : '')
+      + '<td class="td-actions"><button class="btn-icon btn-sm" onclick="openEditGlobalDevice(\''+d.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+      + '<button class="btn-icon btn-sm" onclick="confirmDeleteGlobal(\''+d.id+'\',\''+escHtml(d.device_type_id)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+      + '</td></tr>'
+    ).join('') + '</tbody></table></div>';
+}
+
+function openGlobalDeviceModal() { editingGlobalId=null; document.getElementById('gd-modal-title').textContent='Add Device to Library'; document.getElementById('gd-save-btn').textContent='Save Device'; ['gd-type-id','gd-desc','gd-cat','gd-group','gd-spec','gd-comments'].forEach(id=>document.getElementById(id).value=''); ['gd-lan','gd-spk','gd-power','gd-weight','gd-heat'].forEach(id=>document.getElementById(id).value=''); document.getElementById('global-device-modal-overlay').classList.add('open'); }
+function openEditGlobalDevice(id) { const d=globalLibrary.find(d=>d.id===id); if(!d) return; editingGlobalId=id; document.getElementById('gd-modal-title').textContent='Edit Device'; document.getElementById('gd-save-btn').textContent='Save Changes'; document.getElementById('gd-type-id').value=d.device_type_id||''; document.getElementById('gd-desc').value=d.description||''; document.getElementById('gd-cat').value=d.category_code||''; document.getElementById('gd-group').value=d.system_group||''; document.getElementById('gd-spec').value=d.spec_ref||''; document.getElementById('gd-lan').value=d.lan_ports||''; document.getElementById('gd-spk').value=d.speaker_channels||''; document.getElementById('gd-power').value=d.power_watts||''; document.getElementById('gd-weight').value=d.weight_kg||''; document.getElementById('gd-heat').value=d.heat_btu||''; document.getElementById('gd-comments').value=d.comments||''; document.getElementById('global-device-modal-overlay').classList.add('open'); }
+function closeGlobalDeviceModal() { document.getElementById('global-device-modal-overlay').classList.remove('open'); }
+async function saveGlobalDevice() {
+  const typeId=document.getElementById('gd-type-id').value.trim().toUpperCase(), desc=document.getElementById('gd-desc').value.trim();
+  if(!typeId){showToast('Please enter a device type ID','error');return;} if(!desc){showToast('Please enter a description','error');return;}
+  const poeVal=document.getElementById('gd-poe').value||null;const pwrTypes=Array.from(document.querySelectorAll('.gd-pwr-type:checked')).map(c=>c.value);const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value.trim()||null,system_group:document.getElementById('gd-group').value.trim()||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,poe_type:poeVal,power_types:pwrTypes.length?pwrTypes:null};
+  const btn=document.getElementById('gd-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  try{if(editingGlobalId){await dbUpdate('global_equipment',editingGlobalId,payload);showToast('Device updated','success');}else{await dbInsert('global_equipment',payload);showToast('Device added','success');}closeGlobalDeviceModal();loadGlobalLibrary();}
+  catch(e){showToast('Could not save: '+e.message,'error');}
+  finally{btn.textContent=editingGlobalId?'Save Changes':'Save Device';btn.disabled=false;}
+}
+function confirmDeleteGlobal(id,name){openConfirm('Delete Device','Remove "'+name+'" from the global library?',async()=>{try{await dbDelete('global_equipment',id);showToast('Device removed','success');loadGlobalLibrary();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+
+// ── PULL TO PROJECT ──
+async function pullToProject(globalId) {
+  const d = globalLibrary.find(d=>d.id===globalId); if(!d||!currentProject) return;
+  try {
+    await dbInsert('project_equipment',{project_id:currentProject.id,global_equipment_id:globalId,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code,system_group:d.system_group,spec_ref:d.spec_ref,lan_ports:d.lan_ports,speaker_channels:d.speaker_channels,poe_type:d.poe_type,power_types:d.power_types});
+    showToast(d.device_type_id+' added to project','success');
+    projectEquipment = await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
+    renderGlobalLibrary();
+  } catch(e){showToast('Could not pull: '+e.message,'error');}
+}
+
+// ── PROJECT EQUIPMENT ──
+async function loadEquipmentPage() {
+  updateEquipBtn();
+  if(activeEquipTab==='project') await loadProjectEquipment();
+  else await loadPlacedEquipment();
+}
+
+function switchEquipTab(tab) {
+  activeEquipTab=tab;
+  document.getElementById('equip-project-tab').classList.toggle('hidden',tab!=='project');
+  document.getElementById('equip-placed-tab').classList.toggle('hidden',tab!=='placed');
+  document.getElementById('tab-btn-proj-eq').classList.toggle('active',tab==='project');
+  document.getElementById('tab-btn-placed').classList.toggle('active',tab==='placed');
+  updateEquipBtn();
+  if(tab==='project') loadProjectEquipment(); else loadPlacedEquipment();
+}
+
+function updateEquipBtn() {
+  const btn=document.getElementById('topbar-btn'); if(!btn) return;
+  if(activeEquipTab==='placed'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Place Equipment';btn.onclick=openPlaceModal;}
+  else{btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Pull from Library';btn.onclick=()=>showPage('global-library');}
+}
+
+async function loadProjectEquipment() {
+  document.getElementById('project-equipment-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try {
+    projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
+    const groups=[...new Set(projectEquipment.map(d=>d.system_group).filter(Boolean))].sort();
+    const sel=document.getElementById('pe-filter-group');
+    sel.innerHTML='<option value="">All systems</option>'+groups.map(g=>'<option value="'+escHtml(g)+'">'+escHtml(g)+'</option>').join('');
+    renderProjectEquipment();
+  } catch(e){document.getElementById('project-equipment-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+}
+
+function renderProjectEquipment() {
+  const q=(document.getElementById('pe-search')||{}).value?.toLowerCase().trim()||'';
+  const group=(document.getElementById('pe-filter-group')||{}).value||'';
+  let items=projectEquipment.filter(d=>(!q||d.device_type_id.toLowerCase().includes(q)||d.description.toLowerCase().includes(q))&&(!group||d.system_group===group));
+  const c=document.getElementById('project-equipment-container');
+  if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">No equipment yet</div><div class="empty-state-text">Pull devices from the global library to build your project equipment list.</div><button class="btn btn-secondary" onclick="showPage(\'global-library\')">Go to Device Library</button></div>';return;}
+  c.innerHTML='<div class="equip-table"><table><thead><tr><th>Type ID</th><th>Description</th><th>System</th><th>Make</th><th>Model</th><th>Supplier</th><th>Power</th><th></th></tr></thead><tbody>'
+    +items.map(d=>'<tr>'
+      +'<td><span class="td-mono">'+escHtml(d.device_type_id)+'</span></td>'
+      +'<td style="font-weight:500">'+escHtml(d.description)+'</td>'
+      +'<td><span class="group-badge">'+escHtml(d.system_group||'—')+'</span></td>'
+      +'<td>'+escHtml(d.make||'—')+'</td>'
+      +'<td>'+escHtml(d.model||'—')+'</td>'
+      +'<td>'+escHtml(d.supplier||'—')+'</td>'
+      +'<td>'+(d.power_watts?d.power_watts+'W':'—')+'</td>'
+      +'<td>'+(d.make?escHtml(d.make):'<span style="color:var(--text-3);font-style:italic">Not set</span>')+'</td>'+'<td>'+(d.model?escHtml(d.model):'—')+'</td>'+'<td>'+(d.power_watts?d.power_watts+'W':'—')+'</td>'+'<td>'+(d.poe_type?'<span class="category-badge">'+escHtml(d.poe_type)+'</span>':'—')+'</td>'+'<td class="td-actions">'+'<button class="pull-btn" onclick="openSelectProductModal(\''+d.id+'\')" style="margin-right:4px">Select Product</button>'
+      +'<button class="btn-icon btn-sm" onclick="openPeModal(\''+d.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+      +'<button class="btn-icon btn-sm" onclick="confirmDeletePe(\''+d.id+'\',\''+escHtml(d.device_type_id)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+      +'</td></tr>'
+    ).join('')+'</tbody></table></div>';
+}
+
+function openPeModal(id){const d=projectEquipment.find(d=>d.id===id);if(!d)return;editingPeId=id;document.getElementById('pe-modal-title').textContent='Edit — '+d.device_type_id;document.getElementById('pe-device-type').textContent=d.device_type_id;document.getElementById('pe-device-desc').textContent=d.description;document.getElementById('pe-make').value=d.make||'';document.getElementById('pe-model').value=d.model||'';document.getElementById('pe-supplier').value=d.supplier||'';document.getElementById('pe-power').value=d.power_watts||'';document.getElementById('pe-weight').value=d.weight_kg||'';document.getElementById('pe-heat').value=d.heat_btu||'';document.getElementById('pe-comments').value=d.comments||'';document.getElementById('pe-modal-overlay').classList.add('open');}
+function closePeModal(){document.getElementById('pe-modal-overlay').classList.remove('open');}
+async function savePeItem(){
+  const payload={make:document.getElementById('pe-make').value.trim()||null,model:document.getElementById('pe-model').value.trim()||null,supplier:document.getElementById('pe-supplier').value.trim()||null,power_watts:parseFloat(document.getElementById('pe-power').value)||null,weight_kg:parseFloat(document.getElementById('pe-weight').value)||null,heat_btu:parseFloat(document.getElementById('pe-heat').value)||null,comments:document.getElementById('pe-comments').value.trim()||null};
+  const btn=document.getElementById('pe-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  try{await dbUpdate('project_equipment',editingPeId,payload);showToast('Equipment updated','success');closePeModal();loadProjectEquipment();}
+  catch(e){showToast('Could not save: '+e.message,'error');}
+  finally{btn.textContent='Save';btn.disabled=false;}
+}
+function confirmDeletePe(id,name){openConfirm('Remove Equipment','Remove "'+name+'" from this project?',async()=>{try{await dbDelete('project_equipment',id);showToast('Removed','success');loadProjectEquipment();}catch(e){showToast('Could not remove: '+e.message,'error');}});}
+
+// ── PLACED EQUIPMENT ──
+async function loadPlacedEquipment() {
+  document.getElementById('placed-equipment-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try {
+    placedEquipment=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&order=created_at.asc');
+    if(!currentDecks.length) currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    if(!currentRooms.length&&currentDecks.length) currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
+    if(!currentZones.length) currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
+    // Build location filter
+    const sel=document.getElementById('pl-filter-location');
+    sel.innerHTML='<option value="">All locations</option>'+currentRooms.map(r=>'<option value="room-'+r.id+'">Room: '+escHtml(r.name)+'</option>').join('')+currentZones.map(z=>'<option value="zone-'+z.id+'">Zone: '+escHtml(z.name)+'</option>').join('');
+    renderPlacedEquipment();
+  } catch(e){document.getElementById('placed-equipment-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+}
+
+function renderPlacedEquipment(){
+  const q=(document.getElementById('pl-search')||{}).value?.toLowerCase().trim()||'';
+  const loc=(document.getElementById('pl-filter-location')||{}).value||'';
+  let items=placedEquipment.filter(p=>{
+    const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
+    const matchQ=!q||(p.device_id||'').toLowerCase().includes(q)||(pe&&pe.description.toLowerCase().includes(q));
+    const matchL=!loc||(loc.startsWith('room-')&&p.room_id===loc.replace('room-',''))||(loc.startsWith('zone-')&&p.rack_zone_id===loc.replace('zone-',''));
+    return matchQ&&matchL;
+  });
+  const c=document.getElementById('placed-equipment-container');
+  if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No equipment placed yet</div><div class="empty-state-text">Use the Place Equipment button to assign equipment to rooms or rack zones.</div></div>';return;}
+  c.innerHTML='<div class="equip-table"><table><thead><tr><th>Device ID</th><th>Type</th><th>Description</th><th>Qty</th><th>Location</th><th></th></tr></thead><tbody>'
+    +items.map(p=>{
+      const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
+      const room=currentRooms.find(r=>r.id===p.room_id);
+      const zone=currentZones.find(z=>z.id===p.rack_zone_id);
+      const loc=room?'Room: '+escHtml(room.name):zone?'Zone: '+escHtml(zone.name):'—';
+      return '<tr>'
+        +'<td><span class="device-id-badge">'+escHtml(p.device_id)+'</span></td>'
+        +'<td class="td-mono">'+escHtml(pe?pe.device_type_id:'—')+'</td>'
+        +'<td style="font-weight:500">'+escHtml(pe?pe.description:'—')+'</td>'
+        +'<td style="text-align:center">'+p.quantity+'</td>'
+        +'<td>'+loc+'</td>'
+        +'<td>'+(d.make?escHtml(d.make):'<span style="color:var(--text-3);font-style:italic">Not set</span>')+'</td>'+'<td>'+(d.model?escHtml(d.model):'—')+'</td>'+'<td>'+(d.power_watts?d.power_watts+'W':'—')+'</td>'+'<td>'+(d.poe_type?'<span class="category-badge">'+escHtml(d.poe_type)+'</span>':'—')+'</td>'+'<td class="td-actions">'+'<button class="pull-btn" onclick="openSelectProductModal(\''+d.id+'\')" style="margin-right:4px">Select Product</button>'
+        +'<button class="btn-icon btn-sm" onclick="confirmDeletePlaced(\''+p.id+'\',\''+escHtml(p.device_id)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+        +'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
+
+function confirmDeletePlaced(id,name){openConfirm('Remove Placement','Remove device "'+name+'" from its location?',async()=>{try{await dbDelete('equipment_instances',id);showToast('Removed','success');loadPlacedEquipment();}catch(e){showToast('Could not remove: '+e.message,'error');}});}
+
+// ── PLACE EQUIPMENT MODAL ──
+async function openPlaceModal(){
+  editingPlaceId=null;
+  if(!projectEquipment.length) await loadProjectEquipment();
+  const sel=document.getElementById('pl-device-type');
+  sel.innerHTML='<option value="">— Select device type —</option>'+projectEquipment.map(d=>'<option value="'+d.id+'">'+escHtml(d.device_type_id)+' — '+escHtml(d.description)+'</option>').join('');
+  document.getElementById('pl-qty').value='1';
+  document.getElementById('pl-notes').value='';
+  document.getElementById('pl-loc-type').value='room';
+  updatePlaceLocationSelect();
+  document.getElementById('place-modal-overlay').classList.add('open');
+}
+function closePlaceModal(){document.getElementById('place-modal-overlay').classList.remove('open');}
+function updatePlaceLocationSelect(){
+  const type=document.getElementById('pl-loc-type').value;
+  const sel=document.getElementById('pl-location');
+  if(type==='room'){sel.innerHTML='<option value="">— Select room —</option>'+currentRooms.map(r=>'<option value="'+r.id+'">'+escHtml(r.name)+(r.room_number?' ('+r.room_number+')':'')+'</option>').join('');}
+  else{sel.innerHTML='<option value="">— Select rack zone —</option>'+currentZones.map(z=>'<option value="'+z.id+'">'+escHtml(z.name)+'</option>').join('');}
+}
+
+async function savePlacement(){
+  const peId=document.getElementById('pl-device-type').value;
+  const qty=parseInt(document.getElementById('pl-qty').value)||1;
+  const locType=document.getElementById('pl-loc-type').value;
+  const locId=document.getElementById('pl-location').value;
+  if(!peId){showToast('Please select a device type','error');return;}
+  if(!locId){showToast('Please select a location','error');return;}
+  const pe=projectEquipment.find(e=>e.id===peId);
+  if(!pe)return;
+  const btn=document.getElementById('place-save-btn');btn.textContent='Placing…';btn.disabled=true;
+  try {
+    // Get existing count for this device type in this project to generate IDs
+    const existing=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&project_equipment_id=eq.'+peId);
+    const room=locType==='room'?currentRooms.find(r=>r.id===locId):null;
+    const roomNum=room?room.room_number:0;
+    for(let i=0;i<qty;i++){
+      const seqNum=String(existing.length+i+1).padStart(4,'0');
+      const deviceId=(roomNum||'0')+'-'+seqNum;
+      await dbInsert('equipment_instances',{project_id:currentProject.id,project_equipment_id:peId,device_id:deviceId,quantity:1,room_id:locType==='room'?locId:null,rack_zone_id:locType==='zone'?locId:null,notes:document.getElementById('pl-notes').value.trim()||null});
+    }
+    showToast(qty+' device'+(qty>1?'s':'')+' placed','success');
+    closePlaceModal();
+    loadPlacedEquipment();
+  }catch(e){showToast('Could not place: '+e.message,'error');}
+  finally{btn.textContent='Place Equipment';btn.disabled=false;}
+}
+
+// ── SEED GLOBAL LIBRARY ──
+async function seedGlobalLibrary() {
+  const existing = await dbGet('global_equipment', 'order=created_at.asc&limit=1');
+  if(existing.length > 0) return; // already seeded
+  const devices = [
+    {device_type_id:'RACK-1',description:'Rack 1000 x 800',category_code:'11-RACK',system_group:'Central Systems',spec_ref:'A01',lan_ports:0,speaker_channels:0},
+    {device_type_id:'RACK-2',description:'Rack 800 x 800',category_code:'11-RACK',system_group:'Central Systems',spec_ref:'A02',lan_ports:0,speaker_channels:0},
+    {device_type_id:'RACK-3',description:'Rack 800 x 600',category_code:'11-RACK',system_group:'Central Systems',spec_ref:'A03',lan_ports:0,speaker_channels:0},
+    {device_type_id:'RACK-4',description:'Rack 600 x 600',category_code:'11-RACK',system_group:'Central Systems',spec_ref:'A04',lan_ports:0,speaker_channels:0},
+    {device_type_id:'RACK-C',description:'Rack cooler',category_code:'11-RACK',system_group:'Central Systems',spec_ref:'A04',lan_ports:0,speaker_channels:0},
+    {device_type_id:'CNT-7-WM',description:'Wall Mounted 7" Touch Panel',category_code:'06-CONTROL',system_group:'Control Devices',spec_ref:'A05',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CNT-10-WM',description:'Wall Mounted 10" Touch Panel',category_code:'06-CONTROL',system_group:'Control Devices',spec_ref:'A05',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CNT-IPAD-WM',description:'Wall Mounted iPad or touch screen controller',category_code:'06-CONTROL',system_group:'Control Devices',spec_ref:'A06',lan_ports:2,speaker_channels:0},
+    {device_type_id:'CNT-IPAD-TAB',description:'Tabletop iPad Mini',category_code:'06-CONTROL',system_group:'Control Devices',spec_ref:'A07',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CNT-REM',description:'Control Remote',category_code:'06-CONTROL',system_group:'Control Devices',spec_ref:'A08',lan_ports:0,speaker_channels:0},
+    {device_type_id:'CNT-MAN',description:'Manufacturers Remote',category_code:'06-CONTROL',system_group:'Control Devices',spec_ref:'A09',lan_ports:0,speaker_channels:0},
+    {device_type_id:'PROJ',description:'Projector',category_code:'01-TV',system_group:'Displays',spec_ref:'A10',lan_ports:2,speaker_channels:0},
+    {device_type_id:'PROJ-LIFT',description:'Projector Lift',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A11',lan_ports:1,speaker_channels:0},
+    {device_type_id:'PROJ-SCR',description:'Projection Screen',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A12',lan_ports:0,speaker_channels:0},
+    {device_type_id:'LIFT-1-P',description:'Motorised Lift - Popup',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A13',lan_ports:1,speaker_channels:0},
+    {device_type_id:'LIFT-2-P-EXT',description:'Motorised Lift - Popup -External',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A14',lan_ports:1,speaker_channels:0},
+    {device_type_id:'LIFT-3-PS',description:'Motorised Lift - Popup Swivel',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A15',lan_ports:1,speaker_channels:0},
+    {device_type_id:'LIFT-3-PS-EXT',description:'Motorised Lift - Popup Swivel - External',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A16',lan_ports:1,speaker_channels:0},
+    {device_type_id:'LIFT-4-SPS',description:'Motorised Lift - Sliding Panel System',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A17',lan_ports:1,speaker_channels:0},
+    {device_type_id:'LIFT-5-CH',description:'Motorised Lift - Ceiling Hinge',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A17',lan_ports:1,speaker_channels:0},
+    {device_type_id:'LIFT-5-CH-EXT',description:'Motorised Lift - Ceiling Hinge - External',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A17',lan_ports:1,speaker_channels:0},
+    {device_type_id:'LIFT-6-CHS',description:'Motorised Lift - Ceiling Hinge Swivel',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A17',lan_ports:1,speaker_channels:0},
+    {device_type_id:'LIFT-6-CHS-EXT',description:'Motorised Lift - Ceiling Hinge Swivel - External',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A17',lan_ports:1,speaker_channels:0},
+    {device_type_id:'LIFT-MAN',description:'Manual pullout bracket',category_code:'02-BRACKET',system_group:'Displays',spec_ref:'A17',lan_ports:0,speaker_channels:0},
+    {device_type_id:'DISP-28',description:'Display 28"',category_code:'01-TV',system_group:'Displays',spec_ref:'A18',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-32',description:'Display 32"',category_code:'01-TV',system_group:'Displays',spec_ref:'A19',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-32-M',description:'Mirror Display 32"',category_code:'01-TV',system_group:'Displays',spec_ref:'A19',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-43',description:'Display 43"',category_code:'01-TV',system_group:'Displays',spec_ref:'A20',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-50',description:'Display 50"',category_code:'01-TV',system_group:'Displays',spec_ref:'A21',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-55',description:'Display 55"',category_code:'01-TV',system_group:'Displays',spec_ref:'A21',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-55-P',description:'Display 55" Portrait',category_code:'01-TV',system_group:'Displays',spec_ref:'A21',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-55-M',description:'Mirror Display 55"',category_code:'01-TV',system_group:'Displays',spec_ref:'A21',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-65',description:'Display 65"',category_code:'01-TV',system_group:'Displays',spec_ref:'A22',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-65-M',description:'Mirror display 65"',category_code:'01-TV',system_group:'Displays',spec_ref:'A27',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-75',description:'Display 75"',category_code:'01-TV',system_group:'Displays',spec_ref:'A23',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-75-EXT',description:'Display 75" External',category_code:'01-TV',system_group:'Displays',spec_ref:'A24',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-85',description:'Display 85"',category_code:'01-TV',system_group:'Displays',spec_ref:'A25',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-100',description:'Display 100"',category_code:'01-TV',system_group:'Displays',spec_ref:'A25',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-100-EXT',description:'Display 100" External',category_code:'01-TV',system_group:'Displays',spec_ref:'A25',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-110',description:'Display 110"',category_code:'01-TV',system_group:'Displays',spec_ref:'A25',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-110-EXT',description:'Display 110" External',category_code:'01-TV',system_group:'Displays',spec_ref:'A25',lan_ports:6,speaker_channels:0},
+    {device_type_id:'DISP-MDA',description:'Display XXX" External',category_code:'01-TV',system_group:'Displays',spec_ref:'A25',lan_ports:0,speaker_channels:0},
+    {device_type_id:'DISP-IPAD',description:'10.9" iPad for Crew Displays',category_code:'01-TV',system_group:'Displays',spec_ref:'A26',lan_ports:1,speaker_channels:0},
+    {device_type_id:'SPK-1-IC',description:'Speaker In Ceiling - 8" - Luxury',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A28',lan_ports:0,speaker_channels:1},
+    {device_type_id:'SPK-1-WM',description:'Speaker In Wall - 8" - Luxury',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A32',lan_ports:0,speaker_channels:1},
+    {device_type_id:'SPK-2-IC',description:'Speaker In Ceiling - Small aperture - Luxury',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A29',lan_ports:0,speaker_channels:1},
+    {device_type_id:'SPK-3-IC',description:'Speaker In Ceiling - Crew (with BT)',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A30',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SPK-4-IC-EXT',description:'Speaker In Ceiling - 8" - External',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A31',lan_ports:0,speaker_channels:1},
+    {device_type_id:'SPK-4-WM-EXT',description:'Speaker In Wall - 8" - External',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A32',lan_ports:0,speaker_channels:1},
+    {device_type_id:'SPK-5-IC',description:'Speaker In Ceiling - 6.5" - Crew',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A32',lan_ports:0,speaker_channels:1},
+    {device_type_id:'SPK-6-IW',description:'Speaker In Wall - Luxury',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A32',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SPK-7-IW-EXT',description:'Speaker In Wall - Luxury - External',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A32',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SPK-SB-LCR',description:'Soundbar - LCR',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A36',lan_ports:0,speaker_channels:3},
+    {device_type_id:'SPK-SB-LR',description:'Soundbar - LR',category_code:'03-SPK',system_group:'Loudspeakers',spec_ref:'A37',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SPK-HP',description:'Headphones',category_code:'03-SPK',system_group:'Crew Cabin AV',spec_ref:'A65',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SUB-1-IC',description:'Subwoofer In Ceiling - 10"',category_code:'04-SUB',system_group:'Loudspeakers',spec_ref:'A38',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SUB-1-IW',description:'Subwoofer In Wall - 10"',category_code:'04-SUB',system_group:'Loudspeakers',spec_ref:'A38',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SUB-2-IC-EXT',description:'Subwoofer In Ceiling - 10" - External',category_code:'04-SUB',system_group:'Loudspeakers',spec_ref:'A39',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SUB-2-IW-EXT',description:'Subwoofer In Wall - 10" - External',category_code:'04-SUB',system_group:'Loudspeakers',spec_ref:'A39',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SUB-3-IC',description:'Subwoofer In Ceiling - Power Pipe',category_code:'04-SUB',system_group:'Loudspeakers',spec_ref:'A40',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SUB-3-IW',description:'Subwoofer In Wall - Power Pipe',category_code:'04-SUB',system_group:'Loudspeakers',spec_ref:'A41',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SUB-4-DF',description:'Subwoofer down-firing 10"',category_code:'04-SUB',system_group:'Loudspeakers',spec_ref:'A44',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SUB-5-IW',description:'Subwoofer In Wall - Luxury',category_code:'04-SUB',system_group:'Loudspeakers',spec_ref:'A44',lan_ports:0,speaker_channels:2},
+    {device_type_id:'EVENT-SPK-1',description:'Portable Speaker',category_code:'05-EVENT',system_group:'Loudspeakers',spec_ref:'A45',lan_ports:0,speaker_channels:0},
+    {device_type_id:'EVENT-SPK-2',description:'Portable Speaker',category_code:'05-EVENT',system_group:'Loudspeakers',spec_ref:'A46',lan_ports:0,speaker_channels:0},
+    {device_type_id:'EVENT-DJ-1',description:'Portable DJ Console',category_code:'05-EVENT',system_group:'Loudspeakers',spec_ref:'A47',lan_ports:0,speaker_channels:0},
+    {device_type_id:'EVENT-CON-1',description:'Speaker / DJ Connection point',category_code:'05-EVENT',system_group:'Events System',spec_ref:'A67',lan_ports:4,speaker_channels:1},
+    {device_type_id:'EVENT-CON-2',description:'400V Event Connection',category_code:'05-EVENT',system_group:'Events System',spec_ref:'A67',lan_ports:0,speaker_channels:2},
+    {device_type_id:'SRC-VOD-CEN',description:'Video-on-Demand Player',category_code:'12-CENTRAL',system_group:'Assignable Sources',spec_ref:'A48',lan_ports:2,speaker_channels:0},
+    {device_type_id:'SRC-CVOD-CEN',description:'Crew Video-on-demand stream',category_code:'12-CENTRAL',system_group:'Crew Cabin AV',spec_ref:'A49',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SRC-STR-LOC',description:'Streaming device (IPTV)',category_code:'12-CENTRAL',system_group:'Assignable Sources',spec_ref:'A50',lan_ports:2,speaker_channels:0},
+    {device_type_id:'SRC-STR-1-CEN',description:'Streaming device (IPTV) Dedicated',category_code:'12-CENTRAL',system_group:'Central Shared Sources',spec_ref:'A56',lan_ports:2,speaker_channels:0},
+    {device_type_id:'SRC-STR-2-CEN',description:'Streaming device (IPTV) Shared',category_code:'12-CENTRAL',system_group:'Central Shared Sources',spec_ref:'A56',lan_ports:2,speaker_channels:0},
+    {device_type_id:'SRC-SAT-CEN',description:'Satellite TV decoder',category_code:'12-CENTRAL',system_group:'Assignable Sources',spec_ref:'A51',lan_ports:2,speaker_channels:0},
+    {device_type_id:'SRC-AOD-1-CEN',description:'Audio Services Player Stream Dedicated',category_code:'12-CENTRAL',system_group:'Assignable Sources',spec_ref:'A52',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SRC-AOD-2-CEN',description:'Audio Services Player Stream Shared',category_code:'12-CENTRAL',system_group:'Assignable Sources',spec_ref:'A52',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SRC-YE-CEN',description:'YachtEye system',category_code:'12-CENTRAL',system_group:'Central Shared Sources',spec_ref:'A53',lan_ports:2,speaker_channels:0},
+    {device_type_id:'SRC-MV-CEN',description:'Multiviewer',category_code:'12-CENTRAL',system_group:'Assignable Sources',spec_ref:'A54',lan_ports:2,speaker_channels:0},
+    {device_type_id:'SRC-PC-CEN',description:'Central streaming PC',category_code:'12-CENTRAL',system_group:'Central Shared Sources',spec_ref:'A55',lan_ports:2,speaker_channels:0},
+    {device_type_id:'SRC-SON-CEN',description:'Central Sonar',category_code:'12-CENTRAL',system_group:'Central Shared Sources',spec_ref:'A57',lan_ports:2,speaker_channels:0},
+    {device_type_id:'SRC-HDMI-LOC',description:'HDMI Input',category_code:'07-SOURCE',system_group:'Local Sources',spec_ref:'A64',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SRC-HDMI-CEN',description:'Central HDMI Input',category_code:'12-CENTRAL',system_group:'Central Shared Sources',spec_ref:'A59',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SRC-AUD-CEN',description:'Central Aux Audio Input',category_code:'12-CENTRAL',system_group:'Central Shared Sources',spec_ref:'A60',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SRC-CCTV-CEN',description:'CCTV Feed',category_code:'12-CENTRAL',system_group:'Central Shared Sources',spec_ref:'A61',lan_ports:1,speaker_channels:0},
+    {device_type_id:'SRC-BT-LOC',description:'Bluetooth Receiver',category_code:'07-SOURCE',system_group:'Local Sources',spec_ref:'A62',lan_ports:2,speaker_channels:0},
+    {device_type_id:'SRC-GC-LOC',description:'Gaming Console',category_code:'07-SOURCE',system_group:'Local Sources',spec_ref:'A63',lan_ports:1,speaker_channels:0},
+    {device_type_id:'SRC-CSTR-CEN',description:'Crew IPTV Stream',category_code:'12-CENTRAL',system_group:'Crew Cabin AV',spec_ref:'A66',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SRC-CONF',description:'Conference System',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A76',lan_ports:1,speaker_channels:0},
+    {device_type_id:'SRC-CONF-MIC',description:'Conference System Mic',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A77',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SRC-CONF-CAM',description:'Conference System Cam',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A78',lan_ports:0,speaker_channels:0},
+    {device_type_id:'IT-LAP',description:'Laptop',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A68',lan_ports:0,speaker_channels:0},
+    {device_type_id:'LAP-DOCK',description:'Laptop Docking Station',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A69',lan_ports:1,speaker_channels:0},
+    {device_type_id:'PC',description:'PC',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A70',lan_ports:1,speaker_channels:0},
+    {device_type_id:'PC-MON',description:'PC Monitor',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A71',lan_ports:0,speaker_channels:0},
+    {device_type_id:'PC-DOCK',description:'Docking Station',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A71',lan_ports:1,speaker_channels:0},
+    {device_type_id:'PRN-1',description:'Small Office Printer',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A72',lan_ports:1,speaker_channels:0},
+    {device_type_id:'PRN-2',description:'Admin Multifunction Printer',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A73',lan_ports:1,speaker_channels:0},
+    {device_type_id:'PRN-3',description:'Technical Office Printer',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A74',lan_ports:1,speaker_channels:0},
+    {device_type_id:'PRN-4',description:'Newspaper Printer',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A75',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CLK',description:'Clock',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A79',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CLK-MASTER',description:'Clock Master',category_code:'08-IT',system_group:'IT Local Equipment',spec_ref:'A80',lan_ports:1,speaker_channels:0},
+    {device_type_id:'TEL-1-WM',description:'Wall mount fixed phone - Luxury',category_code:'09-TEL',system_group:'Phone System',spec_ref:'A81',lan_ports:1,speaker_channels:0},
+    {device_type_id:'TEL-1-TAB',description:'Tabletop fixed phone - Luxury',category_code:'09-TEL',system_group:'Phone System',spec_ref:'',lan_ports:1,speaker_channels:0},
+    {device_type_id:'TEL-2-WM',description:'Wall mount fixed phone - Crew',category_code:'09-TEL',system_group:'Phone System',spec_ref:'A82',lan_ports:1,speaker_channels:0},
+    {device_type_id:'TEL-2-TAB',description:'Tabletop fixed phone - Crew',category_code:'09-TEL',system_group:'Phone System',spec_ref:'A83',lan_ports:1,speaker_channels:0},
+    {device_type_id:'TEL-3-TECH',description:'Ruggedised telephone - Technical',category_code:'09-TEL',system_group:'Phone System',spec_ref:'A85',lan_ports:1,speaker_channels:0},
+    {device_type_id:'TEL-4-WIFI',description:'Wireless Phone',category_code:'09-TEL',system_group:'Phone System',spec_ref:'A84',lan_ports:0,speaker_channels:0},
+    {device_type_id:'LAN',description:'LAN x1',category_code:'08-IT',system_group:'IT Network',spec_ref:'A86',lan_ports:1,speaker_channels:0},
+    {device_type_id:'AP',description:'Wireless Access Point',category_code:'08-IT',system_group:'IT Network',spec_ref:'A87',lan_ports:1,speaker_channels:0},
+    {device_type_id:'AP-EXT',description:'Wireless Access Point - External',category_code:'08-IT',system_group:'IT Network',spec_ref:'A88',lan_ports:1,speaker_channels:0},
+    {device_type_id:'AP-EXT-DIR',description:'Wireless Access Point - Directional Antenna',category_code:'08-IT',system_group:'IT Network',spec_ref:'A89',lan_ports:0,speaker_channels:0},
+    {device_type_id:'AP-SPARE',description:'Wireless Access Point - Spare Preposition',category_code:'08-IT',system_group:'IT Network',spec_ref:'A90',lan_ports:1,speaker_channels:0},
+    {device_type_id:'DAS-ANT-1',description:'DAS Antenna Single (TxRx)',category_code:'10-DAS/COMMS',system_group:'DAS System',spec_ref:'B01',lan_ports:0,speaker_channels:0},
+    {device_type_id:'DAS-ANT-2',description:'DAS Antenna Pair (1x Tx & 1x Rx)',category_code:'10-DAS/COMMS',system_group:'DAS System',spec_ref:'B02',lan_ports:0,speaker_channels:0},
+    {device_type_id:'DAS-ANT-SPARE',description:'DAS Antenna - Spare Preposition',category_code:'10-DAS/COMMS',system_group:'DAS System',spec_ref:'B03',lan_ports:0,speaker_channels:0},
+    {device_type_id:'DAS-ANT-DIR',description:'DAS Antenna - Directional Antenna',category_code:'10-DAS/COMMS',system_group:'DAS System',spec_ref:'B04',lan_ports:0,speaker_channels:0},
+    {device_type_id:'DAS-RU',description:'DAS Remote Unit',category_code:'10-DAS/COMMS',system_group:'DAS System',spec_ref:'B05',lan_ports:0,speaker_channels:0},
+    {device_type_id:'DAS-RU-EXT',description:'DAS Remote Unit - External',category_code:'10-DAS/COMMS',system_group:'DAS System',spec_ref:'B06',lan_ports:0,speaker_channels:0},
+    {device_type_id:'DAS-TETRA',description:'DAS TETRA',category_code:'10-DAS/COMMS',system_group:'Radio System',spec_ref:'B07',lan_ports:0,speaker_channels:0},
+    {device_type_id:'MAST-CON',description:'Mast Connection Point',category_code:'13-MAST',system_group:'Communications System',spec_ref:'B08',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SHORE-CON',description:'Shore Connection',category_code:'08-IT',system_group:'Communications System',spec_ref:'B09',lan_ports:1,speaker_channels:0},
+    {device_type_id:'ANT-5G',description:'5G Antenna',category_code:'13-MAST',system_group:'Communications System',spec_ref:'B10',lan_ports:0,speaker_channels:0},
+    {device_type_id:'ANT-TVRO',description:'TVRO Radome',category_code:'13-MAST',system_group:'Communications System',spec_ref:'B11',lan_ports:0,speaker_channels:0},
+    {device_type_id:'ANT-VSAT',description:'VSAT Radome',category_code:'13-MAST',system_group:'Communications System',spec_ref:'B12',lan_ports:0,speaker_channels:0},
+    {device_type_id:'ANT-MULTI',description:'Multi-antenna Radome',category_code:'13-MAST',system_group:'Communications System',spec_ref:'B13',lan_ports:0,speaker_channels:0},
+    {device_type_id:'ANT-TETRA',description:'TETRA Mast Antenna',category_code:'13-MAST',system_group:'Communications System',spec_ref:'B14',lan_ports:0,speaker_channels:0},
+    {device_type_id:'ANT-PANEL',description:'Flat Panel LEO/MEO (spare)',category_code:'13-MAST',system_group:'Communications System',spec_ref:'B15',lan_ports:0,speaker_channels:0},
+    {device_type_id:'ANT-DAS',description:'DAS antenna GSM/LTE/5G',category_code:'13-MAST',system_group:'Communications System',spec_ref:'B16',lan_ports:0,speaker_channels:0},
+    {device_type_id:'CAM-FIXED',description:'Fixed Dome Camera',category_code:'20-CAM',system_group:'Camera System',spec_ref:'C01',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CAM-DISCREET',description:'Hidden camera',category_code:'20-CAM',system_group:'Camera System',spec_ref:'C01',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CAM-SERVICE',description:'Hidden service Camera',category_code:'20-CAM',system_group:'Camera System',spec_ref:'C01',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CAM-PTZ',description:'PTZ Camera (Pan, Tilt, Zoom)',category_code:'20-CAM',system_group:'Camera System',spec_ref:'C02',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CAM-PANO',description:'Panoramic Camera (360°)',category_code:'20-CAM',system_group:'Camera System',spec_ref:'C03',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CAM-TUBE',description:'Tube Camera (Integrated in structure)',category_code:'20-CAM',system_group:'Camera System',spec_ref:'C04',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CAM-THERMAL',description:'Thermal Camera (Fixed)',category_code:'20-CAM',system_group:'Camera System',spec_ref:'C05',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CAM-MAST',description:'Mast Camera (Thermal, Night/Day, PTZ)',category_code:'20-CAM',system_group:'Camera System',spec_ref:'C06',lan_ports:1,speaker_channels:0},
+    {device_type_id:'CON-VDP',description:'Call Pod Connection Point (Portable Intercom)',category_code:'22-SEC',system_group:'Security System',spec_ref:'C07',lan_ports:1,speaker_channels:0},
+    {device_type_id:'HD-INT-LUX',description:'Card Reader (Interior) (Hinged Door - Card Reader & Lock)',category_code:'21-DOOR',system_group:'Access Control System',spec_ref:'C08',lan_ports:1,speaker_channels:0},
+    {device_type_id:'HD-INT-CREW',description:'Card Reader (Interior) (Hinged Door - Card Reader, Keypad & Lock)',category_code:'21-DOOR',system_group:'Access Control System',spec_ref:'C09',lan_ports:1,speaker_channels:0},
+    {device_type_id:'SD-INT-CREW',description:'Card Reader (Interior) (Sliding Door - Card Reader, Interface Only)',category_code:'21-DOOR',system_group:'Access Control System',spec_ref:'C10',lan_ports:1,speaker_channels:0},
+    {device_type_id:'SD-INT-LUX',description:'Card Reader (Interior) (Sliding Door - Card Reader, Interface Only)',category_code:'21-DOOR',system_group:'Access Control System',spec_ref:'C10',lan_ports:1,speaker_channels:0},
+    {device_type_id:'HD-EXT-LUX',description:'Card Reader (Exterior) (Hinged Door - Card Reader & Lock)',category_code:'21-DOOR',system_group:'Access Control System',spec_ref:'C11',lan_ports:1,speaker_channels:0},
+    {device_type_id:'HD-EXT-CREW',description:'Card Reader (Exterior) (Hinged Door - Card Reader, Keypad & Lock)',category_code:'21-DOOR',system_group:'Access Control System',spec_ref:'C12',lan_ports:1,speaker_channels:0},
+    {device_type_id:'SD-EXT-LUX',description:'Card Reader (Exterior) (Sliding Door - Card Reader, Interface Only)',category_code:'21-DOOR',system_group:'Access Control System',spec_ref:'C13',lan_ports:1,speaker_channels:0},
+    {device_type_id:'MON-C',description:'Monitored Hatch Contact',category_code:'21-DOOR',system_group:'Access Control System',spec_ref:'C14',lan_ports:1,speaker_channels:0},
+    {device_type_id:'DRN-DET',description:'Drone detection dome',category_code:'13-MAST',system_group:'Drone detection',spec_ref:'C15',lan_ports:0,speaker_channels:0},
+    {device_type_id:'SEC-DISP',description:'Security display',category_code:'22-SEC',system_group:'Security System',spec_ref:'C16',lan_ports:1,speaker_channels:0},
+    {device_type_id:'SCS',description:'Security Control Monitoring Station (with touchscreen)',category_code:'22-SEC',system_group:'Security System',spec_ref:'C16',lan_ports:1,speaker_channels:0},
+    {device_type_id:'SCS-CTR',description:'Security Control Station Controller (Fine control)',category_code:'22-SEC',system_group:'Security System',spec_ref:'C17',lan_ports:1,speaker_channels:0}
+  ];
+  // Insert in batches of 20
+  const batchSize = 20;
+  for(let i=0;i<devices.length;i+=batchSize) {
+    const batch = devices.slice(i,i+batchSize);
+    await Promise.all(batch.map(d => dbInsert('global_equipment', d)));
+  }
+  console.log('Global library seeded with '+devices.length+' devices');
+}
+
+// ── CONFIRM ──
+function openConfirm(title,text,onOk){document.getElementById('confirm-title').textContent=title;document.getElementById('confirm-text').textContent=text;document.getElementById('confirm-ok-btn').onclick=()=>{closeConfirm();onOk();};document.getElementById('confirm-overlay').classList.add('open');}
+function closeConfirm(){document.getElementById('confirm-overlay').classList.remove('open');}
+
+// ── UTILS ──
+function escHtml(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function formatDate(d){if(!d)return'';const[y,m,day]=d.split('-');return day+'/'+m+'/'+y;}
+
+// Close modals on overlay click
+['project-modal-overlay','deck-modal-overlay','room-modal-overlay','zone-modal-overlay','assign-modal-overlay','global-device-modal-overlay','pe-modal-overlay','place-modal-overlay','confirm-overlay'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){
+    if(e.target!==this)return;
+    if(id==='confirm-overlay')closeConfirm();
+    else if(id==='deck-modal-overlay')closeDeckModal();
+    else if(id==='room-modal-overlay')closeRoomModal();
+    else if(id==='zone-modal-overlay')closeZoneModal();
+    else if(id==='assign-modal-overlay')closeAssignModal();
+    else if(id==='global-device-modal-overlay')closeGlobalDeviceModal();
+    else if(id==='pe-modal-overlay')closePeModal();
+    else if(id==='place-modal-overlay')closePlaceModal();
+    else if(id==='product-modal-overlay')closeProductModal();
+    else if(id==='select-product-modal-overlay')closeSelectProductModal();
+    else closeProjectModal();
+  });
+});
+
+// Close avatar popup on outside click
+document.addEventListener('click',function(e){
+  const popup=document.getElementById('avatar-popup'),btn=document.getElementById('avatar-btn');
+  if(popup&&popup.classList.contains('open')&&!popup.contains(e.target)&&btn&&!btn.contains(e.target))closeAvatarPopup();
+});
+
+// ── INIT ──
+(async function init(){
+  const email = await tryRestoreSession();
+  if(email){
+    document.getElementById('login-overlay').style.display='none';
+    setAvatarUser(email);
+    setConn('connected');
+    seedGlobalLibrary().catch(console.error);
+    await loadProjects();
+  } else {
+    document.getElementById('login-overlay').style.display='flex';
+    setConn('disconnected');
+  }
+})();
+</script>
+</body>
+</html>
