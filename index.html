@@ -25,311 +25,312 @@
   body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; }
   .app { display: flex; min-height: 100vh; }
 
-  /* SIDEBAR */
-  .sidebar { width: 240px; min-width: 240px; background: var(--accent); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; overflow-y: auto; }
-  .sidebar-logo { padding: 22px 20px 18px; border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
-  .sidebar-logo .wordmark { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 2px; }
-  .sidebar-logo .tagline { font-size: 11px; color: rgba(255,255,255,0.3); }
-  .sidebar-nav { padding: 8px 0; flex: 1; }
-  .nav-section { padding: 14px 20px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
-  .nav-project-name { padding: 4px 20px 2px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 13px; font-weight: 400; transition: all 0.15s; border-left: 3px solid transparent; }
-  .nav-item:hover { background: rgba(255,255,255,0.07); color: white; }
-  .nav-item.active { background: rgba(255,255,255,0.12); color: white; border-left-color: rgba(255,255,255,0.6); font-weight: 500; }
-  .nav-item.disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
-  .nav-item svg { opacity: 0.7; flex-shrink: 0; }
-  .nav-item.active svg { opacity: 1; }
-  .nav-item.sub { padding-left: 36px; font-size: 12.5px; }
-  .divider { height: 1px; background: rgba(255,255,255,0.1); margin: 8px 0; }
+/* SIDEBAR */
+.sidebar { width: 240px; min-width: 240px; background: var(–accent); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; overflow-y: auto; }
+.sidebar-logo { padding: 22px 20px 18px; border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+.sidebar-logo .wordmark { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 2px; }
+.sidebar-logo .tagline { font-size: 11px; color: rgba(255,255,255,0.3); }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 20px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
+.nav-project-name { padding: 4px 20px 2px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 13px; font-weight: 400; transition: all 0.15s; border-left: 3px solid transparent; }
+.nav-item:hover { background: rgba(255,255,255,0.07); color: white; }
+.nav-item.active { background: rgba(255,255,255,0.12); color: white; border-left-color: rgba(255,255,255,0.6); font-weight: 500; }
+.nav-item.disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.nav-item svg { opacity: 0.7; flex-shrink: 0; }
+.nav-item.active svg { opacity: 1; }
+.nav-item.sub { padding-left: 36px; font-size: 12.5px; }
+.divider { height: 1px; background: rgba(255,255,255,0.1); margin: 8px 0; }
 
-  /* AVATAR */
-  .sidebar-user { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); position: relative; flex-shrink: 0; }
-  .avatar-btn { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: var(--radius-sm); transition: background 0.15s; width: 100%; border: none; background: transparent; font-family: 'DM Sans', sans-serif; }
-  .avatar-btn:hover { background: rgba(255,255,255,0.08); }
-  .avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: white; flex-shrink: 0; }
-  .avatar-info { flex: 1; text-align: left; overflow: hidden; }
-  .avatar-name { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .avatar-role { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 1px; }
-  .avatar-chevron { color: rgba(255,255,255,0.4); flex-shrink: 0; transition: transform 0.2s; }
-  .avatar-popup { position: absolute; bottom: calc(100% + 6px); left: 12px; right: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); overflow: hidden; opacity: 0; pointer-events: none; transform: translateY(6px); transition: all 0.15s; z-index: 200; }
-  .avatar-popup.open { opacity: 1; pointer-events: all; transform: translateY(0); }
-  .avatar-popup-header { padding: 12px 14px; border-bottom: 1px solid var(--border); }
-  .avatar-popup-email { font-size: 12px; color: var(--text-2); font-weight: 500; word-break: break-all; }
-  .avatar-popup-item { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px; color: var(--text); cursor: pointer; transition: background 0.12s; border: none; background: transparent; width: 100%; font-family: 'DM Sans', sans-serif; }
-  .avatar-popup-item:hover { background: var(--surface2); }
-  .avatar-popup-item.danger { color: var(--red); }
-  .avatar-popup-item.danger:hover { background: var(--red-light); }
+/* AVATAR */
+.sidebar-user { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); position: relative; flex-shrink: 0; }
+.avatar-btn { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: var(–radius-sm); transition: background 0.15s; width: 100%; border: none; background: transparent; font-family: ‘DM Sans’, sans-serif; }
+.avatar-btn:hover { background: rgba(255,255,255,0.08); }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: white; flex-shrink: 0; }
+.avatar-info { flex: 1; text-align: left; overflow: hidden; }
+.avatar-name { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.avatar-role { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+.avatar-chevron { color: rgba(255,255,255,0.4); flex-shrink: 0; transition: transform 0.2s; }
+.avatar-popup { position: absolute; bottom: calc(100% + 6px); left: 12px; right: 12px; background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); box-shadow: var(–shadow-lg); overflow: hidden; opacity: 0; pointer-events: none; transform: translateY(6px); transition: all 0.15s; z-index: 200; }
+.avatar-popup.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+.avatar-popup-header { padding: 12px 14px; border-bottom: 1px solid var(–border); }
+.avatar-popup-email { font-size: 12px; color: var(–text-2); font-weight: 500; word-break: break-all; }
+.avatar-popup-item { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px; color: var(–text); cursor: pointer; transition: background 0.12s; border: none; background: transparent; width: 100%; font-family: ‘DM Sans’, sans-serif; }
+.avatar-popup-item:hover { background: var(–surface2); }
+.avatar-popup-item.danger { color: var(–red); }
+.avatar-popup-item.danger:hover { background: var(–red-light); }
 
-  /* MAIN */
-  .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
-  .topbar-title { font-size: 15px; font-weight: 600; }
-  .topbar-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
-  .content { padding: 28px 32px; flex: 1; }
+/* MAIN */
+.main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.topbar { background: var(–surface); border-bottom: 1px solid var(–border); padding: 0 32px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+.topbar-title { font-size: 15px; font-weight: 600; }
+.topbar-sub { font-size: 11px; color: var(–text-3); margin-top: 1px; }
+.content { padding: 28px 32px; flex: 1; }
 
-  /* BUTTONS */
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; }
-  .btn-primary { background: var(--accent); color: white; }
-  .btn-primary:hover { background: var(--accent-mid); }
-  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-  .btn-secondary:hover { background: var(--border); }
-  .btn-danger { background: var(--red-light); color: var(--red); border: 1px solid #f5c6c2; }
-  .btn-sm { padding: 5px 10px; font-size: 12px; }
-  .btn-icon { padding: 6px; border-radius: var(--radius-sm); background: transparent; border: 1px solid var(--border); cursor: pointer; display: inline-flex; align-items: center; transition: all 0.15s; color: var(--text-2); font-family: inherit; }
-  .btn-icon:hover { background: var(--surface2); }
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(–radius-sm); font-family: ‘DM Sans’, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; }
+.btn-primary { background: var(–accent); color: white; }
+.btn-primary:hover { background: var(–accent-mid); }
+.btn-secondary { background: var(–surface2); color: var(–text); border: 1px solid var(–border); }
+.btn-secondary:hover { background: var(–border); }
+.btn-danger { background: var(–red-light); color: var(–red); border: 1px solid #f5c6c2; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-icon { padding: 6px; border-radius: var(–radius-sm); background: transparent; border: 1px solid var(–border); cursor: pointer; display: inline-flex; align-items: center; transition: all 0.15s; color: var(–text-2); font-family: inherit; }
+.btn-icon:hover { background: var(–surface2); }
 
-  /* BADGES */
-  .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
-  .badge-active { background: var(--green-light); color: var(--green); }
-  .badge-hold { background: var(--amber-light); color: var(--amber); }
-  .badge-complete { background: var(--surface2); color: var(--text-2); }
-  .badge-design { background: var(--blue-light); color: var(--blue); }
-  .badge-engineering { background: #f0e6fa; color: #6b21a8; }
-  .badge-install { background: var(--amber-light); color: var(--amber); }
-  .badge-testing { background: #fef9e6; color: #92610a; }
-  .badge-delivered { background: var(--green-light); color: var(--green); }
-  .badge-newbuild { background: var(--accent-light); color: var(--accent); }
-  .badge-refit { background: #fef0e6; color: #c05000; }
-  .badge-residential { background: var(--surface2); color: var(--text-2); }
+/* BADGES */
+.badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+.badge-active { background: var(–green-light); color: var(–green); }
+.badge-hold { background: var(–amber-light); color: var(–amber); }
+.badge-complete { background: var(–surface2); color: var(–text-2); }
+.badge-design { background: var(–blue-light); color: var(–blue); }
+.badge-engineering { background: #f0e6fa; color: #6b21a8; }
+.badge-install { background: var(–amber-light); color: var(–amber); }
+.badge-testing { background: #fef9e6; color: #92610a; }
+.badge-delivered { background: var(–green-light); color: var(–green); }
+.badge-newbuild { background: var(–accent-light); color: var(–accent); }
+.badge-refit { background: #fef0e6; color: #c05000; }
+.badge-residential { background: var(–surface2); color: var(–text-2); }
 
-  /* FORMS */
-  .form-group { margin-bottom: 16px; }
-  .form-row { display: grid; gap: 16px; margin-bottom: 16px; }
-  .form-row-2 { grid-template-columns: 1fr 1fr; }
-  .form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
-  label { display: block; font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 5px; }
-  label .required { color: var(--red); margin-left: 2px; }
-  label .optional { color: var(--text-3); font-weight: 400; margin-left: 4px; font-size: 11px; }
-  input, select, textarea { width: 100%; padding: 8px 11px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13.5px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s; }
-  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,80,10,0.08); }
-  input:disabled, select:disabled { background: var(--surface2); color: var(--text-3); cursor: not-allowed; }
-  textarea { resize: vertical; min-height: 80px; }
-  .form-section { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 16px; }
-  .form-section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 14px; }
+/* FORMS */
+.form-group { margin-bottom: 16px; }
+.form-row { display: grid; gap: 16px; margin-bottom: 16px; }
+.form-row-2 { grid-template-columns: 1fr 1fr; }
+.form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+label { display: block; font-size: 12px; font-weight: 500; color: var(–text-2); margin-bottom: 5px; }
+label .required { color: var(–red); margin-left: 2px; }
+label .optional { color: var(–text-3); font-weight: 400; margin-left: 4px; font-size: 11px; }
+input, select, textarea { width: 100%; padding: 8px 11px; border: 1px solid var(–border-strong); border-radius: var(–radius-sm); font-family: ‘DM Sans’, sans-serif; font-size: 13.5px; color: var(–text); background: var(–surface); outline: none; transition: border-color 0.15s; }
+input:focus, select:focus, textarea:focus { border-color: var(–accent); box-shadow: 0 0 0 3px rgba(232,80,10,0.08); }
+input:disabled, select:disabled { background: var(–surface2); color: var(–text-3); cursor: not-allowed; }
+textarea { resize: vertical; min-height: 80px; }
+.form-section { background: var(–surface2); border: 1px solid var(–border); border-radius: var(–radius-sm); padding: 16px; margin-bottom: 16px; }
+.form-section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(–text-3); margin-bottom: 14px; }
 
-  /* MODAL */
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
-  .modal-overlay.open { opacity: 1; pointer-events: all; }
-  .modal { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; transform: translateY(12px); transition: transform 0.2s; }
-  .modal-overlay.open .modal { transform: translateY(0); }
-  .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-  .modal-title { font-size: 16px; font-weight: 600; }
-  .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
-  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal { background: var(–surface); border-radius: var(–radius); box-shadow: var(–shadow-lg); width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; transform: translateY(12px); transition: transform 0.2s; }
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(–border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.modal-title { font-size: 16px; font-weight: 600; }
+.modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(–border); display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
 
-  /* DASHBOARD */
-  .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow-sm); }
-  .stat-value { font-size: 28px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
-  .stat-label { font-size: 12px; color: var(--text-3); font-weight: 500; }
-  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-  .search-wrap { position: relative; flex: 1; max-width: 300px; }
-  .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
-  .search-wrap input { padding-left: 32px; }
+/* DASHBOARD */
+.stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 16px 20px; box-shadow: var(–shadow-sm); }
+.stat-value { font-size: 28px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+.stat-label { font-size: 12px; color: var(–text-3); font-weight: 500; }
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.search-wrap { position: relative; flex: 1; max-width: 300px; }
+.search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(–text-3); pointer-events: none; }
+.search-wrap input { padding-left: 32px; }
 
-  /* PROJECT CARDS */
-  .projects-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-  @media (max-width: 1200px) { .projects-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 900px) { .projects-grid { grid-template-columns: repeat(2, 1fr); } }
-  .project-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow-sm); position: relative; }
-  .project-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-1px); }
-  .project-card-code { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-3); margin-bottom: 3px; }
-  .project-card-name { font-size: 13px; font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
-  .project-card-badges { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
-  .project-card-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
-  .meta-label { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
-  .meta-value { font-size: 11px; color: var(--text-2); margin-top: 1px; font-weight: 500; }
-  .project-card-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 3px; opacity: 0; transition: opacity 0.15s; }
-  .project-card:hover .project-card-actions { opacity: 1; }
-  @media (hover: none) { .project-card-actions { opacity: 1; } }
+/* PROJECT CARDS */
+.projects-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 1200px) { .projects-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px) { .projects-grid { grid-template-columns: repeat(2, 1fr); } }
+.project-card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 14px 16px; cursor: pointer; transition: all 0.15s; box-shadow: var(–shadow-sm); position: relative; }
+.project-card:hover { border-color: var(–accent); box-shadow: var(–shadow); transform: translateY(-1px); }
+.project-card-code { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(–text-3); margin-bottom: 3px; }
+.project-card-name { font-size: 13px; font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
+.project-card-badges { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.project-card-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-top: 10px; border-top: 1px solid var(–border); }
+.meta-label { font-size: 9px; color: var(–text-3); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.meta-value { font-size: 11px; color: var(–text-2); margin-top: 1px; font-weight: 500; }
+.project-card-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 3px; opacity: 0; transition: opacity 0.15s; }
+.project-card:hover .project-card-actions { opacity: 1; }
+@media (hover: none) { .project-card-actions { opacity: 1; } }
 
-  /* PROJECT INFO */
-  .project-banner { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
-  .project-banner-top { display: flex; align-items: flex-start; justify-content: space-between; }
-  .project-banner-code { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-3); margin-bottom: 4px; }
-  .project-banner-name { font-size: 24px; font-weight: 600; line-height: 1.2; margin-bottom: 10px; }
-  .project-banner-badges { display: flex; gap: 8px; flex-wrap: wrap; }
-  .project-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
-  .project-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow-sm); text-align: center; cursor: pointer; transition: all 0.15s; }
-  .project-stat:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .project-stat-value { font-size: 28px; font-weight: 600; color: var(--accent); line-height: 1; margin-bottom: 4px; }
-  .project-stat-label { font-size: 11px; color: var(--text-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
-  .project-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-  .project-info-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm); }
-  .project-info-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); margin-bottom: 14px; }
-  .project-info-field { margin-bottom: 12px; }
-  .project-info-field:last-child { margin-bottom: 0; }
-  .project-info-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin-bottom: 3px; }
-  .project-info-value { font-size: 13px; color: var(--text); font-weight: 500; }
-  .project-info-value.empty { color: var(--text-3); font-style: italic; font-weight: 400; }
-  .project-shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .shortcut-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow-sm); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 14px; }
-  .shortcut-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-1px); }
-  .shortcut-icon { width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--accent-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .shortcut-icon svg { color: var(--accent); }
-  .shortcut-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
-  .shortcut-sub { font-size: 11px; color: var(--text-3); }
+/* PROJECT INFO */
+.project-banner { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 24px; margin-bottom: 16px; box-shadow: var(–shadow-sm); }
+.project-banner-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.project-banner-code { font-family: ‘DM Mono’, monospace; font-size: 12px; color: var(–text-3); margin-bottom: 4px; }
+.project-banner-name { font-size: 24px; font-weight: 600; line-height: 1.2; margin-bottom: 10px; }
+.project-banner-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.project-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.project-stat { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 16px 20px; box-shadow: var(–shadow-sm); text-align: center; cursor: pointer; transition: all 0.15s; }
+.project-stat:hover { border-color: var(–accent); transform: translateY(-1px); }
+.project-stat-value { font-size: 28px; font-weight: 600; color: var(–accent); line-height: 1; margin-bottom: 4px; }
+.project-stat-label { font-size: 11px; color: var(–text-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+.project-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.project-info-card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 20px; box-shadow: var(–shadow-sm); }
+.project-info-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(–text-3); margin-bottom: 14px; }
+.project-info-field { margin-bottom: 12px; }
+.project-info-field:last-child { margin-bottom: 0; }
+.project-info-label { font-size: 10px; color: var(–text-3); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin-bottom: 3px; }
+.project-info-value { font-size: 13px; color: var(–text); font-weight: 500; }
+.project-info-value.empty { color: var(–text-3); font-style: italic; font-weight: 400; }
+.project-shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.shortcut-card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 16px 20px; box-shadow: var(–shadow-sm); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 14px; }
+.shortcut-card:hover { border-color: var(–accent); box-shadow: var(–shadow); transform: translateY(-1px); }
+.shortcut-icon { width: 36px; height: 36px; border-radius: var(–radius-sm); background: var(–accent-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.shortcut-icon svg { color: var(–accent); }
+.shortcut-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.shortcut-sub { font-size: 11px; color: var(–text-3); }
 
-  /* DECKS & ROOMS */
-  .decks-list { display: flex; flex-direction: column; gap: 10px; }
-  .deck-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-sm); transition: all 0.15s; }
-  .deck-row:hover { border-color: var(--accent); }
-  .deck-order-badge { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; color: var(--text-3); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; flex-shrink: 0; min-width: 32px; text-align: center; }
-  .deck-id-pill { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); background: var(--accent-light); border-radius: 4px; padding: 2px 8px; font-weight: 600; flex-shrink: 0; }
-  .deck-row-name { font-size: 14px; font-weight: 600; flex: 1; }
-  .deck-row-count { font-size: 12px; color: var(--text-3); flex-shrink: 0; }
-  .row-actions { display: flex; gap: 4px; flex-shrink: 0; }
-  .rooms-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; box-shadow: var(--shadow-sm); -webkit-overflow-scrolling: touch; }
-  .rooms-table-header { display: grid; grid-template-columns: 52px 80px 72px 1fr 110px 50px 100px 70px; background: var(--surface2); border-bottom: 1px solid var(--border); min-width: 640px; }
-  .rooms-table-header-cell { padding: 10px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); }
-  .room-table-row { display: grid; grid-template-columns: 52px 80px 72px 1fr 110px 50px 100px 70px; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.1s; min-width: 640px; }
-  .room-table-row:last-child { border-bottom: none; }
-  .room-table-row:hover { background: var(--surface2); }
-  .room-cell { padding: 10px 12px; font-size: 13px; display: flex; align-items: center; }
-  .room-cell.mono { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .room-cell.num { color: var(--text-3); font-family: 'DM Mono', monospace; font-size: 11px; }
-  .room-cell.actions { display: flex; gap: 4px; justify-content: flex-end; align-items: center; }
-  .pos-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 4px; font-size: 11px; font-weight: 700; background: var(--surface2); color: var(--text-2); }
-  .deck-filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-  .deck-filter-tab { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
-  .deck-filter-tab:hover { border-color: var(--accent); color: var(--accent); }
-  .deck-filter-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
-  .room-search-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .room-search-wrap { position: relative; flex: 1; max-width: 280px; }
-  .room-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
-  .room-search-wrap input { padding-left: 32px; }
+/* DECKS & ROOMS */
+.decks-list { display: flex; flex-direction: column; gap: 10px; }
+.deck-row { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: var(–shadow-sm); transition: all 0.15s; }
+.deck-row:hover { border-color: var(–accent); }
+.deck-order-badge { font-family: ‘DM Mono’, monospace; font-size: 11px; font-weight: 500; color: var(–text-3); background: var(–surface2); border: 1px solid var(–border); border-radius: 4px; padding: 2px 8px; flex-shrink: 0; min-width: 32px; text-align: center; }
+.deck-id-pill { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(–accent); background: var(–accent-light); border-radius: 4px; padding: 2px 8px; font-weight: 600; flex-shrink: 0; }
+.deck-row-name { font-size: 14px; font-weight: 600; flex: 1; }
+.deck-row-count { font-size: 12px; color: var(–text-3); flex-shrink: 0; }
+.row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.rooms-table { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); overflow-x: auto; box-shadow: var(–shadow-sm); -webkit-overflow-scrolling: touch; }
+.rooms-table-header { display: grid; grid-template-columns: 52px 80px 72px 1fr 110px 50px 100px 70px; background: var(–surface2); border-bottom: 1px solid var(–border); min-width: 640px; }
+.rooms-table-header-cell { padding: 10px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(–text-3); }
+.room-table-row { display: grid; grid-template-columns: 52px 80px 72px 1fr 110px 50px 100px 70px; border-bottom: 1px solid var(–border); align-items: center; transition: background 0.1s; min-width: 640px; }
+.room-table-row:last-child { border-bottom: none; }
+.room-table-row:hover { background: var(–surface2); }
+.room-cell { padding: 10px 12px; font-size: 13px; display: flex; align-items: center; }
+.room-cell.mono { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(–text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-cell.num { color: var(–text-3); font-family: ‘DM Mono’, monospace; font-size: 11px; }
+.room-cell.actions { display: flex; gap: 4px; justify-content: flex-end; align-items: center; }
+.pos-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 4px; font-size: 11px; font-weight: 700; background: var(–surface2); color: var(–text-2); }
+.deck-filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.deck-filter-tab { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(–border); background: var(–surface); color: var(–text-2); transition: all 0.15s; font-family: ‘DM Sans’, sans-serif; }
+.deck-filter-tab:hover { border-color: var(–accent); color: var(–accent); }
+.deck-filter-tab.active { background: var(–accent); border-color: var(–accent); color: white; }
+.room-search-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.room-search-wrap { position: relative; flex: 1; max-width: 280px; }
+.room-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(–text-3); pointer-events: none; }
+.room-search-wrap input { padding-left: 32px; }
 
-  /* RACK ZONES */
-  .zones-list { display: flex; flex-direction: column; gap: 12px; }
-  .zone-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
-  .zone-card-header { display: flex; align-items: center; gap: 12px; padding: 16px 18px; }
-  .zone-colour-strip { width: 4px; height: 40px; border-radius: 2px; flex-shrink: 0; }
-  .zone-id-pill { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 4px; flex-shrink: 0; }
-  .zone-name { font-size: 15px; font-weight: 600; flex: 1; }
-  .zone-meta { display: flex; gap: 16px; font-size: 12px; color: var(--text-3); }
-  .zone-meta-item { display: flex; align-items: center; gap: 4px; }
-  .zone-rooms-section { border-top: 1px solid var(--border); padding: 12px 18px; }
-  .zone-rooms-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 10px; }
-  .zone-room-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .zone-room-chip { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-2); font-weight: 500; }
-  .zone-actions { display: flex; gap: 6px; flex-shrink: 0; }
-  .assign-deck-group { margin-bottom: 14px; }
-  .assign-deck-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); padding: 6px 0; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
-  .assign-room-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-radius: var(--radius-sm); cursor: pointer; transition: background 0.1s; }
-  .assign-room-row:hover { background: var(--surface2); }
-  .assign-room-row.other-zone { opacity: 0.45; cursor: not-allowed; }
-  .assign-room-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
-  .assign-room-id { font-family: 'DM Mono', monospace; font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
-  .assign-room-name { font-size: 13px; font-weight: 500; flex: 1; }
-  .assign-zone-badge { font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 500; }
+/* RACK ZONES */
+.zones-list { display: flex; flex-direction: column; gap: 12px; }
+.zone-card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); box-shadow: var(–shadow-sm); overflow: hidden; }
+.zone-card-header { display: flex; align-items: center; gap: 12px; padding: 16px 18px; }
+.zone-colour-strip { width: 4px; height: 40px; border-radius: 2px; flex-shrink: 0; }
+.zone-id-pill { font-family: ‘DM Mono’, monospace; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 4px; flex-shrink: 0; }
+.zone-name { font-size: 15px; font-weight: 600; flex: 1; }
+.zone-meta { display: flex; gap: 16px; font-size: 12px; color: var(–text-3); }
+.zone-meta-item { display: flex; align-items: center; gap: 4px; }
+.zone-rooms-section { border-top: 1px solid var(–border); padding: 12px 18px; }
+.zone-rooms-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(–text-3); margin-bottom: 10px; }
+.zone-room-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.zone-room-chip { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: var(–surface2); border: 1px solid var(–border); color: var(–text-2); font-weight: 500; }
+.zone-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.assign-deck-group { margin-bottom: 14px; }
+.assign-deck-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(–text-3); padding: 6px 0; border-bottom: 1px solid var(–border); margin-bottom: 8px; }
+.assign-room-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-radius: var(–radius-sm); cursor: pointer; transition: background 0.1s; }
+.assign-room-row:hover { background: var(–surface2); }
+.assign-room-row.other-zone { opacity: 0.45; cursor: not-allowed; }
+.assign-room-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(–accent); flex-shrink: 0; cursor: pointer; }
+.assign-room-id { font-family: ‘DM Mono’, monospace; font-size: 11px; background: var(–surface2); border: 1px solid var(–border); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
+.assign-room-name { font-size: 13px; font-weight: 500; flex: 1; }
+.assign-zone-badge { font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 500; }
 
-  /* EQUIPMENT TABLES */
-  .equip-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; box-shadow: var(--shadow-sm); -webkit-overflow-scrolling: touch; }
-  .equip-table table { min-width: 500px; width: 100%; border-collapse: collapse; font-size: 12px; }
-  .equip-table th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
-  .equip-table th:hover { color: var(--accent); }
-  .equip-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
-  .equip-table tr:last-child td { border-bottom: none; }
-  .equip-table tr:hover td { background: var(--surface2); }
-  .equip-table .td-mono { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-2); }
-  .equip-table .td-actions { display: flex; gap: 4px; justify-content: flex-end; white-space: nowrap; align-items: center; }
-  .category-badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; font-family: 'DM Mono', monospace; background: var(--accent-light); color: var(--accent); }
-  .group-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; background: var(--surface2); color: var(--text-2); }
-  .pull-btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 500; cursor: pointer; border: 1px solid var(--accent); background: var(--accent-light); color: var(--accent); font-family: 'DM Sans', sans-serif; transition: all 0.15s; white-space: nowrap; }
-  .pull-btn:hover { background: var(--accent); color: white; }
-  .pull-btn.pulled { border-color: var(--green); background: var(--green-light); color: var(--green); cursor: default; }
-  .device-id-badge { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-2); }
-  .zs-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(340px,1fr)); gap: 16px; }
-  .zs-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
-  .zs-card-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--surface2); }
-  .zs-card-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
-  .zs-card-meta { font-size: 11px; color: var(--text-3); }
-  .zs-device-count { font-size: 22px; font-weight: 700; color: var(--accent); text-align: right; line-height: 1; }
-  .zs-device-count span { font-size: 11px; font-weight: 400; color: var(--text-3); display: block; }
-  .zs-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 0; }
-  .zs-stat { padding: 12px 16px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  .zs-stat:nth-child(3n) { border-right: none; }
-  .zs-stat-value { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.2; }
-  .zs-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-top: 3px; }
+/* EQUIPMENT TABLES */
+.equip-table { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); overflow-x: auto; box-shadow: var(–shadow-sm); -webkit-overflow-scrolling: touch; }
+.equip-table table { min-width: 500px; width: 100%; border-collapse: collapse; font-size: 12px; }
+.equip-table th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(–text-3); background: var(–surface2); border-bottom: 1px solid var(–border); white-space: nowrap; cursor: pointer; user-select: none; }
+.equip-table th:hover { color: var(–accent); }
+.equip-table td { padding: 9px 12px; border-bottom: 1px solid var(–border); color: var(–text); vertical-align: middle; }
+.equip-table tr:last-child td { border-bottom: none; }
+.equip-table tr:hover td { background: var(–surface2); }
+.equip-table .td-mono { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(–text-2); }
+.equip-table .td-actions { display: flex; gap: 4px; justify-content: flex-end; white-space: nowrap; align-items: center; }
+.category-badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; font-family: ‘DM Mono’, monospace; background: var(–accent-light); color: var(–accent); }
+.group-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; background: var(–surface2); color: var(–text-2); }
+.pull-btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: var(–radius-sm); font-size: 11px; font-weight: 500; cursor: pointer; border: 1px solid var(–accent); background: var(–accent-light); color: var(–accent); font-family: ‘DM Sans’, sans-serif; transition: all 0.15s; white-space: nowrap; }
+.pull-btn:hover { background: var(–accent); color: white; }
+.pull-btn.pulled { border-color: var(–green); background: var(–green-light); color: var(–green); cursor: default; }
+.device-id-badge { font-family: ‘DM Mono’, monospace; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: var(–surface2); border: 1px solid var(–border); color: var(–text-2); }
+.zs-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(340px,1fr)); gap: 16px; }
+.zs-card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); box-shadow: var(–shadow-sm); overflow: hidden; }
+.zs-card-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(–border); background: var(–surface2); }
+.zs-card-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.zs-card-meta { font-size: 11px; color: var(–text-3); }
+.zs-device-count { font-size: 22px; font-weight: 700; color: var(–accent); text-align: right; line-height: 1; }
+.zs-device-count span { font-size: 11px; font-weight: 400; color: var(–text-3); display: block; }
+.zs-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 0; }
+.zs-stat { padding: 12px 16px; border-right: 1px solid var(–border); border-bottom: 1px solid var(–border); }
+.zs-stat:nth-child(3n) { border-right: none; }
+.zs-stat-value { font-size: 20px; font-weight: 700; color: var(–text); line-height: 1.2; }
+.zs-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(–text-3); margin-top: 3px; }
 
-  /* IMPORT/EXPORT */
-  .ie-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
-  .ie-section-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-  .ie-section-sub { font-size: 13px; color: var(--text-3); margin-bottom: 20px; }
-  .ie-upload-area { border: 2px dashed var(--border-strong); border-radius: var(--radius); padding: 32px; text-align: center; cursor: pointer; transition: all 0.15s; margin-bottom: 16px; }
-  .ie-upload-area:hover, .ie-upload-area.dragover { border-color: var(--accent); background: var(--accent-light); }
-  .ie-upload-text { font-size: 13px; color: var(--text-2); margin-bottom: 4px; font-weight: 500; }
-  .ie-upload-sub { font-size: 12px; color: var(--text-3); }
-  .ie-preview { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
-  .ie-preview-header { padding: 14px 18px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .ie-preview-title { font-size: 13px; font-weight: 600; }
-  .ie-preview-table { overflow-x: auto; max-height: 360px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .ie-preview-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .ie-preview-table th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); background: var(--surface2); position: sticky; top: 0; border-bottom: 1px solid var(--border); }
-  .ie-preview-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
-  .ie-preview-table tr.row-error td { background: var(--red-light); color: var(--red); }
-  .ie-error-badge { display: inline-flex; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; background: var(--red-light); color: var(--red); }
-  .ie-ok-badge { display: inline-flex; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; background: var(--green-light); color: var(--green); }
-  .ie-import-options { display: flex; gap: 12px; margin-bottom: 16px; }
-  .ie-option { flex: 1; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 14px; cursor: pointer; transition: all 0.15s; }
-  .ie-option.selected { border-color: var(--accent); background: var(--accent-light); }
-  .ie-option-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
-  .ie-option-sub { font-size: 11px; color: var(--text-3); }
+/* IMPORT/EXPORT */
+.ie-section { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 24px; margin-bottom: 20px; box-shadow: var(–shadow-sm); }
+.ie-section-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.ie-section-sub { font-size: 13px; color: var(–text-3); margin-bottom: 20px; }
+.ie-upload-area { border: 2px dashed var(–border-strong); border-radius: var(–radius); padding: 32px; text-align: center; cursor: pointer; transition: all 0.15s; margin-bottom: 16px; }
+.ie-upload-area:hover, .ie-upload-area.dragover { border-color: var(–accent); background: var(–accent-light); }
+.ie-upload-text { font-size: 13px; color: var(–text-2); margin-bottom: 4px; font-weight: 500; }
+.ie-upload-sub { font-size: 12px; color: var(–text-3); }
+.ie-preview { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); overflow: hidden; margin-bottom: 16px; }
+.ie-preview-header { padding: 14px 18px; background: var(–surface2); border-bottom: 1px solid var(–border); display: flex; align-items: center; justify-content: space-between; }
+.ie-preview-title { font-size: 13px; font-weight: 600; }
+.ie-preview-table { overflow-x: auto; max-height: 360px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.ie-preview-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ie-preview-table th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(–text-3); background: var(–surface2); position: sticky; top: 0; border-bottom: 1px solid var(–border); }
+.ie-preview-table td { padding: 8px 12px; border-bottom: 1px solid var(–border); }
+.ie-preview-table tr.row-error td { background: var(–red-light); color: var(–red); }
+.ie-error-badge { display: inline-flex; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; background: var(–red-light); color: var(–red); }
+.ie-ok-badge { display: inline-flex; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; background: var(–green-light); color: var(–green); }
+.ie-import-options { display: flex; gap: 12px; margin-bottom: 16px; }
+.ie-option { flex: 1; border: 2px solid var(–border); border-radius: var(–radius-sm); padding: 14px; cursor: pointer; transition: all 0.15s; }
+.ie-option.selected { border-color: var(–accent); background: var(–accent-light); }
+.ie-option-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.ie-option-sub { font-size: 11px; color: var(–text-3); }
 
-  /* SECTION TABS */
-  .section-tabs { display: flex; gap: 2px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; width: fit-content; margin-bottom: 20px; }
-  .section-tab { padding: 6px 18px; border-radius: 5px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-2); transition: all 0.15s; border: none; background: transparent; font-family: 'DM Sans', sans-serif; }
-  .section-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+/* SECTION TABS */
+.section-tabs { display: flex; gap: 2px; background: var(–surface2); border: 1px solid var(–border); border-radius: var(–radius-sm); padding: 3px; width: fit-content; margin-bottom: 20px; }
+.section-tab { padding: 6px 18px; border-radius: 5px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(–text-2); transition: all 0.15s; border: none; background: transparent; font-family: ‘DM Sans’, sans-serif; }
+.section-tab.active { background: var(–surface); color: var(–text); box-shadow: var(–shadow-sm); }
 
-  /* GROUPS & CATEGORIES TABLE */
-  .gc-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); max-width: 680px; }
-  .gc-table table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
-  .gc-table th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); background: var(--surface2); border-bottom: 1px solid var(--border); }
-  .gc-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  .gc-table tr:last-child td { border-bottom: none; }
-  .gc-table tr:hover td { background: var(--surface2); }
-  .reorder-btns { display: flex; flex-direction: column; gap: 2px; }
+/* GROUPS & CATEGORIES TABLE */
+.gc-table { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); box-shadow: var(–shadow-sm); max-width: 680px; }
+.gc-table table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.gc-table th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(–text-3); background: var(–surface2); border-bottom: 1px solid var(–border); }
+.gc-table td { padding: 10px 12px; border-bottom: 1px solid var(–border); vertical-align: middle; }
+.gc-table tr:last-child td { border-bottom: none; }
+.gc-table tr:hover td { background: var(–surface2); }
+.reorder-btns { display: flex; flex-direction: column; gap: 2px; }
 
-  /* EMPTY / LOADING */
-  .empty-state { text-align: center; padding: 56px 32px; color: var(--text-3); }
-  .empty-state-icon { font-size: 36px; margin-bottom: 14px; opacity: 0.4; }
-  .empty-state-title { font-size: 15px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
-  .empty-state-text { font-size: 13px; margin-bottom: 18px; }
-  .loading { display: flex; align-items: center; justify-content: center; padding: 56px; color: var(--text-3); font-size: 13px; gap: 10px; }
-  .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* EMPTY / LOADING */
+.empty-state { text-align: center; padding: 56px 32px; color: var(–text-3); }
+.empty-state-icon { font-size: 36px; margin-bottom: 14px; opacity: 0.4; }
+.empty-state-title { font-size: 15px; font-weight: 600; color: var(–text-2); margin-bottom: 6px; }
+.empty-state-text { font-size: 13px; margin-bottom: 18px; }
+.loading { display: flex; align-items: center; justify-content: center; padding: 56px; color: var(–text-3); font-size: 13px; gap: 10px; }
+.spinner { width: 18px; height: 18px; border: 2px solid var(–border); border-top-color: var(–accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-  /* CONFIRM / CONN / TOAST / LOGIN */
-  .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
-  .confirm-overlay.open { opacity: 1; pointer-events: all; }
-  .confirm-box { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 28px; max-width: 400px; width: 100%; transform: scale(0.95); transition: transform 0.15s; }
-  .confirm-overlay.open .confirm-box { transform: scale(1); }
-  .confirm-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-  .confirm-text { font-size: 13px; color: var(--text-2); margin-bottom: 20px; line-height: 1.6; }
-  .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
-  .conn-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 10px; border-radius: 20px; font-weight: 500; }
-  .conn-status .dot { width: 6px; height: 6px; border-radius: 50%; }
-  .conn-status.connected { background: var(--green-light); color: var(--green); }
-  .conn-status.connected .dot { background: var(--green); }
-  .conn-status.disconnected { background: var(--red-light); color: var(--red); }
-  .conn-status.disconnected .dot { background: var(--red); }
-  .conn-status.checking { background: var(--surface2); color: var(--text-3); }
-  .conn-status.checking .dot { background: var(--text-3); }
-  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: white; padding: 12px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; z-index: 9999; box-shadow: var(--shadow-lg); transform: translateY(80px); opacity: 0; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-  .toast.show { transform: translateY(0); opacity: 1; }
-  .toast.success { background: var(--green); }
-  .toast.error { background: var(--red); }
-  .login-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); width: 100%; max-width: 400px; padding: 40px; }
-  .login-logo .wordmark { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; }
-  .login-logo .tagline { font-size: 12px; color: var(--text-3); margin-top: 2px; }
-  .login-title { font-size: 20px; font-weight: 600; margin: 20px 0 4px; }
-  .login-sub { font-size: 13px; color: var(--text-3); margin-bottom: 28px; }
-  .login-error { background: var(--red-light); color: var(--red); border: 1px solid #f5c6c2; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; margin-bottom: 16px; display: none; }
-  .login-error.show { display: block; }
-  .hidden { display: none !important; }
-  .flex { display: flex; } .items-center { align-items: center; } .gap-12 { gap: 12px; }
+/* CONFIRM / CONN / TOAST / LOGIN */
+.confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+.confirm-overlay.open { opacity: 1; pointer-events: all; }
+.confirm-box { background: var(–surface); border-radius: var(–radius); box-shadow: var(–shadow-lg); padding: 28px; max-width: 400px; width: 100%; transform: scale(0.95); transition: transform 0.15s; }
+.confirm-overlay.open .confirm-box { transform: scale(1); }
+.confirm-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.confirm-text { font-size: 13px; color: var(–text-2); margin-bottom: 20px; line-height: 1.6; }
+.confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.conn-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 10px; border-radius: 20px; font-weight: 500; }
+.conn-status .dot { width: 6px; height: 6px; border-radius: 50%; }
+.conn-status.connected { background: var(–green-light); color: var(–green); }
+.conn-status.connected .dot { background: var(–green); }
+.conn-status.disconnected { background: var(–red-light); color: var(–red); }
+.conn-status.disconnected .dot { background: var(–red); }
+.conn-status.checking { background: var(–surface2); color: var(–text-3); }
+.conn-status.checking .dot { background: var(–text-3); }
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(–text); color: white; padding: 12px 18px; border-radius: var(–radius-sm); font-size: 13px; font-weight: 500; z-index: 9999; box-shadow: var(–shadow-lg); transform: translateY(80px); opacity: 0; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { background: var(–green); }
+.toast.error { background: var(–red); }
+.login-overlay { position: fixed; inset: 0; background: var(–bg); z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.login-box { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); box-shadow: var(–shadow-lg); width: 100%; max-width: 400px; padding: 40px; }
+.login-logo .wordmark { font-size: 13px; font-weight: 600; color: var(–accent); letter-spacing: 0.12em; text-transform: uppercase; }
+.login-logo .tagline { font-size: 12px; color: var(–text-3); margin-top: 2px; }
+.login-title { font-size: 20px; font-weight: 600; margin: 20px 0 4px; }
+.login-sub { font-size: 13px; color: var(–text-3); margin-bottom: 28px; }
+.login-error { background: var(–red-light); color: var(–red); border: 1px solid #f5c6c2; border-radius: var(–radius-sm); padding: 10px 14px; font-size: 13px; margin-bottom: 16px; display: none; }
+.login-error.show { display: block; }
+.hidden { display: none !important; }
+.flex { display: flex; } .items-center { align-items: center; } .gap-12 { gap: 12px; }
 </style>
+
 </head>
 <body>
 <div class="app">
@@ -413,229 +414,233 @@
     </header>
     <div class="content">
 
-      <!-- DASHBOARD -->
-      <div id="page-dashboard">
-        <div class="stats-bar">
-          <div class="stat-card"><div class="stat-value" id="stat-total">—</div><div class="stat-label">Total Projects</div></div>
-          <div class="stat-card"><div class="stat-value" id="stat-active">—</div><div class="stat-label">Active</div></div>
-          <div class="stat-card"><div class="stat-value" id="stat-newbuild">—</div><div class="stat-label">New Builds</div></div>
-          <div class="stat-card"><div class="stat-value" id="stat-refit">—</div><div class="stat-label">Refits</div></div>
-        </div>
-        <div class="toolbar">
-          <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" placeholder="Search projects…" id="search-input" oninput="filterProjects()"></div>
-          <select id="filter-status" onchange="filterProjects()" style="width:auto;padding:8px 11px"><option value="">All statuses</option><option value="Active">Active</option><option value="On Hold">On Hold</option><option value="Complete">Complete</option></select>
-          <select id="filter-type" onchange="filterProjects()" style="width:auto;padding:8px 11px"><option value="">All types</option><option value="New Build">New Build</option><option value="Refit">Refit</option><option value="Residential">Residential</option></select>
-        </div>
-        <div id="projects-container"><div class="loading"><div class="spinner"></div> Loading projects…</div></div>
-      </div>
-
-      <!-- PROJECT INFO -->
-      <div id="page-project-info" class="hidden"><div id="project-info-content"></div></div>
-
-      <!-- DECKS & ROOMS -->
-      <div id="page-decks-rooms" class="hidden">
-        <div class="section-tabs">
-          <button class="section-tab active" id="tab-btn-decks" onclick="switchDeckRoomTab('decks')">Decks</button>
-          <button class="section-tab" id="tab-btn-rooms" onclick="switchDeckRoomTab('rooms')">Rooms</button>
-        </div>
-        <div id="decks-tab-content"><div id="decks-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
-        <div id="rooms-tab-content" class="hidden">
-          <div class="room-search-bar">
-            <div class="room-search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="room-search-input" placeholder="Search rooms…" oninput="renderRoomsTable()"></div>
-          </div>
-          <div class="deck-filter-tabs" id="deck-filter-tabs"></div>
-          <div id="rooms-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
-        </div>
-      </div>
-
-      <!-- RACK ZONES -->
-      <div id="page-rack-zones" class="hidden"><div id="rack-zones-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
-
-      <!-- IMPORT / EXPORT -->
-      <div id="page-import-export" class="hidden">
-        <div class="section-tabs">
-          <button class="section-tab active" id="ie-tab-global" onclick="ieSetTab('global')">Global Data</button>
-          <button class="section-tab" id="ie-tab-project" onclick="ieSetTab('project')">Project Data</button>
-        </div>
-
-        <!-- GLOBAL TAB -->
-        <div id="ie-panel-global">
-          <div class="ie-section">
-            <div class="ie-section-title">Export — Device Types</div>
-            <div class="ie-section-sub">Download the full global device type library as an Excel file.</div>
-            <button class="btn btn-primary" onclick="ieExportGlobalDevices()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Device Types</button>
-          </div>
-          <div class="ie-section">
-            <div class="ie-section-title">Import — Device Types</div>
-            <div class="ie-section-sub">Upload an Excel file to import global device types.</div>
-            <div class="ie-upload-area" id="ie-upload-gd" onclick="document.getElementById('ie-file-gd').click()" ondragover="ieDragOver(event,'ie-upload-gd')" ondragleave="ieDragLeave('ie-upload-gd')" ondrop="ieDrop(event,'global-devices')">
-              <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
-              <div class="ie-upload-text">Click to choose file or drag and drop</div>
-              <div class="ie-upload-sub">Excel files only (.xlsx)</div>
-            </div>
-            <input type="file" id="ie-file-gd" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'global-devices')">
-            <div id="ie-preview-gd" class="hidden">
-              <div class="ie-import-options">
-                <div class="ie-option selected" id="ie-opt-gd-add" onclick="ieSelectOpt('gd','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep current device types and add new ones</div></div>
-                <div class="ie-option" id="ie-opt-gd-replace" onclick="ieSelectOpt('gd','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL device types and replace with file</div></div>
-              </div>
-              <div class="ie-preview" id="ie-preview-table-gd"></div>
-              <div style="display:flex;gap:10px;margin-top:12px">
-                <button class="btn btn-secondary" onclick="ieResetPanel('gd')">Cancel</button>
-                <button class="btn btn-primary" onclick="ieConfirm('global-devices')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
-              </div>
-            </div>
-          </div>
-          <div class="ie-section">
-            <div class="ie-section-title">Export — Product Catalogue</div>
-            <div class="ie-section-sub">Download the full global product catalogue as an Excel file.</div>
-            <button class="btn btn-primary" onclick="ieExportGlobalProducts()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Product Catalogue</button>
-          </div>
-          <div class="ie-section">
-            <div class="ie-section-title">Import — Product Catalogue</div>
-            <div class="ie-section-sub">Upload an Excel file to import products into the global catalogue.</div>
-            <div class="ie-upload-area" id="ie-upload-gp" onclick="document.getElementById('ie-file-gp').click()" ondragover="ieDragOver(event,'ie-upload-gp')" ondragleave="ieDragLeave('ie-upload-gp')" ondrop="ieDrop(event,'global-products')">
-              <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
-              <div class="ie-upload-text">Click to choose file or drag and drop</div>
-              <div class="ie-upload-sub">Excel files only (.xlsx)</div>
-            </div>
-            <input type="file" id="ie-file-gp" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'global-products')">
-            <div id="ie-preview-gp" class="hidden">
-              <div class="ie-import-options">
-                <div class="ie-option selected" id="ie-opt-gp-add" onclick="ieSelectOpt('gp','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep current products and add new ones</div></div>
-                <div class="ie-option" id="ie-opt-gp-replace" onclick="ieSelectOpt('gp','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL products and replace with file</div></div>
-              </div>
-              <div class="ie-preview" id="ie-preview-table-gp"></div>
-              <div style="display:flex;gap:10px;margin-top:12px">
-                <button class="btn btn-secondary" onclick="ieResetPanel('gp')">Cancel</button>
-                <button class="btn btn-primary" onclick="ieConfirm('global-products')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- PROJECT TAB -->
-        <div id="ie-panel-project" class="hidden">
-          <div id="ie-no-project" class="hidden">
-            <div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-title">No project selected</div><div class="empty-state-text">Open a project first to import or export project equipment data.</div></div>
-          </div>
-          <div id="ie-project-content">
-            <div class="ie-section">
-              <div class="ie-section-title">Export — Project Equipment</div>
-              <div class="ie-section-sub">Download the equipment list for the current project as an Excel file.</div>
-              <button class="btn btn-primary" onclick="ieExportProjectEquipment()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Project Equipment</button>
-            </div>
-            <div class="ie-section">
-              <div class="ie-section-title">Import — Project Equipment</div>
-              <div class="ie-section-sub">Upload an Excel file to import equipment into the current project.</div>
-              <div class="ie-upload-area" id="ie-upload-pe" onclick="document.getElementById('ie-file-pe').click()" ondragover="ieDragOver(event,'ie-upload-pe')" ondragleave="ieDragLeave('ie-upload-pe')" ondrop="ieDrop(event,'project-equipment')">
-                <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
-                <div class="ie-upload-text">Click to choose file or drag and drop</div>
-                <div class="ie-upload-sub">Excel files only (.xlsx)</div>
-              </div>
-              <input type="file" id="ie-file-pe" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'project-equipment')">
-              <div id="ie-preview-pe" class="hidden">
-                <div class="ie-import-options">
-                  <div class="ie-option selected" id="ie-opt-pe-add" onclick="ieSelectOpt('pe','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep current equipment and add new rows</div></div>
-                  <div class="ie-option" id="ie-opt-pe-replace" onclick="ieSelectOpt('pe','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL project equipment and replace with file</div></div>
-                </div>
-                <div class="ie-preview" id="ie-preview-table-pe"></div>
-                <div style="display:flex;gap:10px;margin-top:12px">
-                  <button class="btn btn-secondary" onclick="ieResetPanel('pe')">Cancel</button>
-                  <button class="btn btn-primary" onclick="ieConfirm('project-equipment')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
-                </div>
-              </div>
-            </div>
-            <div class="ie-section">
-              <div class="ie-section-title">Export — Placed Equipment</div>
-              <div class="ie-section-sub">Download all placed equipment instances for the current project.</div>
-              <button class="btn btn-primary" onclick="ieExportPlacedEquipment()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Placed Equipment</button>
-            </div>
-            <div class="ie-section">
-              <div class="ie-section-title">Export — Decks, Rooms &amp; Zones</div>
-              <div class="ie-section-sub">Download all decks, rooms and rack zone assignments for the current project.</div>
-              <button class="btn btn-primary" onclick="exportToExcel()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Decks &amp; Rooms</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- EQUIPMENT -->
-      <div id="page-equipment" class="hidden">
-        <div class="section-tabs">
-          <button class="section-tab active" id="tab-btn-proj-eq" onclick="switchEquipTab('project')">Project Library</button>
-          <button class="section-tab" id="tab-btn-placed" onclick="switchEquipTab('placed')">Equipment Schedule</button>
-          <button class="section-tab" id="tab-btn-zone-summary" onclick="switchEquipTab('zone-summary')">Zone Summary</button>
-          <button class="section-tab" id="tab-btn-templates" onclick="switchEquipTab('templates')">Room Templates</button>
-        </div>
-        <div id="equip-project-tab">
-          <div class="toolbar">
-            <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pe-search" placeholder="Search project equipment…" oninput="renderProjectEquipment()"></div>
-            <select id="pe-filter-group" onchange="renderProjectEquipment()" style="width:auto;padding:8px 11px"><option value="">All systems</option></select>
-            <button class="btn btn-secondary btn-sm" onclick="showPage('global-library')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Pull from Library</button>
-          </div>
-          <div id="project-equipment-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
-        </div>
-        <div id="equip-placed-tab" class="hidden">
-          <div class="toolbar">
-            <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pl-search" placeholder="Search placed equipment…" oninput="renderPlacedEquipment()"></div>
-            <button class="btn btn-primary btn-sm" onclick="openPlaceModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Place Equipment</button>
-          </div>
-          <div class="deck-filter-tabs" id="pl-deck-filter-tabs"></div>
-          <div id="placed-equipment-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
-        </div>
-        <div id="equip-zone-summary-tab" class="hidden">
-          <div id="zone-summary-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
-        </div>
-        <div id="equip-templates-tab" class="hidden">
-          <div class="toolbar">
-            <button class="btn btn-primary btn-sm" onclick="openTemplateModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Template</button>
-          </div>
-          <div id="templates-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
-        </div>
-      </div>
-
-      <!-- SYSTEM GROUPS & CATEGORIES -->
-      <div id="page-system-groups" class="hidden">
-        <div class="section-tabs">
-          <button class="section-tab active" id="tab-btn-sg" onclick="switchSgTab('groups')">System Groups</button>
-          <button class="section-tab" id="tab-btn-dc" onclick="switchSgTab('categories')">Categories</button>
-        </div>
-        <div id="sg-tab-groups"><div id="system-groups-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
-        <div id="sg-tab-categories" class="hidden">
-          <div class="toolbar">
-            <select id="dc-filter-group" onchange="renderDeviceCategories()" style="width:auto;padding:8px 11px"><option value="">All system groups</option></select>
-            <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="dc-count"></div>
-          </div>
-          <div id="device-categories-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
-        </div>
-      </div>
-
-      <!-- DEVICE TYPES (GLOBAL LIBRARY) -->
-      <div id="page-global-library" class="hidden">
-        <div class="toolbar">
-          <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="gl-search" placeholder="Search library…" oninput="renderGlobalLibrary()"></div>
-          <select id="gl-filter-group" onchange="renderGlobalLibrary()" style="width:auto;padding:8px 11px"><option value="">All systems</option></select>
-          <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="gl-count"></div>
-        </div>
-        <div id="global-library-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
-      </div>
-
-      <!-- PRODUCT CATALOGUE -->
-      <div id="page-product-catalogue" class="hidden">
-        <div class="toolbar">
-          <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pc-search" placeholder="Search products…" oninput="renderProductCatalogue()"></div>
-          <select id="pc-filter-type" onchange="renderProductCatalogue()" style="width:auto;padding:8px 11px"><option value="">All device types</option></select>
-          <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="pc-count"></div>
-        </div>
-        <div id="product-catalogue-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
-      </div>
-
+```
+  <!-- DASHBOARD -->
+  <div id="page-dashboard">
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-value" id="stat-total">—</div><div class="stat-label">Total Projects</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-active">—</div><div class="stat-label">Active</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-newbuild">—</div><div class="stat-label">New Builds</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-refit">—</div><div class="stat-label">Refits</div></div>
     </div>
+    <div class="toolbar">
+      <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" placeholder="Search projects…" id="search-input" oninput="filterProjects()"></div>
+      <select id="filter-status" onchange="filterProjects()" style="width:auto;padding:8px 11px"><option value="">All statuses</option><option value="Active">Active</option><option value="On Hold">On Hold</option><option value="Complete">Complete</option></select>
+      <select id="filter-type" onchange="filterProjects()" style="width:auto;padding:8px 11px"><option value="">All types</option><option value="New Build">New Build</option><option value="Refit">Refit</option><option value="Residential">Residential</option></select>
+    </div>
+    <div id="projects-container"><div class="loading"><div class="spinner"></div> Loading projects…</div></div>
+  </div>
+
+  <!-- PROJECT INFO -->
+  <div id="page-project-info" class="hidden"><div id="project-info-content"></div></div>
+
+  <!-- DECKS & ROOMS -->
+  <div id="page-decks-rooms" class="hidden">
+    <div class="section-tabs">
+      <button class="section-tab active" id="tab-btn-decks" onclick="switchDeckRoomTab('decks')">Decks</button>
+      <button class="section-tab" id="tab-btn-rooms" onclick="switchDeckRoomTab('rooms')">Rooms</button>
+    </div>
+    <div id="decks-tab-content"><div id="decks-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
+    <div id="rooms-tab-content" class="hidden">
+      <div class="room-search-bar">
+        <div class="room-search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="room-search-input" placeholder="Search rooms…" oninput="renderRoomsTable()"></div>
+      </div>
+      <div class="deck-filter-tabs" id="deck-filter-tabs"></div>
+      <div id="rooms-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- RACK ZONES -->
+  <div id="page-rack-zones" class="hidden"><div id="rack-zones-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
+
+  <!-- IMPORT / EXPORT -->
+  <div id="page-import-export" class="hidden">
+    <div class="section-tabs">
+      <button class="section-tab active" id="ie-tab-global" onclick="ieSetTab('global')">Global Data</button>
+      <button class="section-tab" id="ie-tab-project" onclick="ieSetTab('project')">Project Data</button>
+    </div>
+
+    <!-- GLOBAL TAB -->
+    <div id="ie-panel-global">
+      <div class="ie-section">
+        <div class="ie-section-title">Export — Device Types</div>
+        <div class="ie-section-sub">Download the full global device type library as an Excel file.</div>
+        <button class="btn btn-primary" onclick="ieExportGlobalDevices()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Device Types</button>
+      </div>
+      <div class="ie-section">
+        <div class="ie-section-title">Import — Device Types</div>
+        <div class="ie-section-sub">Upload an Excel file to import global device types.</div>
+        <div class="ie-upload-area" id="ie-upload-gd" onclick="document.getElementById('ie-file-gd').click()" ondragover="ieDragOver(event,'ie-upload-gd')" ondragleave="ieDragLeave('ie-upload-gd')" ondrop="ieDrop(event,'global-devices')">
+          <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
+          <div class="ie-upload-text">Click to choose file or drag and drop</div>
+          <div class="ie-upload-sub">Excel files only (.xlsx)</div>
+        </div>
+        <input type="file" id="ie-file-gd" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'global-devices')">
+        <div id="ie-preview-gd" class="hidden">
+          <div class="ie-import-options">
+            <div class="ie-option selected" id="ie-opt-gd-add" onclick="ieSelectOpt('gd','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep current device types and add new ones</div></div>
+            <div class="ie-option" id="ie-opt-gd-replace" onclick="ieSelectOpt('gd','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL device types and replace with file</div></div>
+          </div>
+          <div class="ie-preview" id="ie-preview-table-gd"></div>
+          <div style="display:flex;gap:10px;margin-top:12px">
+            <button class="btn btn-secondary" onclick="ieResetPanel('gd')">Cancel</button>
+            <button class="btn btn-primary" onclick="ieConfirm('global-devices')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
+          </div>
+        </div>
+      </div>
+      <div class="ie-section">
+        <div class="ie-section-title">Export — Product Catalogue</div>
+        <div class="ie-section-sub">Download the full global product catalogue as an Excel file.</div>
+        <button class="btn btn-primary" onclick="ieExportGlobalProducts()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Product Catalogue</button>
+      </div>
+      <div class="ie-section">
+        <div class="ie-section-title">Import — Product Catalogue</div>
+        <div class="ie-section-sub">Upload an Excel file to import products into the global catalogue.</div>
+        <div class="ie-upload-area" id="ie-upload-gp" onclick="document.getElementById('ie-file-gp').click()" ondragover="ieDragOver(event,'ie-upload-gp')" ondragleave="ieDragLeave('ie-upload-gp')" ondrop="ieDrop(event,'global-products')">
+          <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
+          <div class="ie-upload-text">Click to choose file or drag and drop</div>
+          <div class="ie-upload-sub">Excel files only (.xlsx)</div>
+        </div>
+        <input type="file" id="ie-file-gp" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'global-products')">
+        <div id="ie-preview-gp" class="hidden">
+          <div class="ie-import-options">
+            <div class="ie-option selected" id="ie-opt-gp-add" onclick="ieSelectOpt('gp','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep current products and add new ones</div></div>
+            <div class="ie-option" id="ie-opt-gp-replace" onclick="ieSelectOpt('gp','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL products and replace with file</div></div>
+          </div>
+          <div class="ie-preview" id="ie-preview-table-gp"></div>
+          <div style="display:flex;gap:10px;margin-top:12px">
+            <button class="btn btn-secondary" onclick="ieResetPanel('gp')">Cancel</button>
+            <button class="btn btn-primary" onclick="ieConfirm('global-products')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECT TAB -->
+    <div id="ie-panel-project" class="hidden">
+      <div id="ie-no-project" class="hidden">
+        <div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-title">No project selected</div><div class="empty-state-text">Open a project first to import or export project equipment data.</div></div>
+      </div>
+      <div id="ie-project-content">
+        <div class="ie-section">
+          <div class="ie-section-title">Export — Project Equipment</div>
+          <div class="ie-section-sub">Download the equipment list for the current project as an Excel file.</div>
+          <button class="btn btn-primary" onclick="ieExportProjectEquipment()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Project Equipment</button>
+        </div>
+        <div class="ie-section">
+          <div class="ie-section-title">Import — Project Equipment</div>
+          <div class="ie-section-sub">Upload an Excel file to import equipment into the current project.</div>
+          <div class="ie-upload-area" id="ie-upload-pe" onclick="document.getElementById('ie-file-pe').click()" ondragover="ieDragOver(event,'ie-upload-pe')" ondragleave="ieDragLeave('ie-upload-pe')" ondrop="ieDrop(event,'project-equipment')">
+            <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
+            <div class="ie-upload-text">Click to choose file or drag and drop</div>
+            <div class="ie-upload-sub">Excel files only (.xlsx)</div>
+          </div>
+          <input type="file" id="ie-file-pe" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'project-equipment')">
+          <div id="ie-preview-pe" class="hidden">
+            <div class="ie-import-options">
+              <div class="ie-option selected" id="ie-opt-pe-add" onclick="ieSelectOpt('pe','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep current equipment and add new rows</div></div>
+              <div class="ie-option" id="ie-opt-pe-replace" onclick="ieSelectOpt('pe','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL project equipment and replace with file</div></div>
+            </div>
+            <div class="ie-preview" id="ie-preview-table-pe"></div>
+            <div style="display:flex;gap:10px;margin-top:12px">
+              <button class="btn btn-secondary" onclick="ieResetPanel('pe')">Cancel</button>
+              <button class="btn btn-primary" onclick="ieConfirm('project-equipment')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
+            </div>
+          </div>
+        </div>
+        <div class="ie-section">
+          <div class="ie-section-title">Export — Placed Equipment</div>
+          <div class="ie-section-sub">Download all placed equipment instances for the current project.</div>
+          <button class="btn btn-primary" onclick="ieExportPlacedEquipment()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Placed Equipment</button>
+        </div>
+        <div class="ie-section">
+          <div class="ie-section-title">Export — Decks, Rooms &amp; Zones</div>
+          <div class="ie-section-sub">Download all decks, rooms and rack zone assignments for the current project.</div>
+          <button class="btn btn-primary" onclick="exportToExcel()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Decks &amp; Rooms</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EQUIPMENT -->
+  <div id="page-equipment" class="hidden">
+    <div class="section-tabs">
+      <button class="section-tab active" id="tab-btn-proj-eq" onclick="switchEquipTab('project')">Project Library</button>
+      <button class="section-tab" id="tab-btn-placed" onclick="switchEquipTab('placed')">Equipment Schedule</button>
+      <button class="section-tab" id="tab-btn-zone-summary" onclick="switchEquipTab('zone-summary')">Zone Summary</button>
+      <button class="section-tab" id="tab-btn-templates" onclick="switchEquipTab('templates')">Room Templates</button>
+    </div>
+    <div id="equip-project-tab">
+      <div class="toolbar">
+        <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pe-search" placeholder="Search project equipment…" oninput="renderProjectEquipment()"></div>
+        <select id="pe-filter-group" onchange="renderProjectEquipment()" style="width:auto;padding:8px 11px"><option value="">All systems</option></select>
+        <button class="btn btn-secondary btn-sm" onclick="showPage('global-library')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Pull from Library</button>
+      </div>
+      <div id="project-equipment-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+    </div>
+    <div id="equip-placed-tab" class="hidden">
+      <div class="toolbar">
+        <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pl-search" placeholder="Search placed equipment…" oninput="renderPlacedEquipment()"></div>
+        <button class="btn btn-primary btn-sm" onclick="openPlaceModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Place Equipment</button>
+      </div>
+      <div class="deck-filter-tabs" id="pl-deck-filter-tabs"></div>
+      <div id="placed-equipment-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+    </div>
+    <div id="equip-zone-summary-tab" class="hidden">
+      <div id="zone-summary-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+    </div>
+    <div id="equip-templates-tab" class="hidden">
+      <div class="toolbar">
+        <button class="btn btn-primary btn-sm" onclick="openTemplateModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Template</button>
+      </div>
+      <div id="templates-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- SYSTEM GROUPS & CATEGORIES -->
+  <div id="page-system-groups" class="hidden">
+    <div class="section-tabs">
+      <button class="section-tab active" id="tab-btn-sg" onclick="switchSgTab('groups')">System Groups</button>
+      <button class="section-tab" id="tab-btn-dc" onclick="switchSgTab('categories')">Categories</button>
+    </div>
+    <div id="sg-tab-groups"><div id="system-groups-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
+    <div id="sg-tab-categories" class="hidden">
+      <div class="toolbar">
+        <select id="dc-filter-group" onchange="renderDeviceCategories()" style="width:auto;padding:8px 11px"><option value="">All system groups</option></select>
+        <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="dc-count"></div>
+      </div>
+      <div id="device-categories-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- DEVICE TYPES (GLOBAL LIBRARY) -->
+  <div id="page-global-library" class="hidden">
+    <div class="toolbar">
+      <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="gl-search" placeholder="Search library…" oninput="renderGlobalLibrary()"></div>
+      <select id="gl-filter-group" onchange="renderGlobalLibrary()" style="width:auto;padding:8px 11px"><option value="">All systems</option></select>
+      <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="gl-count"></div>
+    </div>
+    <div id="global-library-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+  </div>
+
+  <!-- PRODUCT CATALOGUE -->
+  <div id="page-product-catalogue" class="hidden">
+    <div class="toolbar">
+      <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pc-search" placeholder="Search products…" oninput="renderProductCatalogue()"></div>
+      <select id="pc-filter-type" onchange="renderProductCatalogue()" style="width:auto;padding:8px 11px"><option value="">All device types</option></select>
+      <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="pc-count"></div>
+    </div>
+    <div id="product-catalogue-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+  </div>
+
+</div>
+```
+
   </main>
 </div>
 
 <!-- PROJECT MODAL -->
+
 <div class="modal-overlay" id="project-modal-overlay">
   <div class="modal">
     <div class="modal-header"><div class="modal-title" id="modal-title">New Project</div><button class="btn-icon" onclick="closeProjectModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -658,6 +663,7 @@
 </div>
 
 <!-- DECK MODAL -->
+
 <div class="modal-overlay" id="deck-modal-overlay">
   <div class="modal" style="max-width:480px">
     <div class="modal-header"><div class="modal-title" id="deck-modal-title">Add Deck</div><button class="btn-icon" onclick="closeDeckModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -670,6 +676,7 @@
 </div>
 
 <!-- ROOM MODAL -->
+
 <div class="modal-overlay" id="room-modal-overlay">
   <div class="modal" style="max-width:560px">
     <div class="modal-header"><div class="modal-title" id="room-modal-title">Add Room</div><button class="btn-icon" onclick="closeRoomModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -684,6 +691,7 @@
 </div>
 
 <!-- ZONE MODAL -->
+
 <div class="modal-overlay" id="zone-modal-overlay">
   <div class="modal" style="max-width:560px">
     <div class="modal-header"><div class="modal-title" id="zone-modal-title">Add Rack Zone</div><button class="btn-icon" onclick="closeZoneModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -697,6 +705,7 @@
 </div>
 
 <!-- ASSIGN ROOMS MODAL -->
+
 <div class="modal-overlay" id="assign-modal-overlay">
   <div class="modal" style="max-width:600px">
     <div class="modal-header"><div class="modal-title" id="assign-modal-title">Assign Rooms to Zone</div><button class="btn-icon" onclick="closeAssignModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -706,6 +715,7 @@
 </div>
 
 <!-- GLOBAL DEVICE TYPE MODAL -->
+
 <div class="modal-overlay" id="global-device-modal-overlay">
   <div class="modal" style="max-width:620px">
     <div class="modal-header"><div class="modal-title" id="gd-modal-title">Add Device Type</div><button class="btn-icon" onclick="closeGlobalDeviceModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -725,6 +735,7 @@
 </div>
 
 <!-- PRODUCT MODAL -->
+
 <div class="modal-overlay" id="product-modal-overlay">
   <div class="modal" style="max-width:640px">
     <div class="modal-header"><div class="modal-title" id="product-modal-title">Add Product</div><button class="btn-icon" onclick="closeProductModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -733,7 +744,8 @@
       <div class="form-row form-row-2"><div><label>Part Number</label><input type="text" id="prod-part" placeholder="e.g. QN65Q80CAFXZA"></div><div></div></div>
       <div class="form-row form-row-2"><div><label>Make <span class="required">*</span></label><input type="text" id="prod-make" placeholder="e.g. Samsung"></div><div><label>Model <span class="required">*</span></label><input type="text" id="prod-model" placeholder="e.g. QN65Q80C"></div></div>
       <div class="form-section"><div class="form-section-title">Network &amp; Power</div>
-        <div class="form-row form-row-3"><div><label>LAN Ports</label><input type="number" id="prod-lan" placeholder="0" min="0"></div><div><label>POE Ports</label><input type="number" id="prod-poe-ports" placeholder="0" min="0" oninput="togglePoEType('prod-poe','prod-poe-ports')"></div><div><label>POE Type</label><select id="prod-poe" disabled><option value="">None</option><option value="802.3af">802.3af (15.4W)</option><option value="802.3at">802.3at (30W)</option><option value="802.3bt">802.3bt (90W)</option></select></div></div>
+        <div class="form-row form-row-3"><div><label>LAN Ports</label><input type="number" id="prod-lan" placeholder="0" min="0"></div><div><label>POE Ports</label><input type="number" id="prod-poe-ports" placeholder="0" min="0" oninput="togglePoEType('prod-poe','prod-poe-ports');togglePoESupplyFields()"></div><div><label>POE Type</label><select id="prod-poe" disabled><option value="">None</option><option value="802.3af">802.3af (15.4W)</option><option value="802.3at">802.3at (30W)</option><option value="802.3bt">802.3bt (90W)</option></select></div></div>
+        <div class="form-row form-row-2" id="prod-poe-supply-row" style="display:none"><div><label>PoE Port Count (supply) <span class="optional">if this device provides PoE</span></label><input type="number" id="prod-poe-port-count" placeholder="0" min="0"></div><div><label>Total PoE Budget (W) <span class="optional">if this device provides PoE</span></label><input type="number" id="prod-poe-budget" placeholder="0" min="0"></div></div>
         <div class="form-row form-row-3"><div><label>Power Supply</label><select id="prod-pwr-type"><option value="">— Select —</option><option value="12V">12V DC</option><option value="24V">24V DC</option><option value="120V">120V AC</option><option value="230V">230V AC</option><option value="100-240V">100–240V AC (Universal)</option><option value="POE-only">POE Only</option><option value="POE+mains">POE + Mains</option></select></div><div><label>Power Draw (W)</label><input type="number" id="prod-power" placeholder="0" min="0"></div><div><label>Heat (BTU)</label><input type="number" id="prod-heat" placeholder="0" min="0"></div></div>
         <div class="form-row form-row-2"><div><label>Weight (kg)</label><input type="number" id="prod-weight" placeholder="0" min="0" step="0.1"></div><div></div></div>
       </div>
@@ -747,6 +759,7 @@
 </div>
 
 <!-- SELECT PRODUCT MODAL -->
+
 <div class="modal-overlay" id="select-product-modal-overlay">
   <div class="modal" style="max-width:680px">
     <div class="modal-header"><div class="modal-title" id="select-product-title">Select Product</div><button class="btn-icon" onclick="closeSelectProductModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -759,6 +772,7 @@
 </div>
 
 <!-- PROJECT EQUIPMENT EDIT MODAL -->
+
 <div class="modal-overlay" id="pe-modal-overlay">
   <div class="modal" style="max-width:480px">
     <div class="modal-header"><div class="modal-title" id="pe-modal-title">Edit Equipment</div><button class="btn-icon" onclick="closePeModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -775,6 +789,7 @@
 </div>
 
 <!-- PLACE EQUIPMENT MODAL -->
+
 <div class="modal-overlay" id="place-modal-overlay">
   <div class="modal" style="max-width:520px">
     <div class="modal-header"><div class="modal-title" id="place-modal-title">Place Equipment</div><button class="btn-icon" onclick="closePlaceModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -790,6 +805,7 @@
 </div>
 
 <!-- SYSTEM GROUP MODAL -->
+
 <div class="modal-overlay" id="sg-modal-overlay">
   <div class="modal" style="max-width:440px">
     <div class="modal-header"><div class="modal-title" id="sg-modal-title">Add System Group</div><button class="btn-icon" onclick="closeSgModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -802,6 +818,7 @@
 </div>
 
 <!-- DEVICE CATEGORY MODAL -->
+
 <div class="modal-overlay" id="dc-modal-overlay">
   <div class="modal" style="max-width:480px">
     <div class="modal-header"><div class="modal-title" id="dc-modal-title">Add Category</div><button class="btn-icon" onclick="closeDcModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -814,6 +831,7 @@
 </div>
 
 <!-- CONFIRM -->
+
 <div class="confirm-overlay" id="confirm-overlay">
   <div class="confirm-box">
     <div class="confirm-title" id="confirm-title">Are you sure?</div>
@@ -823,6 +841,7 @@
 </div>
 
 <!-- TEMPLATE BUILDER MODAL -->
+
 <div class="modal-overlay" id="template-modal-overlay">
   <div class="modal" style="max-width:640px;width:100%">
     <div class="modal-header">
@@ -855,6 +874,7 @@
 </div>
 
 <!-- APPLY TEMPLATE TO ROOMS MODAL -->
+
 <div class="modal-overlay" id="apply-tmpl-modal-overlay">
   <div class="modal" style="max-width:480px;width:100%">
     <div class="modal-header">
@@ -873,6 +893,7 @@
 </div>
 
 <!-- LOGIN -->
+
 <div class="login-overlay" id="login-overlay" style="display:none">
   <div class="login-box">
     <div class="login-logo"><div class="wordmark">SMART Advisers</div><div class="tagline">Specification Platform</div></div>
@@ -1833,12 +1854,14 @@ function populateProductDeviceTypeSelect(selectedTypeId){
   const sel=document.getElementById('prod-device-type');
   sel.innerHTML='<option value="">— Select device type —</option>'+globalLibrary.map(d=>'<option value="'+escHtml(d.device_type_id)+'"'+(d.device_type_id===selectedTypeId?' selected':'')+'>'+escHtml(d.device_type_id)+' — '+escHtml(d.description)+'</option>').join('');
 }
+function togglePoESupplyFields(){const ports=parseInt(document.getElementById('prod-poe-ports').value)||0;document.getElementById('prod-poe-supply-row').style.display=ports>0?'':'none';}
 function openProductModal(){
   editingProductId=null;document.getElementById('product-modal-title').textContent='Add Product';document.getElementById('product-save-btn').textContent='Save Product';
   loadSystemGroupOptions();populateProductDeviceTypeSelect(null);
   ['prod-part','prod-make','prod-model','prod-notes'].forEach(id=>document.getElementById(id).value='');
-  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat'].forEach(id=>document.getElementById(id).value='');
+  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-port-count','prod-poe-budget'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prod-poe').value='';document.getElementById('prod-poe').disabled=true;
+  document.getElementById('prod-poe-supply-row').style.display='none';
   document.getElementById('prod-pwr-type').value='';
   document.getElementById('product-modal-overlay').classList.add('open');
 }
@@ -1850,6 +1873,8 @@ function openEditProduct(id){
   document.getElementById('prod-part').value=p.part_number||'';document.getElementById('prod-make').value=p.make||'';document.getElementById('prod-model').value=p.model||'';
   document.getElementById('prod-lan').value=p.lan_ports||'';document.getElementById('prod-poe-ports').value=p.poe_ports||'';
   document.getElementById('prod-poe').value=p.poe_type||'';document.getElementById('prod-poe').disabled=!(p.poe_ports>0);
+  document.getElementById('prod-poe-port-count').value=p.poe_port_count||'';document.getElementById('prod-poe-budget').value=p.poe_budget_watts||'';
+  document.getElementById('prod-poe-supply-row').style.display=(p.poe_ports>0)?'':'none';
   document.getElementById('prod-spk').value=p.speaker_channels||'';document.getElementById('prod-spk-watts').value=p.spk_watts||'';
   document.getElementById('prod-power').value=p.power_watts||'';document.getElementById('prod-weight').value=p.weight_kg||'';document.getElementById('prod-heat').value=p.heat_btu||'';
   document.getElementById('prod-pwr-type').value=(p.power_types&&p.power_types[0])||'';
@@ -1862,7 +1887,9 @@ async function saveProduct(){
   if(!deviceTypeId){showToast('Please select a device type','error');return;}if(!make){showToast('Please enter a make','error');return;}if(!model){showToast('Please enter a model','error');return;}
   const poePorts=parseInt(document.getElementById('prod-poe-ports').value)||0;
   const pwrType=document.getElementById('prod-pwr-type').value||null;
-  const payload={device_type_id:deviceTypeId,make,model,part_number:document.getElementById('prod-part').value.trim()||null,lan_ports:parseInt(document.getElementById('prod-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('prod-poe').value||null:null,speaker_channels:parseInt(document.getElementById('prod-spk').value)||0,spk_watts:parseFloat(document.getElementById('prod-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('prod-power').value)||null,weight_kg:parseFloat(document.getElementById('prod-weight').value)||null,heat_btu:parseFloat(document.getElementById('prod-heat').value)||null,notes:document.getElementById('prod-notes').value.trim()||null};
+  const poePortCount=parseInt(document.getElementById('prod-poe-port-count').value)||null;
+  const poeBudgetWatts=parseFloat(document.getElementById('prod-poe-budget').value)||null;
+  const payload={device_type_id:deviceTypeId,make,model,part_number:document.getElementById('prod-part').value.trim()||null,lan_ports:parseInt(document.getElementById('prod-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('prod-poe').value||null:null,poe_port_count:poePortCount,poe_budget_watts:poeBudgetWatts,speaker_channels:parseInt(document.getElementById('prod-spk').value)||0,spk_watts:parseFloat(document.getElementById('prod-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('prod-power').value)||null,weight_kg:parseFloat(document.getElementById('prod-weight').value)||null,heat_btu:parseFloat(document.getElementById('prod-heat').value)||null,notes:document.getElementById('prod-notes').value.trim()||null};
   const btn=document.getElementById('product-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{if(editingProductId){await dbUpdate('global_products',editingProductId,payload);showToast('Product updated','success');}else{await dbInsert('global_products',payload);showToast('Product added','success');}closeProductModal();loadProductCatalogue();}
   catch(e){showToast('Could not save: '+e.message,'error');}
@@ -1897,7 +1924,7 @@ function renderSelectProducts(filterTypeId){
 async function selectProduct(productId){
   const p=globalProducts.find(p=>p.id===productId);if(!p||!selectingProductForPeId)return;
   try{
-    await dbUpdate('project_equipment',selectingProductForPeId,{global_product_id:productId,make:p.make,model:p.model,lan_ports:p.lan_ports,speaker_channels:p.speaker_channels,poe_type:p.poe_type,power_types:p.power_types,poe_ports:p.poe_ports});
+    await dbUpdate('project_equipment',selectingProductForPeId,{global_product_id:productId,make:p.make,model:p.model,lan_ports:p.lan_ports,speaker_channels:p.speaker_channels,poe_type:p.poe_type,power_types:p.power_types,poe_ports:p.poe_ports,poe_port_count:p.poe_port_count||null,poe_budget_watts:p.poe_budget_watts||null,power_watts:p.power_watts||null,spk_watts:p.spk_watts||null});
     showToast(p.make+' '+p.model+' selected','success');closeSelectProductModal();await loadProjectEquipment();
   }catch(e){showToast('Could not select: '+e.message,'error');}
 }
@@ -2188,60 +2215,49 @@ async function loadZoneSummary(){
 
 function renderZoneSummary(instances){
   const c=document.getElementById('zone-summary-container');
-  // Build a lookup: room_id -> zone_id (via rooms.rack_zone_id)
   const roomZoneMap={};
   currentRooms.forEach(r=>{if(r.rack_zone_id)roomZoneMap[r.id]=r.rack_zone_id;});
-  // Per-zone aggregation
-  const zoneTotals={};
-  currentZones.forEach(z=>{
-    zoneTotals[z.id]={lan:0,poe_ports:0,poe_watts:0,spk_channels:0,spk_watts:0,rack_power_w:0,device_count:0};
-  });
+  const zones={};
+  currentZones.forEach(z=>{zones[z.id]={lan_demand:0,poe_port_demand:0,poe_watts_demand:0,spk_channel_demand:0,spk_watts_demand:0,rack_power_demand:0,device_count:0,displays:0,sources:0,decoders:0,encoders:0,lan_supply:0,poe_port_supply:0,poe_budget_supply:0,amp_channel_supply:0,amp_watts_supply:0};});
   instances.forEach(inst=>{
     const pe=projectEquipment.find(e=>e.id===inst.project_equipment_id);
     if(!pe)return;
-    // Determine which zone this instance belongs to
     let zoneId=inst.rack_zone_id||null;
     if(!zoneId&&inst.room_id)zoneId=roomZoneMap[inst.room_id]||null;
-    if(!zoneId)return;
-    const t=zoneTotals[zoneId];
-    if(!t)return;
-    const qty=inst.quantity||1;
+    if(!zoneId||!zones[zoneId])return;
+    const t=zones[zoneId];const qty=inst.quantity||1;
+    const cat=(pe.category_code||'').toLowerCase();const sys=(pe.system_group||'').toLowerCase();
     t.device_count+=qty;
-    // LAN — always counts toward zone
-    t.lan+=(pe.lan_ports||0)*qty;
-    // PoE — always counts toward zone
-    if((pe.poe_ports||0)>0){
-      t.poe_ports+=(pe.poe_ports||0)*qty;
-      // Estimate PoE watts from global_products if available, else use type defaults
-      const poeW=pe.poe_type==='PoE+'?30:pe.poe_type==='PoE'?15:0;
-      t.poe_watts+=poeW*(pe.poe_ports||0)*qty;
-    }
-    // Speaker channels — always count toward zone (amp always in a rack)
-    t.spk_channels+=(pe.speaker_channels||0)*qty;
-    t.spk_watts+=((pe.spk_watts||0)*(pe.speaker_channels||0))*qty;
-    // Rack power draw — only if rack-mounted
+    t.lan_demand+=(pe.lan_ports||0)*qty;
+    if((pe.poe_ports||0)>0){t.poe_port_demand+=(pe.poe_ports||0)*qty;const poeW=pe.poe_type==='802.3bt'?60:pe.poe_type==='802.3at'?25.5:pe.poe_type==='802.3af'?12.95:0;t.poe_watts_demand+=poeW*(pe.poe_ports||0)*qty;}
+    t.spk_channel_demand+=(pe.speaker_channels||0)*qty;
+    t.spk_watts_demand+=((pe.spk_watts||0)*(pe.speaker_channels||0))*qty;
+    if(inst.installation_type==='rack-mounted')t.rack_power_demand+=(pe.power_watts||0)*qty;
+    if(cat.includes('display')||cat.includes('tv')||cat.includes('monitor')||cat.includes('projector'))t.displays+=qty;
+    if(cat.includes('source')||cat.includes('media player')||cat.includes('streamer'))t.sources+=qty;
+    if(cat.includes('decoder'))t.decoders+=qty;
+    if(cat.includes('encoder'))t.encoders+=qty;
     if(inst.installation_type==='rack-mounted'){
-      // Use product power_watts if available — fall back to 0
-      const pw=pe.power_watts||0;
-      t.rack_power_w+=pw*qty;
+      if(sys.includes('network')||cat.includes('switch')){t.lan_supply+=(pe.lan_ports||0)*qty;t.poe_port_supply+=(pe.poe_port_count||0)*qty;t.poe_budget_supply+=(pe.poe_budget_watts||0)*qty;}
+      if(sys.includes('audio')||cat.includes('amp')||cat.includes('amplif')){t.amp_channel_supply+=(pe.speaker_channels||0)*qty;t.amp_watts_supply+=((pe.spk_watts||0)*(pe.speaker_channels||0))*qty;}
     }
   });
-  const stat=(label,value,unit='')=>value?'<div class="zs-stat"><div class="zs-stat-value">'+value+(unit?' <span style="font-size:11px;font-weight:400;color:var(--text-3)">'+unit+'</span>':'')+'</div><div class="zs-stat-label">'+label+'</div></div>':'';
+  const statusIcon=(d,s)=>{if(!s)return'';if(d>s)return' <span style="color:#e53e3e">⚠</span>';if(d>s*0.8)return' <span style="color:#dd6b20">~</span>';return' <span style="color:#38a169">✓</span>';};
+  const sectionHdr=label=>'<tr><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);padding:10px 12px 4px;background:var(--surface2)">'+label+'</td></tr>';
+  const row=(label,demand,supply,unit='')=>{if(!demand&&!supply)return'';const d=demand?demand+(unit?' '+unit:''):'—';const s=supply?supply+(unit?' '+unit:''):'—';return'<tr><td style="font-size:12px;color:var(--text-2);padding:7px 12px;border-bottom:1px solid var(--border)">'+label+'</td><td style="font-size:13px;font-weight:600;padding:7px 12px;text-align:right;border-bottom:1px solid var(--border)">'+d+'</td><td style="font-size:13px;padding:7px 12px;text-align:right;color:var(--text-2);border-bottom:1px solid var(--border)">'+s+(supply?statusIcon(demand,supply):'')+'</td></tr>';};
+  const countRow=(label,val)=>val?'<tr><td style="font-size:12px;color:var(--text-2);padding:7px 12px;border-bottom:1px solid var(--border)">'+label+'</td><td colspan="2" style="font-size:13px;font-weight:600;padding:7px 12px;text-align:right;border-bottom:1px solid var(--border)">'+val+'</td></tr>':'';
+  const thStyle='padding:8px 12px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);background:var(--surface2);border-bottom:1px solid var(--border)';
   let html='<div class="zs-grid">';
   currentZones.forEach(z=>{
-    const t=zoneTotals[z.id];
-    const zoneRooms=currentRooms.filter(r=>r.rack_zone_id===z.id);
+    const t=zones[z.id];const zoneRooms=currentRooms.filter(r=>r.rack_zone_id===z.id);
+    let rows='';
+    if(t.lan_demand||t.lan_supply||t.poe_port_demand||t.poe_port_supply){rows+=sectionHdr('Network');rows+=row('LAN Ports',t.lan_demand,t.lan_supply);rows+=row('PoE Ports',t.poe_port_demand,t.poe_port_supply);rows+=row('PoE Budget',Math.round(t.poe_watts_demand),t.poe_budget_supply,'W');}
+    if(t.spk_channel_demand||t.amp_channel_supply){rows+=sectionHdr('Audio');rows+=row('Amp Channels',t.spk_channel_demand,t.amp_channel_supply);rows+=row('Amp Power',Math.round(t.spk_watts_demand),Math.round(t.amp_watts_supply),'W');}
+    if(t.displays||t.sources||t.decoders||t.encoders){rows+=sectionHdr('AV over IP');rows+=countRow('Displays',t.displays);rows+=countRow('Sources',t.sources);rows+=countRow('Decoders placed',t.decoders);rows+=countRow('Encoders placed',t.encoders);}
+    if(t.rack_power_demand){rows+=sectionHdr('Rack Power');rows+='<tr><td style="font-size:12px;color:var(--text-2);padding:7px 12px">Total Draw</td><td colspan="2" style="font-size:13px;font-weight:600;padding:7px 12px;text-align:right">'+Math.round(t.rack_power_demand)+' W</td></tr>';}
     html+='<div class="zs-card">'
       +'<div class="zs-card-header" style="border-left:4px solid '+(z.colour||'var(--accent)')+'"><div><div class="zs-card-name">'+escHtml(z.name)+'</div><div class="zs-card-meta">'+zoneRooms.length+' room'+(zoneRooms.length!==1?'s':'')+' · '+(z.rack_count||0)+' rack'+(z.rack_count!==1?'s':'')+'</div></div><div class="zs-device-count">'+t.device_count+' <span>devices</span></div></div>'
-      +'<div class="zs-stats">'
-      +stat('LAN Ports',t.lan||null)
-      +stat('PoE Ports',t.poe_ports||null)
-      +stat('PoE Budget',t.poe_watts||null,'W')
-      +stat('Spk Channels',t.spk_channels||null)
-      +stat('Spk Power',t.spk_watts||null,'W')
-      +stat('Rack Power',t.rack_power_w||null,'W')
-      +'</div>'
-      +(t.lan===0&&t.poe_ports===0&&t.spk_channels===0&&t.rack_power_w===0?'<div style="padding:12px 16px;font-size:12px;color:var(--text-3)">No equipment assigned to this zone yet.</div>':'')
+      +(rows?'<table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+thStyle+'"></th><th style="'+thStyle+';text-align:right">Required</th><th style="'+thStyle+';text-align:right">Available</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div style="padding:14px 16px;font-size:12px;color:var(--text-3)">No equipment assigned to this zone yet.</div>')
       +'</div>';
   });
   html+='</div>';
@@ -2550,5 +2566,6 @@ document.addEventListener('click',function(e){
 init();
 
 </script>
+
 </body>
 </html>
