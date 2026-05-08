@@ -291,6 +291,11 @@
   .gc-table tr:last-child td { border-bottom: none; }
   .gc-table tr:hover td { background: var(--surface2); }
   .reorder-btns { display: flex; flex-direction: column; gap: 2px; }
+  .fm-drag-handle { cursor: grab; color: var(--text-3); padding: 0 2px; flex-shrink: 0; font-size: 15px; line-height: 1; user-select: none; }
+  .fm-drag-handle:active { cursor: grabbing; }
+  .fm-feat-row { transition: background 0.1s; }
+  .fm-feat-row.fm-drag-over { border-top: 3px solid var(--accent) !important; }
+  .fm-feat-row.fm-dragging { opacity: 0.35; }
 
   /* EMPTY / LOADING */
   .empty-state { text-align: center; padding: 56px 32px; color: var(--text-3); }
@@ -2037,7 +2042,10 @@ async function fmSeedFromLibrary(){
     if(!pe.length){showToast('No equipment in project library — add equipment first','error');return;}
     const cats=await dbGet('device_categories','order=sort_order.asc,code.asc');
     const catMap={};cats.forEach(c=>{catMap[c.code]=c;});
-    const groups=[...new Set(pe.map(d=>d.system_group).filter(Boolean))].sort();
+    // Normalise stale system_group values against current system_groups table
+    const sysGroups=await dbGet('system_groups','order=sort_order.asc');
+    const sysGroupMap={};sysGroups.forEach(g=>{sysGroupMap[g.name.toLowerCase()]=g.name;});
+    const groups=[...new Set(pe.map(d=>d.system_group).filter(Boolean).map(g=>sysGroupMap[g.toLowerCase()]||g))].sort();
     let existingCats=await dbGet('feature_categories','project_id=eq.'+currentProject.id);
     let existingFeats=await dbGet('features','project_id=eq.'+currentProject.id);
     let created=0;
@@ -2049,7 +2057,7 @@ async function fmSeedFromLibrary(){
         if(res&&res[0]){cat=res[0];existingCats.push(cat);}
       }
       if(!cat)continue;
-      const groupPe=pe.filter(d=>d.system_group===groupName);
+      const groupPe=pe.filter(d=>{const n=d.system_group;return n&&(sysGroupMap[n.toLowerCase()]||n)===groupName;});
       const codes=[...new Set(groupPe.map(d=>d.category_code).filter(Boolean))];
       for(let ci=0;ci<codes.length;ci++){
         const code=codes[ci];
@@ -2076,7 +2084,7 @@ async function fmSeedFromLibrary(){
 async function syncFeatureMatrix(){showToast('Sync from placement — coming soon','success');}
 function exportFeatureMatrix(){showToast('Export — coming soon','success');}
 
-let fmSelectedFeatureId=null, fmFeatureDeviceTypes={}, fmEditingCatId=null, fmEditingFeatId=null;
+let fmSelectedFeatureId=null, fmFeatureDeviceTypes={}, fmEditingCatId=null, fmEditingFeatId=null, fmDragId=null;
 
 function closeFmManageModal(){document.getElementById('fm-manage-modal-overlay').classList.remove('open');renderFeatureMatrix();}
 async function openFmManageModal(){
@@ -2130,23 +2138,20 @@ function fmRenderFeatList(){
         +'<button class="btn-icon btn-sm" title="Delete" onclick="fmDeleteCategory(\''+cat.id+'\',\''+escHtml(cat.name)+'\')">'+del+'</button>'
         +'</div>';
     }
-    feats.forEach(f=>{html+=fmFeatRow(f,chv,edi,del);});
+    feats.forEach(f=>{html+=fmFeatRow(f,chv,edi,del,cat.id);});
   });
   const uncat=fmFeatures.filter(f=>!f.category_id);
   if(uncat.length){
     html+='<div style="padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">'
       +'<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Uncategorised</span></div>';
-    uncat.forEach(f=>{html+=fmFeatRow(f,chv,edi,del);});
+    uncat.forEach(f=>{html+=fmFeatRow(f,chv,edi,del,null);});
   }
   c.innerHTML=html;
 }
-function fmFeatRow(f,chv,edi,del){
-  const idx=fmFeatures.findIndex(x=>x.id===f.id);
-  const isFirst=idx===0, isLast=idx===fmFeatures.length-1;
+function fmFeatRow(f,chv,edi,del,catId){
   const linked=fmFeatureDeviceTypes[f.id]||[];
   const sel=f.id===fmSelectedFeatureId;
-  const up='<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18,15 12,9 6,15"/></svg>';
-  const dn='<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>';
+  const cid=catId!=null?catId:'';
   if(fmEditingFeatId===f.id){
     return '<div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--accent-light)">'
       +'<input id="fm-feat-edit-input" value="'+escHtml(f.name)+'" onkeydown="if(event.key===\'Enter\')fmSaveFeatEdit(\''+f.id+'\');if(event.key===\'Escape\')fmCancelFeatEdit()" style="flex:1;padding:4px 8px;font-size:13px;border:1px solid var(--accent);border-radius:4px;background:var(--surface);color:var(--text)">'
@@ -2154,11 +2159,8 @@ function fmFeatRow(f,chv,edi,del){
       +'<button class="btn btn-secondary btn-sm" onclick="fmCancelFeatEdit()">Cancel</button>'
       +'</div>';
   }
-  return '<div style="display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;'+(sel?'background:var(--accent-light)':'')+'" onclick="fmSelectFeature(\''+f.id+'\')">'
-    +'<div class="reorder-btns" style="flex-shrink:0" onclick="event.stopPropagation()">'
-    +'<button class="btn-icon btn-sm" style="padding:2px 4px'+(isFirst?';opacity:0.2;pointer-events:none':'')+'" onclick="fmMoveFeat(\''+f.id+'\',-1)">'+up+'</button>'
-    +'<button class="btn-icon btn-sm" style="padding:2px 4px'+(isLast?';opacity:0.2;pointer-events:none':'')+'" onclick="fmMoveFeat(\''+f.id+'\',1)">'+dn+'</button>'
-    +'</div>'
+  return '<div class="fm-feat-row" draggable="true" style="display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;'+(sel?'background:var(--accent-light)':'')+'" onclick="fmSelectFeature(\''+f.id+'\')" ondragstart="fmDragStart(event,\''+f.id+'\')" ondragover="fmDragOver(event,\''+f.id+'\',\''+cid+'\')" ondragleave="fmDragLeave(event)" ondrop="fmDrop(event,\''+f.id+'\',\''+cid+'\')" ondragend="fmDragEnd()">'
+    +'<span class="fm-drag-handle" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>'
     +'<div style="flex:1;min-width:0">'
     +'<div style="font-size:13px;font-weight:500;color:'+(sel?'var(--accent)':'var(--text-1)')+'">'+escHtml(f.name)+'</div>'
     +'<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+(linked.length?linked.length+' device type'+(linked.length!==1?'s':'')+' linked':'No device types linked')+'</div>'
@@ -2280,6 +2282,44 @@ async function fmMoveFeat(id,direction){
   fmRenderFeatList();
   try{await Promise.all(fmFeatures.map(f=>dbUpdate('features',f.id,{sort_order:f.sort_order})));}
   catch(e){showToast('Could not reorder: '+e.message,'error');}
+}
+function fmDragStart(e,id){
+  fmDragId=id;
+  e.dataTransfer.effectAllowed='move';
+  e.currentTarget.classList.add('fm-dragging');
+}
+function fmDragEnd(){
+  fmDragId=null;
+  document.querySelectorAll('.fm-dragging').forEach(el=>el.classList.remove('fm-dragging'));
+  document.querySelectorAll('.fm-drag-over').forEach(el=>el.classList.remove('fm-drag-over'));
+}
+function fmDragOver(e,id,catId){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  if(id===fmDragId)return;
+  document.querySelectorAll('.fm-drag-over').forEach(el=>el.classList.remove('fm-drag-over'));
+  e.currentTarget.classList.add('fm-drag-over');
+}
+function fmDragLeave(e){
+  if(!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('fm-drag-over');
+}
+async function fmDrop(e,targetId,targetCatId){
+  e.preventDefault();
+  document.querySelectorAll('.fm-drag-over').forEach(el=>el.classList.remove('fm-drag-over'));
+  document.querySelectorAll('.fm-dragging').forEach(el=>el.classList.remove('fm-dragging'));
+  if(!fmDragId||fmDragId===targetId){fmDragId=null;return;}
+  const fromIdx=fmFeatures.findIndex(f=>f.id===fmDragId);
+  const toIdx=fmFeatures.findIndex(f=>f.id===targetId);
+  if(fromIdx<0||toIdx<0){fmDragId=null;return;}
+  const[moved]=fmFeatures.splice(fromIdx,1);
+  const newCatId=targetCatId&&targetCatId!==''?targetCatId:null;
+  if(moved.category_id!==newCatId)moved.category_id=newCatId;
+  fmFeatures.splice(toIdx,0,moved);
+  fmFeatures.forEach((f,i)=>f.sort_order=i+1);
+  fmDragId=null;
+  fmRenderFeatList();
+  try{await Promise.all(fmFeatures.map(f=>dbUpdate('features',f.id,{sort_order:f.sort_order,category_id:f.category_id})));}
+  catch(err){showToast('Could not reorder: '+err.message,'error');}
 }
 function fmDeleteCategory(id,name){
   openConfirm('Delete Category','Delete "'+name+'"? Features in this category will become uncategorised.',async()=>{
