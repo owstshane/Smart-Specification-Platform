@@ -2076,7 +2076,7 @@ async function fmSeedFromLibrary(){
 async function syncFeatureMatrix(){showToast('Sync from placement — coming soon','success');}
 function exportFeatureMatrix(){showToast('Export — coming soon','success');}
 
-let fmSelectedFeatureId=null, fmFeatureDeviceTypes={};
+let fmSelectedFeatureId=null, fmFeatureDeviceTypes={}, fmEditingCatId=null, fmEditingFeatId=null;
 
 function closeFmManageModal(){document.getElementById('fm-manage-modal-overlay').classList.remove('open');renderFeatureMatrix();}
 async function openFmManageModal(){
@@ -2117,31 +2117,55 @@ function fmRenderFeatList(){
   fmCategories.forEach(cat=>{
     const feats=fmFeatures.filter(f=>f.category_id===cat.id);
     if(!feats.length)return;
-    html+='<div style="display:flex;align-items:center;gap:4px;padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">'
-      +'<span style="flex:1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">'+escHtml(cat.name)+'</span>'
-      +'<button class="btn-icon btn-sm" title="Rename" onclick="fmEditCategory(\''+cat.id+'\',\''+escHtml(cat.name)+'\')">'+edi+'</button>'
-      +'<button class="btn-icon btn-sm" title="Delete category" onclick="fmDeleteCategory(\''+cat.id+'\',\''+escHtml(cat.name)+'\')">'+del+'</button>'
-      +'</div>';
-    feats.forEach(f=>{html+=fmFeatRow(f,chv,del);});
+    if(fmEditingCatId===cat.id){
+      html+='<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--accent-light);border-bottom:1px solid var(--border)">'
+        +'<input id="fm-cat-edit-input" value="'+escHtml(cat.name)+'" onkeydown="if(event.key===\'Enter\')fmSaveCatEdit(\''+cat.id+'\');if(event.key===\'Escape\')fmCancelCatEdit()" style="flex:1;padding:4px 8px;font-size:12px;font-weight:600;border:1px solid var(--accent);border-radius:4px;background:var(--surface);color:var(--text)">'
+        +'<button class="btn btn-primary btn-sm" onclick="fmSaveCatEdit(\''+cat.id+'\')">Save</button>'
+        +'<button class="btn btn-secondary btn-sm" onclick="fmCancelCatEdit()">Cancel</button>'
+        +'</div>';
+    }else{
+      html+='<div style="display:flex;align-items:center;gap:4px;padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">'
+        +'<span style="flex:1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">'+escHtml(cat.name)+'</span>'
+        +'<button class="btn-icon btn-sm" title="Rename" onclick="fmEditCategory(\''+cat.id+'\')">'+edi+'</button>'
+        +'<button class="btn-icon btn-sm" title="Delete" onclick="fmDeleteCategory(\''+cat.id+'\',\''+escHtml(cat.name)+'\')">'+del+'</button>'
+        +'</div>';
+    }
+    feats.forEach(f=>{html+=fmFeatRow(f,chv,edi,del);});
   });
   const uncat=fmFeatures.filter(f=>!f.category_id);
   if(uncat.length){
     html+='<div style="padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">'
       +'<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Uncategorised</span></div>';
-    uncat.forEach(f=>{html+=fmFeatRow(f,chv,del);});
+    uncat.forEach(f=>{html+=fmFeatRow(f,chv,edi,del);});
   }
   c.innerHTML=html;
 }
-function fmFeatRow(f,chv,del){
+function fmFeatRow(f,chv,edi,del){
+  const idx=fmFeatures.findIndex(x=>x.id===f.id);
+  const isFirst=idx===0, isLast=idx===fmFeatures.length-1;
   const linked=fmFeatureDeviceTypes[f.id]||[];
   const sel=f.id===fmSelectedFeatureId;
-  return '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;'+(sel?'background:var(--accent-light)':'')+'" onclick="fmSelectFeature(\''+f.id+'\')">'
+  const up='<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18,15 12,9 6,15"/></svg>';
+  const dn='<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>';
+  if(fmEditingFeatId===f.id){
+    return '<div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--accent-light)">'
+      +'<input id="fm-feat-edit-input" value="'+escHtml(f.name)+'" onkeydown="if(event.key===\'Enter\')fmSaveFeatEdit(\''+f.id+'\');if(event.key===\'Escape\')fmCancelFeatEdit()" style="flex:1;padding:4px 8px;font-size:13px;border:1px solid var(--accent);border-radius:4px;background:var(--surface);color:var(--text)">'
+      +'<button class="btn btn-primary btn-sm" onclick="fmSaveFeatEdit(\''+f.id+'\')">Save</button>'
+      +'<button class="btn btn-secondary btn-sm" onclick="fmCancelFeatEdit()">Cancel</button>'
+      +'</div>';
+  }
+  return '<div style="display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;'+(sel?'background:var(--accent-light)':'')+'" onclick="fmSelectFeature(\''+f.id+'\')">'
+    +'<div class="reorder-btns" style="flex-shrink:0" onclick="event.stopPropagation()">'
+    +'<button class="btn-icon btn-sm" style="padding:2px 4px'+(isFirst?';opacity:0.2;pointer-events:none':'')+'" onclick="fmMoveFeat(\''+f.id+'\',-1)">'+up+'</button>'
+    +'<button class="btn-icon btn-sm" style="padding:2px 4px'+(isLast?';opacity:0.2;pointer-events:none':'')+'" onclick="fmMoveFeat(\''+f.id+'\',1)">'+dn+'</button>'
+    +'</div>'
     +'<div style="flex:1;min-width:0">'
     +'<div style="font-size:13px;font-weight:500;color:'+(sel?'var(--accent)':'var(--text-1)')+'">'+escHtml(f.name)+'</div>'
     +'<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+(linked.length?linked.length+' device type'+(linked.length!==1?'s':'')+' linked':'No device types linked')+'</div>'
     +'</div>'
     +(sel?chv:'')
-    +'<button class="btn-icon btn-sm" onclick="event.stopPropagation();fmDeleteFeature(\''+f.id+'\',\''+escHtml(f.name)+'\')">'+del+'</button>'
+    +'<button class="btn-icon btn-sm" title="Rename" onclick="event.stopPropagation();fmStartFeatEdit(\''+f.id+'\')">'+edi+'</button>'
+    +'<button class="btn-icon btn-sm" title="Delete" onclick="event.stopPropagation();fmDeleteFeature(\''+f.id+'\',\''+escHtml(f.name)+'\')">'+del+'</button>'
     +'</div>';
 }
 function fmSelectFeature(id){
@@ -2212,13 +2236,50 @@ async function fmAddCategory(){
     if(created&&created[0]){fmCategories.push(created[0]);input.value='';fmHideAddCat();fmPopulateCatSelect();fmRenderFeatList();}
   }catch(e){showToast('Could not add: '+e.message,'error');}
 }
-function fmEditCategory(id,currentName){
-  const newName=prompt('Rename category:',currentName);
-  if(!newName||newName.trim()===currentName)return;
-  dbUpdate('feature_categories',id,{name:newName.trim()}).then(()=>{
-    const cat=fmCategories.find(c=>c.id===id);if(cat)cat.name=newName.trim();
+function fmEditCategory(id){
+  fmEditingCatId=id;fmEditingFeatId=null;
+  fmRenderFeatList();
+  setTimeout(()=>{const i=document.getElementById('fm-cat-edit-input');if(i){i.focus();i.select();}},30);
+}
+async function fmSaveCatEdit(id){
+  const inp=document.getElementById('fm-cat-edit-input');
+  const name=inp?inp.value.trim():'';
+  fmEditingCatId=null;
+  if(!name){fmRenderFeatList();return;}
+  try{
+    await dbUpdate('feature_categories',id,{name});
+    const cat=fmCategories.find(c=>c.id===id);if(cat)cat.name=name;
     fmPopulateCatSelect();fmRenderFeatList();
-  }).catch(e=>showToast('Could not rename: '+e.message,'error'));
+  }catch(e){showToast('Could not rename: '+e.message,'error');fmRenderFeatList();}
+}
+function fmCancelCatEdit(){fmEditingCatId=null;fmRenderFeatList();}
+function fmStartFeatEdit(id){
+  fmEditingFeatId=id;fmEditingCatId=null;
+  fmRenderFeatList();
+  setTimeout(()=>{const i=document.getElementById('fm-feat-edit-input');if(i){i.focus();i.select();}},30);
+}
+async function fmSaveFeatEdit(id){
+  const inp=document.getElementById('fm-feat-edit-input');
+  const name=inp?inp.value.trim():'';
+  fmEditingFeatId=null;
+  if(!name){fmRenderFeatList();return;}
+  try{
+    await dbUpdate('features',id,{name});
+    const feat=fmFeatures.find(f=>f.id===id);if(feat)feat.name=name;
+    fmRenderFeatList();
+  }catch(e){showToast('Could not rename: '+e.message,'error');fmRenderFeatList();}
+}
+function fmCancelFeatEdit(){fmEditingFeatId=null;fmRenderFeatList();}
+async function fmMoveFeat(id,direction){
+  const idx=fmFeatures.findIndex(f=>f.id===id);
+  const newIdx=idx+direction;
+  if(newIdx<0||newIdx>=fmFeatures.length)return;
+  const[moved]=fmFeatures.splice(idx,1);
+  fmFeatures.splice(newIdx,0,moved);
+  fmFeatures.forEach((f,i)=>f.sort_order=i+1);
+  fmRenderFeatList();
+  try{await Promise.all(fmFeatures.map(f=>dbUpdate('features',f.id,{sort_order:f.sort_order})));}
+  catch(e){showToast('Could not reorder: '+e.message,'error');}
 }
 function fmDeleteCategory(id,name){
   openConfirm('Delete Category','Delete "'+name+'"? Features in this category will become uncategorised.',async()=>{
