@@ -623,6 +623,7 @@
         <div class="toolbar">
           <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="fm-search" placeholder="Search rooms…" oninput="renderFeatureMatrix()"></div>
           <select id="fm-deck-filter" onchange="renderFeatureMatrix()" style="width:auto;padding:8px 11px"><option value="">All decks</option></select>
+          <button class="btn btn-secondary btn-sm" onclick="fmSeedFromLibrary()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23,4 23,10 17,10"/><polyline points="1,20 1,14 7,14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Build from Library</button>
           <button class="btn btn-secondary btn-sm" onclick="openFmManageModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Manage Features</button>
           <button class="btn btn-secondary btn-sm" onclick="syncFeatureMatrix()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23,4 23,10 17,10"/><polyline points="1,20 1,14 7,14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync from Placement</button>
           <button class="btn btn-primary btn-sm" onclick="exportFeatureMatrix()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
@@ -1323,6 +1324,7 @@ function showPage(page){
   else if(page==='product-catalogue')loadProductCatalogue();
   else if(page==='global-templates')loadGlobalTemplates();
   else if(page==='system-groups')loadSgPage();
+  else if(page==='feature-matrix')loadFeatureMatrix();
 }
 function updateSidebarProject(){
   const has=!!currentProject;
@@ -1867,7 +1869,7 @@ async function saveRoomAssignments(){
 }
 
 // ── FEATURE MATRIX ──
-let fmCategories=[], fmFeatures=[], fmRooms=[], fmDecks=[], fmMatrix=[];
+let fmCategories=[], fmFeatures=[], fmRooms=[], fmDecks=[], fmMatrix=[], fmInstances=[];
 
 async function loadFeatureMatrix(){
   if(!currentProject)return;
@@ -1877,6 +1879,7 @@ async function loadFeatureMatrix(){
     fmCategories=await dbGet('feature_categories','project_id=eq.'+currentProject.id+'&order=sort_order.asc,name.asc');
     fmFeatures=await dbGet('features','project_id=eq.'+currentProject.id+'&order=sort_order.asc,name.asc');
     fmMatrix=fmFeatures.length&&fmRooms.length?await dbGet('project_feature_matrix','project_id=eq.'+currentProject.id):[];
+    fmInstances=fmRooms.length?await dbGet('equipment_instances','project_id=eq.'+currentProject.id):[];
     // Load device type links
     fmFeatureDeviceTypes={};
     if(fmFeatures.length){
@@ -1895,7 +1898,7 @@ function renderFeatureMatrix(){
   const q=(document.getElementById('fm-search').value||'').toLowerCase().trim();
   const deckId=document.getElementById('fm-deck-filter').value;
   if(!fmFeatures.length){
-    c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⊞</div><div class="empty-state-title">No features defined</div><div class="empty-state-text">Click Manage Features to add feature categories and features for this project.</div></div>';
+    c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⊞</div><div class="empty-state-title">No features defined</div><div class="empty-state-text">Build from your project library to get started quickly, or configure manually.</div><div style="display:flex;gap:10px;justify-content:center;margin-top:18px"><button class="btn btn-primary" onclick="fmSeedFromLibrary()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-2px;margin-right:5px"><polyline points="23,4 23,10 17,10"/><polyline points="1,20 1,14 7,14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Build from Library</button><button class="btn btn-secondary" onclick="openFmManageModal()">Start from Scratch</button></div></div>';
     return;
   }
   let rooms=fmRooms;
@@ -1931,15 +1934,21 @@ function renderFeatureMatrix(){
       const ticked=cell&&cell.ticked;
       const qty=cell&&cell.quantity;
       const linkedTypes=fmFeatureDeviceTypes[f.id]||[];
-      const hasLinkedDevice=linkedTypes.length>0;
-      // Determine cell state colour
-      let bg='',content='',title='Click to toggle';
+      // Determine cell state
+      let bg='',content='',title='Click to tick';
       if(ticked){
-        // Check if matching device placed — we'll do this properly in Stage 4
-        bg='background:var(--green-light)';
-        content='<span style="color:var(--green);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--green);margin-top:1px">×'+qty+'</div>':'');
+        const hasMatch=linkedTypes.length>0&&fmInstances.some(i=>i.room_id===room.id&&linkedTypes.includes(i.device_type_id));
+        if(hasMatch){
+          bg='background:var(--green-light)';
+          content='<span style="color:var(--green);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+qty+'</div>':'');
+          title='Ticked — device placed in room. Click to edit.';
+        }else{
+          bg='background:var(--amber-light)';
+          content='<span style="color:var(--amber);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--amber);margin-top:1px">\xd7'+qty+'</div>':'');
+          title='Ticked manually — no matching device placed. Click to edit.';
+        }
       }
-      html+='<td style="border:1px solid var(--border);padding:4px;text-align:center;cursor:pointer;'+bg+'" onclick="fmToggleCell(\''+room.id+'\',\''+f.id+'\','+JSON.stringify(ticked)+','+JSON.stringify(qty)+')" title="'+title+'">'+content+'</td>';
+      html+='<td style="border:1px solid var(--border);padding:4px;text-align:center;cursor:pointer;'+bg+'" onclick="fmCellClick(\''+room.id+'\',\''+f.id+'\','+JSON.stringify(ticked)+','+JSON.stringify(qty)+',event)" title="'+title+'">'+content+'</td>';
     });
     html+='</tr>';
   });
@@ -1947,21 +1956,110 @@ function renderFeatureMatrix(){
   c.innerHTML=html;
 }
 
-async function fmToggleCell(roomId,featureId,currentTicked,currentQty){
+function fmCellClick(roomId,featureId,currentTicked,currentQty,event){
+  event.stopPropagation();
+  if(!currentTicked){fmTickCell(roomId,featureId);}
+  else{fmShowCellPopup(roomId,featureId,currentQty,event);}
+}
+async function fmTickCell(roomId,featureId){
   if(!currentProject)return;
-  const newTicked=!currentTicked;
   try{
     const existing=fmMatrix.find(m=>m.room_id===roomId&&m.feature_id===featureId);
     if(existing){
-      await dbUpdate('project_feature_matrix',existing.id,{ticked:newTicked,quantity:newTicked?(currentQty||null):null});
-      existing.ticked=newTicked;if(!newTicked)existing.quantity=null;
-    } else {
-      const created=await dbInsert('project_feature_matrix',{project_id:currentProject.id,room_id:roomId,feature_id:featureId,ticked:newTicked,quantity:null});
+      await dbUpdate('project_feature_matrix',existing.id,{ticked:true});
+      existing.ticked=true;
+    }else{
+      const created=await dbInsert('project_feature_matrix',{project_id:currentProject.id,room_id:roomId,feature_id:featureId,ticked:true,quantity:null});
       if(created&&created[0])fmMatrix.push(created[0]);
     }
     renderFeatureMatrix();
   }catch(e){showToast('Could not update: '+e.message,'error');}
 }
+function fmShowCellPopup(roomId,featureId,currentQty,event){
+  const old=document.getElementById('fm-cell-popup');if(old)old.remove();
+  const pop=document.createElement('div');
+  pop.id='fm-cell-popup';
+  pop.style.cssText='position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.18);min-width:190px';
+  const x=Math.min(event.clientX,window.innerWidth-210);
+  const y=Math.min(event.clientY+8,window.innerHeight-140);
+  pop.style.left=x+'px';pop.style.top=y+'px';
+  pop.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em">Edit Cell</div>'
+    +'<div style="margin-bottom:10px"><label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px">Quantity (optional)</label>'
+    +'<input type="number" id="fm-cell-qty" min="1" value="'+(currentQty||'')+'" placeholder="—" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:var(--surface);color:var(--text);box-sizing:border-box"></div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<button onclick="fmSaveCellQty(\''+roomId+'\',\''+featureId+'\')" style="flex:1;padding:6px 10px;background:var(--accent);color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer">Save</button>'
+    +'<button onclick="fmRemoveTick(\''+roomId+'\',\''+featureId+'\')" style="flex:1;padding:6px 10px;background:var(--surface2);color:#c0392b;border:1px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer">Remove</button>'
+    +'</div>';
+  document.body.appendChild(pop);
+  setTimeout(()=>{
+    document.addEventListener('click',function close(e){if(!pop.contains(e.target)){pop.remove();document.removeEventListener('click',close);}});
+  },50);
+  setTimeout(()=>{const i=document.getElementById('fm-cell-qty');if(i)i.focus();},60);
+}
+async function fmSaveCellQty(roomId,featureId){
+  const pop=document.getElementById('fm-cell-popup');
+  const val=document.getElementById('fm-cell-qty');
+  const qty=val?(parseInt(val.value)||null):null;
+  if(pop)pop.remove();
+  try{
+    const existing=fmMatrix.find(m=>m.room_id===roomId&&m.feature_id===featureId);
+    if(existing){await dbUpdate('project_feature_matrix',existing.id,{quantity:qty});existing.quantity=qty;}
+    renderFeatureMatrix();
+  }catch(e){showToast('Could not save: '+e.message,'error');}
+}
+async function fmRemoveTick(roomId,featureId){
+  const pop=document.getElementById('fm-cell-popup');if(pop)pop.remove();
+  try{
+    const existing=fmMatrix.find(m=>m.room_id===roomId&&m.feature_id===featureId);
+    if(existing){await dbUpdate('project_feature_matrix',existing.id,{ticked:false,quantity:null});existing.ticked=false;existing.quantity=null;}
+    renderFeatureMatrix();
+  }catch(e){showToast('Could not remove: '+e.message,'error');}
+}
+async function fmSeedFromLibrary(){
+  if(!currentProject)return;
+  try{
+    const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id);
+    if(!pe.length){showToast('No equipment in project library — add equipment first','error');return;}
+    const cats=await dbGet('device_categories','order=sort_order.asc,code.asc');
+    const catMap={};cats.forEach(c=>{catMap[c.code]=c;});
+    const groups=[...new Set(pe.map(d=>d.system_group).filter(Boolean))].sort();
+    let existingCats=await dbGet('feature_categories','project_id=eq.'+currentProject.id);
+    let existingFeats=await dbGet('features','project_id=eq.'+currentProject.id);
+    let created=0;
+    for(let gi=0;gi<groups.length;gi++){
+      const groupName=groups[gi];
+      let cat=existingCats.find(c=>c.name===groupName);
+      if(!cat){
+        const res=await dbInsert('feature_categories',{project_id:currentProject.id,name:groupName,sort_order:gi+1});
+        if(res&&res[0]){cat=res[0];existingCats.push(cat);}
+      }
+      if(!cat)continue;
+      const groupPe=pe.filter(d=>d.system_group===groupName);
+      const codes=[...new Set(groupPe.map(d=>d.category_code).filter(Boolean))];
+      for(let ci=0;ci<codes.length;ci++){
+        const code=codes[ci];
+        const catInfo=catMap[code];
+        const featName=catInfo?catInfo.name:code;
+        let feat=existingFeats.find(f=>f.category_id===cat.id&&f.name===featName);
+        if(!feat){
+          const res=await dbInsert('features',{project_id:currentProject.id,category_id:cat.id,name:featName,sort_order:ci+1});
+          if(res&&res[0]){feat=res[0];existingFeats.push(feat);created++;}
+        }
+        if(!feat)continue;
+        const existingLinks=await dbGet('feature_device_types','feature_id=eq.'+feat.id);
+        const existingIds=existingLinks.map(l=>l.device_type_id);
+        const typeIds=[...new Set(groupPe.filter(d=>d.category_code===code).map(d=>d.device_type_id))];
+        for(const tid of typeIds){
+          if(!existingIds.includes(tid)){await dbInsert('feature_device_types',{feature_id:feat.id,device_type_id:tid});}
+        }
+      }
+    }
+    showToast(created?created+' features created from project library':'Matrix already up to date','success');
+    await loadFeatureMatrix();
+  }catch(e){showToast('Could not build matrix: '+e.message,'error');}
+}
+async function syncFeatureMatrix(){showToast('Sync from placement — coming soon','success');}
+function exportFeatureMatrix(){showToast('Export — coming soon','success');}
 
 let fmActiveTab='categories', fmSelectedDeviceTypes=[], fmFeatureDeviceTypes={};
 
