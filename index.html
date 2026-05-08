@@ -1925,6 +1925,11 @@ function renderFeatureMatrix(){
   if(deckId)rooms=rooms.filter(r=>r.deck_id===deckId);
   if(q)rooms=rooms.filter(r=>r.name.toLowerCase().includes(q)||(r.room_id||'').toLowerCase().includes(q));
   if(!rooms.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">No rooms match</div></div>';return;}
+  // Build ordered feature list that mirrors the category header order
+  const orderedFeatures=[];
+  fmCategories.forEach(cat=>{const cf=fmFeatures.filter(f=>f.category_id===cat.id);orderedFeatures.push(...cf);});
+  const uncatFeatures=fmFeatures.filter(f=>!f.category_id);
+  orderedFeatures.push(...uncatFeatures);
   // Build grid
   let html='<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:100%;font-size:12px">';
   // Category header row
@@ -1934,13 +1939,11 @@ function renderFeatureMatrix(){
     if(!catFeatures.length)return;
     html+='<th colspan="'+catFeatures.length+'" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--border);padding:6px 10px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em">'+escHtml(cat.name)+'</th>';
   });
-  // Uncategorised features
-  const uncatFeatures=fmFeatures.filter(f=>!f.category_id);
   if(uncatFeatures.length)html+='<th colspan="'+uncatFeatures.length+'" style="background:var(--surface2);border:1px solid var(--border);padding:6px 10px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">Other</th>';
   html+='</tr>';
-  // Feature name row
+  // Feature name row — use orderedFeatures to match colspan grouping above
   html+='<tr><th style="position:sticky;left:0;z-index:2;background:var(--surface);border:1px solid var(--border);padding:6px 12px"></th>';
-  fmFeatures.forEach(f=>{
+  orderedFeatures.forEach(f=>{
     html+='<th style="border:1px solid var(--border);padding:6px 8px;text-align:center;font-weight:600;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(f.name)+'">'+escHtml(f.name)+'</th>';
   });
   html+='</tr></thead><tbody>';
@@ -1949,7 +1952,7 @@ function renderFeatureMatrix(){
     const deck=fmDecks.find(d=>d.id===room.deck_id);
     html+='<tr>';
     html+='<td style="position:sticky;left:0;z-index:1;background:var(--surface);border:1px solid var(--border);padding:8px 12px;white-space:nowrap"><div style="font-weight:600;font-size:12px">'+escHtml(room.name)+'</div>'+(deck?'<div style="font-size:10px;color:var(--text-3)">'+escHtml(deck.name)+'</div>':'')+'</td>';
-    fmFeatures.forEach(f=>{
+    orderedFeatures.forEach(f=>{
       const cell=fmMatrix.find(m=>m.room_id===room.id&&m.feature_id===f.id);
       const ticked=cell&&cell.ticked;
       const qty=cell&&cell.quantity;
