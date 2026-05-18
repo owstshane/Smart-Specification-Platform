@@ -643,6 +643,7 @@
           <button class="section-tab" id="tab-btn-placed" onclick="switchEquipTab('placed')">Equipment Schedule</button>
           <button class="section-tab" id="tab-btn-zone-summary" onclick="switchEquipTab('zone-summary')">Zone Summary</button>
           <button class="section-tab" id="tab-btn-templates" onclick="switchEquipTab('templates')">Room Templates</button>
+          <button class="section-tab" id="tab-btn-room-matrix" onclick="switchEquipTab('room-matrix')">Room Matrix</button>
         </div>
         <div id="equip-project-tab">
           <div class="toolbar">
@@ -668,6 +669,13 @@
             <button class="btn btn-secondary btn-sm" onclick="openGtPullModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Pull from Global</button>
           </div>
           <div id="templates-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+        </div>
+        <div id="equip-room-matrix-tab" class="hidden">
+          <div class="toolbar">
+            <select id="rm-filter-group" onchange="renderRoomMatrix()" style="width:auto;padding:8px 11px"><option value="">All systems</option></select>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-3)" id="rm-summary"></span>
+          </div>
+          <div id="room-matrix-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
         </div>
       </div>
 
@@ -3200,19 +3208,123 @@ function switchEquipTab(tab){
   document.getElementById('equip-placed-tab').classList.toggle('hidden',tab!=='placed');
   document.getElementById('equip-zone-summary-tab').classList.toggle('hidden',tab!=='zone-summary');
   document.getElementById('equip-templates-tab').classList.toggle('hidden',tab!=='templates');
+  document.getElementById('equip-room-matrix-tab').classList.toggle('hidden',tab!=='room-matrix');
   document.getElementById('tab-btn-proj-eq').classList.toggle('active',tab==='project');
   document.getElementById('tab-btn-placed').classList.toggle('active',tab==='placed');
   document.getElementById('tab-btn-zone-summary').classList.toggle('active',tab==='zone-summary');
   document.getElementById('tab-btn-templates').classList.toggle('active',tab==='templates');
-  updateEquipBtn();if(tab==='project')loadProjectEquipment();else if(tab==='placed')loadPlacedEquipment();else if(tab==='zone-summary')loadZoneSummary();else loadRoomTemplates();
+  document.getElementById('tab-btn-room-matrix').classList.toggle('active',tab==='room-matrix');
+  updateEquipBtn();
+  if(tab==='project')loadProjectEquipment();
+  else if(tab==='placed')loadPlacedEquipment();
+  else if(tab==='zone-summary')loadZoneSummary();
+  else if(tab==='room-matrix')loadRoomMatrix();
+  else loadRoomTemplates();
 }
 function updateEquipBtn(){
   const btn=document.getElementById('topbar-btn');if(!btn)return;
   if(activeEquipTab==='placed'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add to Schedule';btn.onclick=openPlaceModal;}
   else if(activeEquipTab==='templates'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Template';btn.onclick=openTemplateModal;}
-  else if(activeEquipTab==='zone-summary'){btn.style.display='none';return;}
+  else if(activeEquipTab==='zone-summary'||activeEquipTab==='room-matrix'){btn.style.display='none';return;}
   else{btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Pull from Global Library';btn.onclick=openPullLibraryModal;}
   btn.style.display='';
+}
+
+// ── ROOM MATRIX ──
+let rmInstances=[], rmTypeDetails=[];
+
+async function loadRoomMatrix(){
+  const c=document.getElementById('room-matrix-container');
+  c.innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try{
+    // Ensure decks + rooms are loaded
+    if(!currentDecks.length)currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
+    // Ensure project equipment is loaded (without touching Equipment Schedule DOM)
+    if(!projectEquipment.length)projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
+    // Load placed instances
+    rmInstances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
+    // Build project_equipment lookup by id
+    const peById={};projectEquipment.forEach(pe=>{peById[pe.id]=pe;});
+    // Enrich instances with device type info from project_equipment
+    rmInstances.forEach(i=>{
+      const pe=peById[i.project_equipment_id];
+      if(pe){i.device_type_id=pe.device_type_id;i.system_group=pe.system_group;i.description=pe.description;}
+    });
+    // Get unique placed device types, sorted by system group then description
+    const placedTypeIds=[...new Set(rmInstances.map(i=>i.device_type_id).filter(Boolean))];
+    rmTypeDetails=placedTypeIds.map(tid=>projectEquipment.find(pe=>pe.device_type_id===tid)).filter(Boolean);
+    rmTypeDetails.sort((a,b)=>(a.system_group||'').localeCompare(b.system_group||'')||a.description.localeCompare(b.description));
+    // Populate system group filter
+    const groups=[...new Set(rmTypeDetails.map(t=>t.system_group).filter(Boolean))];
+    const sel=document.getElementById('rm-filter-group');
+    sel.innerHTML='<option value="">All systems</option>'+groups.map(g=>'<option value="'+escHtml(g)+'">'+escHtml(g)+'</option>').join('');
+    renderRoomMatrix();
+  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-title">Could not load matrix</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
+}
+
+function renderRoomMatrix(){
+  const c=document.getElementById('room-matrix-container');
+  if(!rmTypeDetails.length){
+    c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⊞</div><div class="empty-state-title">No equipment placed yet</div><div class="empty-state-text">Place equipment in rooms on the Equipment Schedule tab first.</div></div>';
+    return;
+  }
+  const filterGroup=(document.getElementById('rm-filter-group')||{}).value||'';
+  const types=filterGroup?rmTypeDetails.filter(t=>t.system_group===filterGroup):rmTypeDetails;
+  if(!types.length){c.innerHTML='<div class="empty-state"><div class="empty-state-title">No equipment in this system group</div></div>';return;}
+  // Build group header spans
+  const groupSpans=[];let lastGroup=null,spanCount=0;
+  types.forEach((t,i)=>{
+    const g=t.system_group||'Other';
+    if(g!==lastGroup){if(lastGroup!==null)groupSpans.push({name:lastGroup,count:spanCount});lastGroup=g;spanCount=1;}
+    else spanCount++;
+    if(i===types.length-1)groupSpans.push({name:lastGroup,count:spanCount});
+  });
+  // Build instance lookup: room_id|device_type_id → total qty
+  const instMap={};
+  rmInstances.forEach(i=>{
+    if(!i.device_type_id)return;
+    const k=i.room_id+'|'+i.device_type_id;
+    instMap[k]=(instMap[k]||0)+(i.quantity||1);
+  });
+  // Update summary
+  const rooms=currentRooms;
+  const totalCols=types.length;
+  const sumEl=document.getElementById('rm-summary');
+  if(sumEl)sumEl.textContent=rooms.length+' rooms · '+totalCols+' device type'+(totalCols!==1?'s':'');
+  // Render table
+  let html='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;min-width:100%"><thead>';
+  // Row 1 — system group headers
+  html+='<tr><th style="position:sticky;left:0;z-index:3;background:var(--surface);border:1px solid var(--border);padding:7px 12px;min-width:170px;text-align:left;font-size:11px;font-weight:700;color:var(--text-2)">Room</th>';
+  groupSpans.forEach(g=>{
+    html+='<th colspan="'+g.count+'" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--border);padding:5px 8px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em">'+escHtml(g.name)+'</th>';
+  });
+  html+='</tr>';
+  // Row 2 — device type headers
+  html+='<tr><th style="position:sticky;left:0;z-index:3;background:var(--surface2);border:1px solid var(--border);padding:4px 12px"></th>';
+  types.forEach(t=>{
+    html+='<th style="border:1px solid var(--border);padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)" title="'+escHtml(t.device_type_id)+' — '+escHtml(t.description)+'">'+escHtml(t.device_type_id)+'</th>';
+  });
+  html+='</tr></thead><tbody>';
+  // Room rows, grouped by deck
+  currentDecks.forEach(deck=>{
+    const deckRooms=rooms.filter(r=>r.deck_id===deck.id);
+    if(!deckRooms.length)return;
+    html+='<tr><td colspan="'+(totalCols+1)+'" style="background:var(--surface2);border:1px solid var(--border);padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">'+escHtml(deck.name)+'</td></tr>';
+    deckRooms.forEach(room=>{
+      html+='<tr>';
+      html+='<td style="position:sticky;left:0;z-index:1;background:var(--surface);border:1px solid var(--border);padding:7px 12px;white-space:nowrap;font-weight:500">'+escHtml(room.name)+'</td>';
+      types.forEach(t=>{
+        const qty=instMap[room.id+'|'+t.device_type_id]||0;
+        html+=qty
+          ?'<td style="border:1px solid var(--border);padding:4px 6px;text-align:center;background:var(--accent-light);font-weight:700;color:var(--accent)">'+qty+'</td>'
+          :'<td style="border:1px solid var(--border);padding:4px 6px;text-align:center;color:var(--border);font-size:10px">·</td>';
+      });
+      html+='</tr>';
+    });
+  });
+  html+='</tbody></table></div>';
+  c.innerHTML=html;
 }
 
 // ── ROOM TEMPLATES ──
