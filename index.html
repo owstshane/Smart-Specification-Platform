@@ -3474,7 +3474,7 @@ function renderPullGlobalProductsList(){
     (!q||p.make.toLowerCase().includes(q)||p.model.toLowerCase().includes(q)||(p.device_type_id||'').toLowerCase().includes(q))&&
     (!hideExisting||!alreadyPulled.has(p.id))
   );
-  const countEl=document.getElementById('pgp-count');if(countEl)countEl.textContent=items.length+' product'+(items.length!==1?'s');
+  const countEl=document.getElementById('pgp-count');if(countEl)countEl.textContent=items.length+' product'+(items.length!==1?'s':'');
   const list=document.getElementById('pgp-list');
   if(!items.length){list.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px">No products found.</div>';pgpUpdateSelectedCount();return;}
   list.innerHTML=items.map(p=>{
