@@ -685,6 +685,8 @@
         </div>
         <div id="equip-room-matrix-tab" class="hidden">
           <div class="toolbar">
+            <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="rm-search" placeholder="Search rooms…" oninput="renderRoomMatrix()"></div>
+            <select id="rm-filter-deck" onchange="renderRoomMatrix()" style="width:auto;padding:8px 11px"><option value="">All decks</option></select>
             <select id="rm-filter-group" onchange="renderRoomMatrix()" style="width:auto;padding:8px 11px"><option value="">All systems</option></select>
             <span style="margin-left:auto;font-size:11px;color:var(--text-3)" id="rm-summary"></span>
           </div>
@@ -3311,6 +3313,9 @@ async function loadRoomMatrix(){
     rmTypeDetails.sort((a,b)=>(a.system_group||'').localeCompare(b.system_group||'')||a.description.localeCompare(b.description));
     // Apply saved column order if any
     rmApplySavedColOrder();
+    // Populate deck filter
+    const deckSel=document.getElementById('rm-filter-deck');
+    if(deckSel)deckSel.innerHTML='<option value="">All decks</option>'+currentDecks.map(d=>'<option value="'+escHtml(d.id)+'">'+escHtml(d.name)+'</option>').join('');
     // Populate system group filter
     const groups=[...new Set(rmTypeDetails.map(t=>t.system_group).filter(Boolean))];
     const sel=document.getElementById('rm-filter-group');
@@ -3343,11 +3348,17 @@ function renderRoomMatrix(){
     const k=i.room_id+'|'+i.device_type_id;
     instMap[k]=(instMap[k]||0)+(i.quantity||1);
   });
-  // Update summary
-  const rooms=currentRooms;
+  // Apply room filters
+  const rmQ=((document.getElementById('rm-search')||{}).value||'').toLowerCase().trim();
+  const filterDeck=(document.getElementById('rm-filter-deck')||{}).value||'';
+  const rooms=currentRooms.filter(r=>
+    (!filterDeck||r.deck_id===filterDeck)&&
+    (!rmQ||r.name.toLowerCase().includes(rmQ))
+  );
   const totalCols=types.length;
   const sumEl=document.getElementById('rm-summary');
-  if(sumEl)sumEl.textContent=rooms.length+' rooms \xb7 '+totalCols+' device type'+(totalCols!==1?'s':'');
+  if(sumEl)sumEl.textContent=rooms.length+' room'+(rooms.length!==1?'s':'')+' \xb7 '+totalCols+' device type'+(totalCols!==1?'s':'');
+  if(!rooms.length){c.innerHTML='<div class="empty-state"><div class="empty-state-title">No rooms match</div><div class="empty-state-text">Try adjusting the search or deck filter.</div></div>';return;}
   // Sticky row heights — row1 ≈ 29px (5px pad top/bottom + ~19px line), row2 ≈ 27px
   const r1h=29,r2top=r1h;
   // Render table — overflow:auto + max-height enables both sticky axes simultaneously
@@ -3367,7 +3378,7 @@ function renderRoomMatrix(){
     html+='<th draggable="true" ondragstart="rmDragColStart(event,\''+escHtml(tid)+'\')" ondragover="rmDragColOver(event,\''+escHtml(tid)+'\')" ondragleave="rmDragColLeave(event)" ondrop="rmDropCol(event,\''+escHtml(tid)+'\')" ondragend="rmDragColEnd()" style="position:sticky;top:'+r2top+'px;z-index:4;cursor:grab;padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)" title="'+escHtml(tid)+' — '+escHtml(t.description)+' (drag to reorder)">'+escHtml(tid)+'</th>';
   });
   html+='</tr></thead><tbody>';
-  // Room rows, grouped by deck
+  // Room rows, grouped by deck (only decks that have visible rooms after filtering)
   currentDecks.forEach(deck=>{
     const deckRooms=rooms.filter(r=>r.deck_id===deck.id);
     if(!deckRooms.length)return;
