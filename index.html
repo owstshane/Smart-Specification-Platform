@@ -653,6 +653,7 @@
       <div id="page-equipment" class="hidden">
         <div class="section-tabs">
           <button class="section-tab active" id="tab-btn-proj-eq" onclick="switchEquipTab('project')">Project Library</button>
+          <button class="section-tab" id="tab-btn-proj-catalogue" onclick="switchEquipTab('proj-catalogue')">Project Catalogue</button>
           <button class="section-tab" id="tab-btn-placed" onclick="switchEquipTab('placed')">Equipment Schedule</button>
           <button class="section-tab" id="tab-btn-room-matrix" onclick="switchEquipTab('room-matrix')">Equipment Matrix</button>
           <button class="section-tab" id="tab-btn-zone-summary" onclick="switchEquipTab('zone-summary')">Zone Summary</button>
@@ -665,6 +666,15 @@
             <button class="btn btn-secondary btn-sm" onclick="openPullLibraryModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Pull from Global Library</button>
           </div>
           <div id="project-equipment-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+        </div>
+        <div id="equip-proj-catalogue-tab" class="hidden">
+          <div class="toolbar">
+            <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="ppc-search" placeholder="Search products…" oninput="renderProjectCatalogue()"></div>
+            <select id="ppc-filter-type" onchange="renderProjectCatalogue()" style="width:auto;padding:8px 11px"><option value="">All device types</option></select>
+            <button class="btn btn-secondary btn-sm" onclick="openPullGlobalProductsModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Pull from Global</button>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-3)" id="ppc-count"></span>
+          </div>
+          <div id="proj-catalogue-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
         </div>
         <div id="equip-placed-tab" class="hidden">
           <div class="toolbar">
@@ -860,6 +870,27 @@
 </div>
 
 <!-- PRODUCT MODAL -->
+<div class="modal-overlay" id="pull-global-products-modal-overlay">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header"><div class="modal-title">Pull from Global Catalogue</div><button class="btn-icon" onclick="closePullGlobalProductsModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body" style="padding:0">
+      <div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
+        <div class="search-wrap" style="max-width:none;flex:1"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pgp-search" placeholder="Search make, model, device type…" oninput="renderPullGlobalProductsList()"></div>
+        <select id="pgp-filter-type" onchange="renderPullGlobalProductsList()" style="width:auto;padding:8px 11px"><option value="">All device types</option></select>
+      </div>
+      <div style="padding:8px 20px 4px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text-3)">
+        <span id="pgp-count"></span>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pgp-hide-existing" onchange="renderPullGlobalProductsList()"> Hide already added</label>
+      </div>
+      <div id="pgp-list" style="max-height:360px;overflow-y:auto;padding:0 20px 12px"></div>
+    </div>
+    <div class="modal-footer">
+      <span style="font-size:12px;color:var(--text-3)" id="pgp-selected-count">0 selected</span>
+      <button class="btn btn-secondary" onclick="closePullGlobalProductsModal()">Cancel</button>
+      <button class="btn btn-primary" id="pgp-pull-btn" onclick="pullSelectedGlobalProducts()">Pull Selected</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="product-modal-overlay">
   <div class="modal" style="max-width:640px">
     <div class="modal-header"><div class="modal-title" id="product-modal-title">Add Product</div><button class="btn-icon" onclick="closeProductModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -1217,6 +1248,7 @@ let activeDeckRoomTab='decks', activeEquipTab='project', activeSgTab='groups', c
 let globalLibrary=[], projectEquipment=[], placedEquipment=[], globalProducts=[];
 let systemGroups=[], deviceCategories=[];
 let editingGlobalId=null, editingPeId=null, editingProductId=null, editingPlaceId=null;
+let projectProducts=[], productModalMode='global'; // 'global' or 'project'
 let selectingProductForPeId=null, editingSgId=null, editingDcId=null;
 let currentUser=null, ieImportData=null, ieImportOption='add';
 
@@ -3171,7 +3203,7 @@ function populateProductDeviceTypeSelect(selectedTypeId){
 }
 function togglePoESupplyFields(){} // deprecated — PoE supply fields always visible now
 async function openProductModal(){
-  editingProductId=null;document.getElementById('product-modal-title').textContent='Add Product';document.getElementById('product-save-btn').textContent='Save Product';
+  productModalMode='global';editingProductId=null;document.getElementById('product-modal-title').textContent='Add Product';document.getElementById('product-save-btn').textContent='Save Product';
   ['prod-part','prod-make','prod-model','prod-notes'].forEach(id=>document.getElementById(id).value='');
   ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prod-poe').value='';
@@ -3188,7 +3220,7 @@ async function openProductModal(){
   document.getElementById('product-modal-overlay').classList.add('open');
 }
 async function openEditProduct(id){
-  const p=globalProducts.find(p=>p.id===id);if(!p)return;editingProductId=id;
+  const p=globalProducts.find(p=>p.id===id);if(!p)return;productModalMode='global';editingProductId=id;
   document.getElementById('product-modal-title').textContent='Edit Product';document.getElementById('product-save-btn').textContent='Save Changes';
   const d=globalLibrary.find(d=>d.device_type_id===p.device_type_id);
   document.getElementById('prod-part').value=p.part_number||'';document.getElementById('prod-make').value=p.make||'';document.getElementById('prod-model').value=p.model||'';
@@ -3219,8 +3251,17 @@ async function saveProduct(){
   const poeBudgetWatts=parseFloat(document.getElementById('prod-poe-budget').value)||null;
   const payload={device_type_id:deviceTypeId,make,model,part_number:document.getElementById('prod-part').value.trim()||null,lan_ports:parseInt(document.getElementById('prod-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('prod-poe').value||null:null,poe_budget_watts:poeBudgetWatts,network_role:document.getElementById('prod-network-role').value||'none',avip_role:document.getElementById('prod-avip-role').value||'none',audio_role:document.getElementById('prod-audio-role').value||'none',speaker_channels:parseInt(document.getElementById('prod-spk').value)||0,spk_watts:parseFloat(document.getElementById('prod-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('prod-power').value)||null,heat_btu:parseFloat(document.getElementById('prod-heat').value)||null,ups_protected:document.getElementById('prod-ups-protected').checked,weight_kg:parseFloat(document.getElementById('prod-weight').value)||null,width_mm:parseFloat(document.getElementById('prod-width').value)||null,depth_mm:parseFloat(document.getElementById('prod-depth').value)||null,height_mm:parseFloat(document.getElementById('prod-height').value)||null,notes:document.getElementById('prod-notes').value.trim()||null};
   const btn=document.getElementById('product-save-btn');btn.textContent='Saving…';btn.disabled=true;
-  try{if(editingProductId){await dbUpdate('global_products',editingProductId,payload);showToast('Product updated','success');}else{await dbInsert('global_products',payload);showToast('Product added','success');}closeProductModal();loadProductCatalogue();}
-  catch(e){showToast('Could not save: '+e.message,'error');}
+  try{
+    if(productModalMode==='project'){
+      if(editingProductId){await dbUpdate('project_products',editingProductId,payload);showToast('Product updated','success');}
+      else{await dbInsert('project_products',{...payload,project_id:currentProject.id});showToast('Product added to project catalogue','success');}
+      closeProductModal();loadProjectCatalogue();
+    }else{
+      if(editingProductId){await dbUpdate('global_products',editingProductId,payload);showToast('Product updated','success');}
+      else{await dbInsert('global_products',payload);showToast('Product added','success');}
+      closeProductModal();loadProductCatalogue();
+    }
+  }catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent=editingProductId?'Save Changes':'Save Product';btn.disabled=false;}
 }
 function confirmDeleteProduct(id,name){openConfirm('Delete Product','Delete "'+name+'" from the catalogue?',async()=>{try{await dbDelete('global_products',id);showToast('Product deleted','success');loadProductCatalogue();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
@@ -3262,17 +3303,20 @@ async function loadEquipmentPage(){updateEquipBtn();if(activeEquipTab==='project
 function switchEquipTab(tab){
   activeEquipTab=tab;
   document.getElementById('equip-project-tab').classList.toggle('hidden',tab!=='project');
+  document.getElementById('equip-proj-catalogue-tab').classList.toggle('hidden',tab!=='proj-catalogue');
   document.getElementById('equip-placed-tab').classList.toggle('hidden',tab!=='placed');
   document.getElementById('equip-zone-summary-tab').classList.toggle('hidden',tab!=='zone-summary');
   document.getElementById('equip-templates-tab').classList.toggle('hidden',tab!=='templates');
   document.getElementById('equip-room-matrix-tab').classList.toggle('hidden',tab!=='room-matrix');
   document.getElementById('tab-btn-proj-eq').classList.toggle('active',tab==='project');
+  document.getElementById('tab-btn-proj-catalogue').classList.toggle('active',tab==='proj-catalogue');
   document.getElementById('tab-btn-placed').classList.toggle('active',tab==='placed');
   document.getElementById('tab-btn-zone-summary').classList.toggle('active',tab==='zone-summary');
   document.getElementById('tab-btn-templates').classList.toggle('active',tab==='templates');
   document.getElementById('tab-btn-room-matrix').classList.toggle('active',tab==='room-matrix');
   updateEquipBtn();
   if(tab==='project')loadProjectEquipment();
+  else if(tab==='proj-catalogue')loadProjectCatalogue();
   else if(tab==='placed')loadPlacedEquipment();
   else if(tab==='zone-summary')loadZoneSummary();
   else if(tab==='room-matrix')loadRoomMatrix();
@@ -3282,9 +3326,201 @@ function updateEquipBtn(){
   const btn=document.getElementById('topbar-btn');if(!btn)return;
   if(activeEquipTab==='placed'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add to Schedule';btn.onclick=openPlaceModal;}
   else if(activeEquipTab==='templates'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Template';btn.onclick=openTemplateModal;}
+  else if(activeEquipTab==='proj-catalogue'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Product';btn.onclick=openAddProjProductModal;}
   else if(activeEquipTab==='zone-summary'||activeEquipTab==='room-matrix'){btn.style.display='none';return;}
   else{btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Pull from Global Library';btn.onclick=openPullLibraryModal;}
   btn.style.display='';
+}
+
+// ── PROJECT CATALOGUE ──
+async function loadProjectCatalogue(){
+  const c=document.getElementById('proj-catalogue-container');
+  c.innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try{
+    projectProducts=await dbGet('project_products','project_id=eq.'+currentProject.id+'&order=device_type_id.asc,make.asc,model.asc');
+    if(!globalLibrary.length)globalLibrary=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
+    const types=[...new Set(projectProducts.map(p=>p.device_type_id))].sort();
+    const sel=document.getElementById('ppc-filter-type');
+    if(sel)sel.innerHTML='<option value="">All device types</option>'+types.map(t=>'<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>').join('');
+    renderProjectCatalogue();
+  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
+}
+function renderProjectCatalogue(){
+  const q=((document.getElementById('ppc-search')||{}).value||'').toLowerCase().trim();
+  const type=(document.getElementById('ppc-filter-type')||{}).value||'';
+  const items=projectProducts.filter(p=>(!type||p.device_type_id===type)&&(!q||p.make.toLowerCase().includes(q)||p.model.toLowerCase().includes(q)||(p.device_type_id||'').toLowerCase().includes(q)||(p.part_number||'').toLowerCase().includes(q)));
+  const countEl=document.getElementById('ppc-count');if(countEl)countEl.textContent=items.length+' product'+(items.length!==1?'s':'');
+  const c=document.getElementById('proj-catalogue-container');
+  if(!projectProducts.length){
+    c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No products yet</div><div class="empty-state-text">Pull from the global catalogue or add a product from scratch.</div><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-secondary" onclick="openPullGlobalProductsModal()">Pull from Global</button><button class="btn btn-primary" onclick="openAddProjProductModal()">Add from Scratch</button></div></div>';return;
+  }
+  if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-title">No products match</div><div class="empty-state-text">Try adjusting the search or filter.</div></div>';return;}
+  const svgEdit='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  const svgDel='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg>';
+  const svgRefresh='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23,4 23,10 17,10"/><polyline points="1,20 1,14 7,14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+  c.innerHTML='<div class="equip-table"><table><thead><tr>'
+    +'<th>Device Type</th><th>Make</th><th>Model</th><th>Part No.</th>'
+    +'<th>LAN</th><th>PoE Ports</th><th>PoE Type</th><th>Spk</th><th>Power</th><th>Watts</th><th>Weight</th>'
+    +'<th>Source</th><th style="text-align:right">Actions</th>'
+    +'</tr></thead><tbody>'
+    +items.map(p=>{
+      const isGlobal=!!p.global_product_id;
+      const srcBadge=isGlobal
+        ?'<span class="category-badge" style="background:var(--accent-light);color:var(--accent)">Global</span>'
+        :'<span class="category-badge" style="background:var(--surface2);color:var(--text-3)">Custom</span>';
+      return '<tr>'
+        +'<td class="td-mono">'+escHtml(p.device_type_id)+'</td>'
+        +'<td style="font-weight:500">'+escHtml(p.make)+'</td>'
+        +'<td>'+escHtml(p.model)+'</td>'
+        +'<td class="td-mono">'+escHtml(p.part_number||'—')+'</td>'
+        +'<td style="text-align:center">'+(p.lan_ports||'—')+'</td>'
+        +'<td style="text-align:center">'+(p.poe_ports||'—')+'</td>'
+        +'<td>'+(p.poe_type?'<span class="category-badge">'+escHtml(p.poe_type)+'</span>':'—')+'</td>'
+        +'<td style="text-align:center">'+(p.speaker_channels||'—')+'</td>'
+        +'<td style="font-size:11px">'+(p.power_types&&p.power_types.length?p.power_types.join(', '):'—')+'</td>'
+        +'<td style="text-align:center">'+(p.power_watts?p.power_watts+'W':'—')+'</td>'
+        +'<td style="text-align:center">'+(p.weight_kg?p.weight_kg+'kg':'—')+'</td>'
+        +'<td>'+srcBadge+'</td>'
+        +'<td class="td-actions" style="text-align:right"><div style="display:flex;gap:4px;justify-content:flex-end">'
+        +(isGlobal?'<button class="btn-icon btn-sm" title="Refresh specs from global" onclick="refreshProjProductSpecs(\''+p.id+'\')">'+svgRefresh+'</button>':'')
+        +'<button class="btn-icon btn-sm" title="Edit" onclick="openEditProjProductModal(\''+p.id+'\')">'+svgEdit+'</button>'
+        +'<button class="btn-icon btn-sm" title="Delete" onclick="confirmDeleteProjProduct(\''+p.id+'\',\''+escHtml(p.make+' '+p.model)+'\')">'+svgDel+'</button>'
+        +'</div></td>'
+        +'</tr>';
+    }).join('')+'</tbody></table></div>';
+}
+async function openAddProjProductModal(){
+  productModalMode='project';editingProductId=null;
+  document.getElementById('product-modal-title').textContent='Add Product — Project Catalogue';
+  document.getElementById('product-save-btn').textContent='Save Product';
+  ['prod-part','prod-make','prod-model','prod-notes'].forEach(id=>document.getElementById(id).value='');
+  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('prod-poe').value='';document.getElementById('prod-ups-protected').checked=false;
+  document.getElementById('prod-pwr-type').value='';document.getElementById('prod-network-role').value='none';
+  document.getElementById('prod-avip-role').value='none';document.getElementById('prod-audio-role').value='none';
+  prodUpdateNetworkFields();prodUpdateAudioFields();
+  document.getElementById('prod-sg-filter').value='';
+  await loadSystemGroupOptions();populateProductDeviceTypeSelect(null);
+  document.getElementById('product-modal-overlay').classList.add('open');
+}
+async function openEditProjProductModal(id){
+  const p=projectProducts.find(p=>p.id===id);if(!p)return;
+  productModalMode='project';editingProductId=id;
+  document.getElementById('product-modal-title').textContent='Edit Product — Project Catalogue';
+  document.getElementById('product-save-btn').textContent='Save Changes';
+  const d=globalLibrary.find(d=>d.device_type_id===p.device_type_id);
+  document.getElementById('prod-part').value=p.part_number||'';document.getElementById('prod-make').value=p.make||'';document.getElementById('prod-model').value=p.model||'';
+  document.getElementById('prod-lan').value=p.lan_ports||'';document.getElementById('prod-poe-ports').value=p.poe_ports||'';
+  document.getElementById('prod-poe').value=p.poe_type||'';document.getElementById('prod-poe').disabled=!(p.poe_ports>0);
+  document.getElementById('prod-poe-budget').value=p.poe_budget_watts||'';
+  document.getElementById('prod-network-role').value=p.network_role||'none';document.getElementById('prod-avip-role').value=p.avip_role||'none';document.getElementById('prod-audio-role').value=p.audio_role||'none';
+  document.getElementById('prod-spk').value=p.speaker_channels||'';document.getElementById('prod-spk-watts').value=p.spk_watts||'';
+  document.getElementById('prod-power').value=p.power_watts||'';document.getElementById('prod-weight').value=p.weight_kg||'';document.getElementById('prod-heat').value=p.heat_btu||'';
+  document.getElementById('prod-width').value=p.width_mm||'';document.getElementById('prod-depth').value=p.depth_mm||'';document.getElementById('prod-height').value=p.height_mm||'';
+  document.getElementById('prod-pwr-type').value=(p.power_types&&p.power_types[0])||'';document.getElementById('prod-ups-protected').checked=p.ups_protected||false;
+  document.getElementById('prod-notes').value=p.notes||'';
+  prodUpdateNetworkFields();prodUpdateAudioFields();
+  if(d){document.getElementById('prod-sg-filter').value=d.system_group||'';filterProductDeviceTypes();}
+  populateProductDeviceTypeSelect(p.device_type_id);
+  document.getElementById('product-modal-overlay').classList.add('open');
+}
+function confirmDeleteProjProduct(id,name){
+  openConfirm('Delete Product','Remove "'+name+'" from this project\'s catalogue?',async()=>{
+    try{await dbDelete('project_products',id);projectProducts=projectProducts.filter(p=>p.id!==id);renderProjectCatalogue();showToast('Product removed','success');}
+    catch(e){showToast('Could not delete: '+e.message,'error');}
+  });
+}
+function refreshProjProductSpecs(id){
+  const p=projectProducts.find(p=>p.id===id);if(!p||!p.global_product_id)return;
+  openConfirm('Refresh Specs','Update technical specs for '+p.make+' '+p.model+' from the global catalogue?\n\nPrice will not be changed (not yet in use).',async()=>{
+    try{
+      const gp=await dbGet('global_products','id=eq.'+p.global_product_id);
+      if(!gp||!gp[0]){showToast('Global product not found','error');return;}
+      const g=gp[0];
+      const specUpdate={
+        make:g.make,model:g.model,part_number:g.part_number,
+        network_role:g.network_role,avip_role:g.avip_role,audio_role:g.audio_role,
+        lan_ports:g.lan_ports,poe_ports:g.poe_ports,poe_type:g.poe_type,poe_budget_watts:g.poe_budget_watts,
+        power_types:g.power_types,power_watts:g.power_watts,heat_btu:g.heat_btu,ups_protected:g.ups_protected,
+        speaker_channels:g.speaker_channels,spk_watts:g.spk_watts,
+        weight_kg:g.weight_kg,width_mm:g.width_mm,depth_mm:g.depth_mm,height_mm:g.height_mm,
+        notes:g.notes
+        // unit_price intentionally excluded — price is locked at pull time
+      };
+      await dbUpdate('project_products',id,specUpdate);
+      showToast('Specs refreshed from global','success');
+      loadProjectCatalogue();
+    }catch(e){showToast('Could not refresh: '+e.message,'error');}
+  });
+}
+async function openPullGlobalProductsModal(){
+  if(!globalProducts.length)globalProducts=await dbGet('global_products','order=device_type_id.asc,make.asc,model.asc');
+  // Populate device type filter
+  const types=[...new Set(globalProducts.map(p=>p.device_type_id))].sort();
+  const sel=document.getElementById('pgp-filter-type');
+  if(sel)sel.innerHTML='<option value="">All device types</option>'+types.map(t=>'<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>').join('');
+  document.getElementById('pgp-search').value='';
+  renderPullGlobalProductsList();
+  document.getElementById('pull-global-products-modal-overlay').classList.add('open');
+}
+function closePullGlobalProductsModal(){document.getElementById('pull-global-products-modal-overlay').classList.remove('open');}
+function renderPullGlobalProductsList(){
+  const q=((document.getElementById('pgp-search')||{}).value||'').toLowerCase().trim();
+  const type=(document.getElementById('pgp-filter-type')||{}).value||'';
+  const hideExisting=(document.getElementById('pgp-hide-existing')||{}).checked||false;
+  const alreadyPulled=new Set(projectProducts.map(p=>p.global_product_id).filter(Boolean));
+  let items=globalProducts.filter(p=>
+    (!type||p.device_type_id===type)&&
+    (!q||p.make.toLowerCase().includes(q)||p.model.toLowerCase().includes(q)||(p.device_type_id||'').toLowerCase().includes(q))&&
+    (!hideExisting||!alreadyPulled.has(p.id))
+  );
+  const countEl=document.getElementById('pgp-count');if(countEl)countEl.textContent=items.length+' product'+(items.length!==1?'s');
+  const list=document.getElementById('pgp-list');
+  if(!items.length){list.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px">No products found.</div>';pgpUpdateSelectedCount();return;}
+  list.innerHTML=items.map(p=>{
+    const already=alreadyPulled.has(p.id);
+    return '<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:'+(already?'default':'pointer')+';opacity:'+(already?'0.5':'1')+'">'
+      +'<input type="checkbox" class="pgp-cb" data-id="'+escHtml(p.id)+'" '+(already?'disabled checked':'')+'onchange="pgpUpdateSelectedCount()" style="flex-shrink:0">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:500">'+escHtml(p.make)+' '+escHtml(p.model)+'</div>'
+      +'<div style="font-size:11px;color:var(--text-3);margin-top:1px">'+escHtml(p.device_type_id)+(p.part_number?' \xb7 '+escHtml(p.part_number):'')+(p.power_watts?' \xb7 '+p.power_watts+'W':'')+(p.weight_kg?' \xb7 '+p.weight_kg+'kg':'')+'</div>'
+      +'</div>'
+      +(already?'<span style="font-size:11px;color:var(--text-3)">Already added</span>':'')
+      +'</label>';
+  }).join('');
+  pgpUpdateSelectedCount();
+}
+function pgpUpdateSelectedCount(){
+  const checked=document.querySelectorAll('.pgp-cb:checked:not(:disabled)').length;
+  const el=document.getElementById('pgp-selected-count');if(el)el.textContent=checked+' selected';
+  const btn=document.getElementById('pgp-pull-btn');if(btn)btn.disabled=checked===0;
+}
+async function pullSelectedGlobalProducts(){
+  const checked=[...document.querySelectorAll('.pgp-cb:checked:not(:disabled)')];
+  if(!checked.length)return;
+  const ids=checked.map(cb=>cb.dataset.id);
+  const btn=document.getElementById('pgp-pull-btn');btn.textContent='Pulling…';btn.disabled=true;
+  try{
+    let added=0;
+    for(const gid of ids){
+      const g=globalProducts.find(p=>p.id===gid);if(!g)continue;
+      await dbInsert('project_products',{
+        project_id:currentProject.id,global_product_id:g.id,
+        device_type_id:g.device_type_id,make:g.make,model:g.model,part_number:g.part_number||null,
+        network_role:g.network_role||'none',avip_role:g.avip_role||'none',audio_role:g.audio_role||'none',
+        lan_ports:g.lan_ports||0,poe_ports:g.poe_ports||0,poe_type:g.poe_type||null,poe_budget_watts:g.poe_budget_watts||null,
+        power_types:g.power_types||null,power_watts:g.power_watts||null,heat_btu:g.heat_btu||null,
+        ups_protected:g.ups_protected||false,speaker_channels:g.speaker_channels||0,spk_watts:g.spk_watts||null,
+        weight_kg:g.weight_kg||null,width_mm:g.width_mm||null,depth_mm:g.depth_mm||null,height_mm:g.height_mm||null,
+        unit_price:null,notes:g.notes||null
+      });
+      added++;
+    }
+    showToast(added+' product'+(added!==1?'s':'')+' added to project catalogue','success');
+    closePullGlobalProductsModal();
+    loadProjectCatalogue();
+  }catch(e){showToast('Could not pull: '+e.message,'error');}
+  finally{btn.textContent='Pull Selected';btn.disabled=false;}
 }
 
 // ── ROOM MATRIX ──
