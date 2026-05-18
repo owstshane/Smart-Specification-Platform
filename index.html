@@ -298,6 +298,15 @@
   .fm-feat-row.fm-dragging { opacity: 0.35; }
   .rm-drag-over-col { border-left: 3px solid var(--accent) !important; background: var(--accent-light) !important; }
   .rm-col-dragging { opacity: 0.4; }
+  /* Room matrix table — border-collapse:separate so position:sticky works on body cells */
+  .rm-matrix-table { border-collapse: separate; border-spacing: 0; min-width: 100%; font-size: 12px; }
+  .rm-matrix-table th, .rm-matrix-table td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .rm-matrix-table thead tr:first-child > th { border-top: 1px solid var(--border); }
+  .rm-matrix-table tr > th:first-child, .rm-matrix-table tr > td:first-child { border-left: 1px solid var(--border); }
+  /* Feature category drag */
+  .fm-cat-row { transition: background 0.1s; }
+  .fm-cat-row.fm-cat-drag-over { border-top: 3px solid var(--accent) !important; }
+  .fm-cat-row.fm-cat-dragging { opacity: 0.35; }
 
   /* EMPTY / LOADING */
   .empty-state { text-align: center; padding: 56px 32px; color: var(--text-3); }
@@ -2161,7 +2170,7 @@ async function syncFeatureMatrix(){
 }
 function exportFeatureMatrix(){showToast('Export — coming soon','success');}
 
-let fmSelectedFeatureId=null, fmFeatureDeviceTypes={}, fmEditingCatId=null, fmEditingFeatId=null, fmDragId=null;
+let fmSelectedFeatureId=null, fmFeatureDeviceTypes={}, fmEditingCatId=null, fmEditingFeatId=null, fmDragId=null, fmCatDragId=null;
 
 function closeFmManageModal(){document.getElementById('fm-manage-modal-overlay').classList.remove('open');renderFeatureMatrix();}
 async function openFmManageModal(){
@@ -2209,10 +2218,11 @@ function fmRenderFeatList(){
         +'<button class="btn btn-secondary btn-sm" onclick="fmCancelCatEdit()">Cancel</button>'
         +'</div>';
     }else{
-      html+='<div style="display:flex;align-items:center;gap:4px;padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">'
+      html+='<div class="fm-cat-row" draggable="true" ondragstart="fmCatDragStart(event,\''+cat.id+'\')" ondragover="fmCatDragOver(event,\''+cat.id+'\')" ondragleave="fmCatDragLeave(event)" ondrop="fmCatDrop(event,\''+cat.id+'\')" ondragend="fmCatDragEnd()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">'
+        +'<span class="fm-drag-handle" title="Drag to reorder category (moves all features with it)">⠿</span>'
         +'<span style="flex:1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">'+escHtml(cat.name)+'</span>'
-        +'<button class="btn-icon btn-sm" title="Rename" onclick="fmEditCategory(\''+cat.id+'\')">'+edi+'</button>'
-        +'<button class="btn-icon btn-sm" title="Delete" onclick="fmDeleteCategory(\''+cat.id+'\',\''+escHtml(cat.name)+'\')">'+del+'</button>'
+        +'<button class="btn-icon btn-sm" title="Rename" onclick="event.stopPropagation();fmEditCategory(\''+cat.id+'\')">'+edi+'</button>'
+        +'<button class="btn-icon btn-sm" title="Delete" onclick="event.stopPropagation();fmDeleteCategory(\''+cat.id+'\',\''+escHtml(cat.name)+'\')">'+del+'</button>'
         +'</div>';
     }
     feats.forEach(f=>{html+=fmFeatRow(f,chv,edi,del,cat.id);});
@@ -2371,6 +2381,7 @@ function fmDragEnd(){
   document.querySelectorAll('.fm-drag-over').forEach(el=>el.classList.remove('fm-drag-over'));
 }
 function fmDragOver(e,id,catId){
+  if(fmCatDragId)return; // category drag in progress — ignore feature targets
   e.preventDefault();
   e.dataTransfer.dropEffect='move';
   if(id===fmDragId)return;
@@ -2396,6 +2407,44 @@ async function fmDrop(e,targetId,targetCatId){
   fmDragId=null;
   fmRenderFeatList();
   try{await Promise.all(fmFeatures.map(f=>dbUpdate('features',f.id,{sort_order:f.sort_order,category_id:f.category_id})));}
+  catch(err){showToast('Could not reorder: '+err.message,'error');}
+}
+function fmCatDragStart(e,catId){
+  fmCatDragId=catId;
+  e.dataTransfer.effectAllowed='move';
+  e.currentTarget.classList.add('fm-cat-dragging');
+}
+function fmCatDragEnd(){
+  fmCatDragId=null;
+  document.querySelectorAll('.fm-cat-dragging').forEach(el=>el.classList.remove('fm-cat-dragging'));
+  document.querySelectorAll('.fm-cat-drag-over').forEach(el=>el.classList.remove('fm-cat-drag-over'));
+}
+function fmCatDragOver(e,catId){
+  e.preventDefault();
+  e.stopPropagation();
+  e.dataTransfer.dropEffect='move';
+  if(catId===fmCatDragId)return;
+  document.querySelectorAll('.fm-cat-drag-over').forEach(el=>el.classList.remove('fm-cat-drag-over'));
+  e.currentTarget.classList.add('fm-cat-drag-over');
+}
+function fmCatDragLeave(e){
+  if(!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('fm-cat-drag-over');
+}
+async function fmCatDrop(e,targetCatId){
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.fm-cat-drag-over').forEach(el=>el.classList.remove('fm-cat-drag-over'));
+  document.querySelectorAll('.fm-cat-dragging').forEach(el=>el.classList.remove('fm-cat-dragging'));
+  if(!fmCatDragId||fmCatDragId===targetCatId){fmCatDragId=null;return;}
+  const fromIdx=fmCategories.findIndex(c=>c.id===fmCatDragId);
+  const toIdx=fmCategories.findIndex(c=>c.id===targetCatId);
+  if(fromIdx<0||toIdx<0){fmCatDragId=null;return;}
+  const[moved]=fmCategories.splice(fromIdx,1);
+  fmCategories.splice(toIdx,0,moved);
+  fmCategories.forEach((c,i)=>c.sort_order=i+1);
+  fmCatDragId=null;
+  fmRenderFeatList();
+  try{await Promise.all(fmCategories.map(c=>dbUpdate('feature_categories',c.id,{sort_order:c.sort_order})));}
   catch(err){showToast('Could not reorder: '+err.message,'error');}
 }
 function fmDeleteCategory(id,name){
@@ -3257,6 +3306,8 @@ async function loadRoomMatrix(){
     const placedTypeIds=[...new Set(rmInstances.map(i=>i.device_type_id).filter(Boolean))];
     rmTypeDetails=placedTypeIds.map(tid=>projectEquipment.find(pe=>pe.device_type_id===tid)).filter(Boolean);
     rmTypeDetails.sort((a,b)=>(a.system_group||'').localeCompare(b.system_group||'')||a.description.localeCompare(b.description));
+    // Apply saved column order if any
+    rmApplySavedColOrder();
     // Populate system group filter
     const groups=[...new Set(rmTypeDetails.map(t=>t.system_group).filter(Boolean))];
     const sel=document.getElementById('rm-filter-group');
@@ -3297,35 +3348,35 @@ function renderRoomMatrix(){
   // Sticky row heights — row1 ≈ 29px (5px pad top/bottom + ~19px line), row2 ≈ 27px
   const r1h=29,r2top=r1h;
   // Render table — overflow:auto + max-height enables both sticky axes simultaneously
-  let html='<div style="overflow:auto;max-height:calc(100vh - 220px)"><table style="border-collapse:collapse;font-size:12px;min-width:100%"><thead>';
+  let html='<div style="overflow:auto;max-height:calc(100vh - 220px)"><table class="rm-matrix-table"><thead>';
   // Row 1 — system group headers (sticky top:0)
   html+='<tr>';
-  html+='<th style="position:sticky;top:0;left:0;z-index:5;background:var(--surface);border:1px solid var(--border);padding:5px 12px;min-width:170px;text-align:left;font-size:11px;font-weight:700;color:var(--text-2)">Room</th>';
+  html+='<th style="position:sticky;top:0;left:0;z-index:5;background:var(--surface);padding:5px 12px;min-width:170px;text-align:left;font-size:11px;font-weight:700;color:var(--text-2)">Room</th>';
   groupSpans.forEach(g=>{
-    html+='<th colspan="'+g.count+'" style="position:sticky;top:0;z-index:4;background:var(--accent-light);color:var(--accent);border:1px solid var(--border);padding:5px 8px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em">'+escHtml(g.name)+'</th>';
+    html+='<th colspan="'+g.count+'" style="position:sticky;top:0;z-index:4;background:var(--accent-light);color:var(--accent);padding:5px 8px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em">'+escHtml(g.name)+'</th>';
   });
   html+='</tr>';
   // Row 2 — device type headers (sticky top:r2top, draggable)
   html+='<tr>';
-  html+='<th style="position:sticky;top:'+r2top+'px;left:0;z-index:5;background:var(--surface2);border:1px solid var(--border);padding:4px 12px;font-size:10px;color:var(--text-3)">drag cols to reorder ↔</th>';
+  html+='<th style="position:sticky;top:'+r2top+'px;left:0;z-index:5;background:var(--surface2);padding:4px 12px;font-size:10px;color:var(--text-3)">drag cols ↔</th>';
   types.forEach(t=>{
     const tid=t.device_type_id;
-    html+='<th draggable="true" ondragstart="rmDragColStart(event,\''+escHtml(tid)+'\')" ondragover="rmDragColOver(event,\''+escHtml(tid)+'\')" ondragleave="rmDragColLeave(event)" ondrop="rmDropCol(event,\''+escHtml(tid)+'\')" ondragend="rmDragColEnd()" style="position:sticky;top:'+r2top+'px;z-index:4;cursor:grab;border:1px solid var(--border);padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)" title="'+escHtml(tid)+' — '+escHtml(t.description)+' (drag to reorder)">'+escHtml(tid)+'</th>';
+    html+='<th draggable="true" ondragstart="rmDragColStart(event,\''+escHtml(tid)+'\')" ondragover="rmDragColOver(event,\''+escHtml(tid)+'\')" ondragleave="rmDragColLeave(event)" ondrop="rmDropCol(event,\''+escHtml(tid)+'\')" ondragend="rmDragColEnd()" style="position:sticky;top:'+r2top+'px;z-index:4;cursor:grab;padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)" title="'+escHtml(tid)+' — '+escHtml(t.description)+' (drag to reorder)">'+escHtml(tid)+'</th>';
   });
   html+='</tr></thead><tbody>';
   // Room rows, grouped by deck
   currentDecks.forEach(deck=>{
     const deckRooms=rooms.filter(r=>r.deck_id===deck.id);
     if(!deckRooms.length)return;
-    html+='<tr><td colspan="'+(totalCols+1)+'" style="position:sticky;left:0;background:var(--surface2);border:1px solid var(--border);padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">'+escHtml(deck.name)+'</td></tr>';
+    html+='<tr><td colspan="'+(totalCols+1)+'" style="background:var(--surface2);padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">'+escHtml(deck.name)+'</td></tr>';
     deckRooms.forEach(room=>{
       html+='<tr>';
-      html+='<td style="position:sticky;left:0;z-index:1;background:var(--surface);border:1px solid var(--border);padding:7px 12px;white-space:nowrap;font-weight:500">'+escHtml(room.name)+'</td>';
+      html+='<td style="position:sticky;left:0;z-index:2;background:var(--surface);padding:7px 12px;white-space:nowrap;font-weight:500">'+escHtml(room.name)+'</td>';
       types.forEach(t=>{
         const qty=instMap[room.id+'|'+t.device_type_id]||0;
         html+=qty
-          ?'<td style="border:1px solid var(--border);padding:4px 6px;text-align:center;background:var(--accent-light);font-weight:700;color:var(--accent)">'+qty+'</td>'
-          :'<td style="border:1px solid var(--border);padding:4px 6px;text-align:center;color:var(--border);font-size:10px">\xb7</td>';
+          ?'<td style="padding:4px 6px;text-align:center;background:var(--accent-light);font-weight:700;color:var(--accent)">'+qty+'</td>'
+          :'<td style="padding:4px 6px;text-align:center;color:var(--border);font-size:10px">\xb7</td>';
       });
       html+='</tr>';
     });
@@ -3365,7 +3416,22 @@ function rmDropCol(e,targetTypeId){
   const[moved]=rmTypeDetails.splice(fromIdx,1);
   rmTypeDetails.splice(toIdx,0,moved);
   rmDragTypeId=null;
+  rmSaveColOrder();
   renderRoomMatrix();
+}
+function rmSaveColOrder(){
+  if(!currentProject)return;
+  try{localStorage.setItem('rm_col_order_'+currentProject.id,JSON.stringify(rmTypeDetails.map(t=>t.device_type_id)));}catch(e){}
+}
+function rmApplySavedColOrder(){
+  if(!currentProject||!rmTypeDetails.length)return;
+  try{
+    const saved=localStorage.getItem('rm_col_order_'+currentProject.id);
+    if(!saved)return;
+    const order=JSON.parse(saved);
+    const idx={};order.forEach((id,i)=>{idx[id]=i;});
+    rmTypeDetails.sort((a,b)=>(idx[a.device_type_id]!=null?idx[a.device_type_id]:9999)-(idx[b.device_type_id]!=null?idx[b.device_type_id]:9999));
+  }catch(e){}
 }
 
 // ── ROOM TEMPLATES ──
