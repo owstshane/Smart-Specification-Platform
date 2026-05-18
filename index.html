@@ -1900,6 +1900,12 @@ async function loadFeatureMatrix(){
     fmFeatures=await dbGet('features','project_id=eq.'+currentProject.id+'&order=sort_order.asc,name.asc');
     fmMatrix=fmFeatures.length&&fmRooms.length?await dbGet('project_feature_matrix','project_id=eq.'+currentProject.id):[];
     fmInstances=fmRooms.length?await dbGet('equipment_instances','project_id=eq.'+currentProject.id):[];
+    // Enrich instances with device_type_id (not stored on instances — comes from project_equipment)
+    if(fmInstances.length){
+      let peData=projectEquipment.length?projectEquipment:await dbGet('project_equipment','project_id=eq.'+currentProject.id);
+      const peById={};peData.forEach(p=>{peById[p.id]=p;});
+      fmInstances.forEach(inst=>{const p=peById[inst.project_equipment_id];if(p)inst.device_type_id=p.device_type_id;});
+    }
     // Load device type links
     fmFeatureDeviceTypes={};
     if(fmFeatures.length){
@@ -2084,7 +2090,60 @@ async function fmSeedFromLibrary(){
     await loadFeatureMatrix();
   }catch(e){showToast('Could not build matrix: '+e.message,'error');}
 }
-async function syncFeatureMatrix(){showToast('Sync from placement — coming soon','success');}
+async function syncFeatureMatrix(){
+  if(!currentProject)return;
+  if(!fmFeatures.length){showToast('No features defined — use Build from Library or Manage Features first','error');return;}
+  if(!fmRooms.length){showToast('No rooms defined for this project','error');return;}
+  // Ensure instances are loaded and enriched with device_type_id
+  if(!fmInstances.length){
+    fmInstances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
+    let peData=projectEquipment.length?projectEquipment:await dbGet('project_equipment','project_id=eq.'+currentProject.id);
+    const peById={};peData.forEach(p=>{peById[p.id]=p;});
+    fmInstances.forEach(inst=>{const p=peById[inst.project_equipment_id];if(p)inst.device_type_id=p.device_type_id;});
+  }
+  // Build a quick lookup: room_id+feature_id → existing matrix cell
+  const cellKey=(rid,fid)=>rid+'|'+fid;
+  const cellMap={};fmMatrix.forEach(m=>{cellMap[cellKey(m.room_id,m.feature_id)]=m;});
+  // Collect what needs inserting / updating
+  const toInsert=[], toUpdate=[];
+  let skipped=0;
+  for(const f of fmFeatures){
+    const linkedTypes=fmFeatureDeviceTypes[f.id]||[];
+    if(!linkedTypes.length)continue; // no linked types — nothing to sync
+    for(const room of fmRooms){
+      const existing=cellMap[cellKey(room.id,f.id)];
+      if(existing&&existing.ticked){skipped++;continue;} // never overwrite manual tick
+      // Sum quantities of all placed instances in this room matching a linked type
+      const qty=fmInstances
+        .filter(i=>i.room_id===room.id&&linkedTypes.includes(i.device_type_id))
+        .reduce((sum,i)=>sum+(i.quantity||1),0);
+      if(!qty)continue; // nothing placed here for this feature
+      if(existing){toUpdate.push({id:existing.id,qty});}
+      else{toInsert.push({room_id:room.id,feature_id:f.id,qty});}
+    }
+  }
+  const total=toInsert.length+toUpdate.length;
+  if(!total){showToast(skipped?'All matched cells already ticked — '+skipped+' manual tick'+(skipped!==1?'s':'')+' preserved':'No placed equipment matches any features in this matrix','success');return;}
+  try{
+    showToast('Syncing '+total+' cell'+(total!==1?'s':'')+'…','success');
+    // Updates (existing unticked cells)
+    for(const u of toUpdate){
+      await dbUpdate('project_feature_matrix',u.id,{ticked:true,quantity:u.qty});
+      const cell=fmMatrix.find(m=>m.id===u.id);if(cell){cell.ticked=true;cell.quantity=u.qty;}
+    }
+    // Inserts (new cells)
+    const insertBatch=toInsert.map(ins=>({
+      project_id:currentProject.id,room_id:ins.room_id,feature_id:ins.feature_id,ticked:true,quantity:ins.qty
+    }));
+    if(insertBatch.length){
+      const res=await dbInsert('project_feature_matrix',insertBatch);
+      if(res)fmMatrix.push(...res);
+    }
+    const msg=total+' cell'+(total!==1?'s':'')+' synced from placement'+(skipped?' · '+skipped+' manual tick'+(skipped!==1?'s':'')+' preserved':'');
+    showToast(msg,'success');
+    renderFeatureMatrix();
+  }catch(e){showToast('Sync failed: '+e.message,'error');}
+}
 function exportFeatureMatrix(){showToast('Export — coming soon','success');}
 
 let fmSelectedFeatureId=null, fmFeatureDeviceTypes={}, fmEditingCatId=null, fmEditingFeatId=null, fmDragId=null;
