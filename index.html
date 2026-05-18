@@ -686,6 +686,7 @@
         <div id="equip-room-matrix-tab" class="hidden">
           <div class="toolbar">
             <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="rm-search" placeholder="Search rooms…" oninput="renderRoomMatrix()"></div>
+            <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="rm-search-type" placeholder="Search device types…" oninput="renderRoomMatrix()"></div>
             <select id="rm-filter-deck" onchange="renderRoomMatrix()" style="width:auto;padding:8px 11px"><option value="">All decks</option></select>
             <select id="rm-filter-group" onchange="renderRoomMatrix()" style="width:auto;padding:8px 11px"><option value="">All systems</option></select>
             <span style="margin-left:auto;font-size:11px;color:var(--text-3)" id="rm-summary"></span>
@@ -3331,8 +3332,10 @@ function renderRoomMatrix(){
     return;
   }
   const filterGroup=(document.getElementById('rm-filter-group')||{}).value||'';
-  const types=filterGroup?rmTypeDetails.filter(t=>t.system_group===filterGroup):rmTypeDetails;
-  if(!types.length){c.innerHTML='<div class="empty-state"><div class="empty-state-title">No equipment in this system group</div></div>';return;}
+  const rmTypeQ=((document.getElementById('rm-search-type')||{}).value||'').toLowerCase().trim();
+  let types=filterGroup?rmTypeDetails.filter(t=>t.system_group===filterGroup):rmTypeDetails;
+  if(rmTypeQ)types=types.filter(t=>(t.device_type_id||'').toLowerCase().includes(rmTypeQ)||(t.description||'').toLowerCase().includes(rmTypeQ));
+  if(!types.length){c.innerHTML='<div class="empty-state"><div class="empty-state-title">No device types match</div><div class="empty-state-text">Try adjusting the system group or device type search.</div></div>';return;}
   // Build group header spans
   const groupSpans=[];let lastGroup=null,spanCount=0;
   types.forEach((t,i)=>{
