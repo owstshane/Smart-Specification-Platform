@@ -871,23 +871,28 @@
 
 <!-- PRODUCT MODAL -->
 <div class="modal-overlay" id="pull-global-products-modal-overlay">
-  <div class="modal" style="max-width:680px">
-    <div class="modal-header"><div class="modal-title">Pull from Global Catalogue</div><button class="btn-icon" onclick="closePullGlobalProductsModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-    <div class="modal-body" style="padding:0">
-      <div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
-        <div class="search-wrap" style="max-width:none;flex:1"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pgp-search" placeholder="Search make, model, device type…" oninput="renderPullGlobalProductsList()"></div>
-        <select id="pgp-filter-type" onchange="renderPullGlobalProductsList()" style="width:auto;padding:8px 11px"><option value="">All device types</option></select>
+  <div class="modal" style="max-width:900px;width:100%">
+    <div class="modal-header">
+      <div class="modal-title">Pull from Global Catalogue</div>
+      <button class="btn-icon" onclick="closePullGlobalProductsModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" style="padding-bottom:0">
+      <div class="tmpl-builder" style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+        <div class="tmpl-browser">
+          <div class="tmpl-panel-header">Global Product Catalogue</div>
+          <div class="tmpl-search-bar"><input type="text" id="pgp-search" placeholder="Search make, model, device type…" style="width:100%;padding:7px 10px;font-size:13px" oninput="pgpRenderBrowser()"></div>
+          <div class="tmpl-group-pills" id="pgp-type-pills"></div>
+          <div class="tmpl-device-list" id="pgp-device-list"></div>
+        </div>
+        <div class="tmpl-selected">
+          <div class="tmpl-panel-header" id="pgp-selected-header">Selected — 0</div>
+          <div class="tmpl-item-list" id="pgp-item-list"><div class="tmpl-empty-panel">Tick products on the left to pull them into this project</div></div>
+        </div>
       </div>
-      <div style="padding:8px 20px 4px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text-3)">
-        <span id="pgp-count"></span>
-        <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pgp-hide-existing" onchange="renderPullGlobalProductsList()"> Hide already added</label>
-      </div>
-      <div id="pgp-list" style="max-height:360px;overflow-y:auto;overflow-x:hidden;padding:0 20px 12px"></div>
     </div>
     <div class="modal-footer">
-      <span style="font-size:12px;color:var(--text-3)" id="pgp-selected-count">0 selected</span>
       <button class="btn btn-secondary" onclick="closePullGlobalProductsModal()">Cancel</button>
-      <button class="btn btn-primary" id="pgp-pull-btn" onclick="pullSelectedGlobalProducts()">Pull Selected</button>
+      <button class="btn btn-primary" id="pgp-pull-btn" onclick="pullSelectedGlobalProducts()">Pull to Project</button>
     </div>
   </div>
 </div>
@@ -1249,6 +1254,7 @@ let globalLibrary=[], projectEquipment=[], placedEquipment=[], globalProducts=[]
 let systemGroups=[], deviceCategories=[];
 let editingGlobalId=null, editingPeId=null, editingProductId=null, editingPlaceId=null;
 let projectProducts=[], productModalMode='global'; // 'global' or 'project'
+let pgpItems=[], pgpPulledIds=new Set(), pgpActiveType='all';
 let selectingProductForPeId=null, editingSgId=null, editingDcId=null;
 let currentUser=null, ieImportData=null, ieImportOption='add';
 
@@ -3454,56 +3460,61 @@ function refreshProjProductSpecs(id){
   });
 }
 async function openPullGlobalProductsModal(){
-  if(!globalProducts.length)globalProducts=await dbGet('global_products','order=device_type_id.asc,make.asc,model.asc');
-  // Populate device type filter
-  const types=[...new Set(globalProducts.map(p=>p.device_type_id))].sort();
-  const sel=document.getElementById('pgp-filter-type');
-  if(sel)sel.innerHTML='<option value="">All device types</option>'+types.map(t=>'<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>').join('');
+  pgpItems=[];pgpActiveType='all';
   document.getElementById('pgp-search').value='';
-  renderPullGlobalProductsList();
+  if(!globalProducts.length)globalProducts=await dbGet('global_products','order=device_type_id.asc,make.asc,model.asc');
+  pgpPulledIds=new Set(projectProducts.map(p=>p.global_product_id).filter(Boolean));
+  pgpRenderTypePills();pgpRenderBrowser();pgpRenderItemList();
   document.getElementById('pull-global-products-modal-overlay').classList.add('open');
 }
 function closePullGlobalProductsModal(){document.getElementById('pull-global-products-modal-overlay').classList.remove('open');}
-function renderPullGlobalProductsList(){
-  const q=((document.getElementById('pgp-search')||{}).value||'').toLowerCase().trim();
-  const type=(document.getElementById('pgp-filter-type')||{}).value||'';
-  const hideExisting=(document.getElementById('pgp-hide-existing')||{}).checked||false;
-  const alreadyPulled=new Set(projectProducts.map(p=>p.global_product_id).filter(Boolean));
-  let items=globalProducts.filter(p=>
-    (!type||p.device_type_id===type)&&
-    (!q||p.make.toLowerCase().includes(q)||p.model.toLowerCase().includes(q)||(p.device_type_id||'').toLowerCase().includes(q))&&
-    (!hideExisting||!alreadyPulled.has(p.id))
-  );
-  const countEl=document.getElementById('pgp-count');if(countEl)countEl.textContent=items.length+' product'+(items.length!==1?'s':'');
-  const list=document.getElementById('pgp-list');
-  if(!items.length){list.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px">No products found.</div>';pgpUpdateSelectedCount();return;}
-  list.innerHTML=items.map(p=>{
-    const already=alreadyPulled.has(p.id);
-    return '<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);width:100%;box-sizing:border-box;cursor:'+(already?'default':'pointer')+';opacity:'+(already?'0.5':'1')+'">'
-      +'<input type="checkbox" class="pgp-cb" data-id="'+escHtml(p.id)+'" '+(already?'disabled checked':'')+'onchange="pgpUpdateSelectedCount()" style="flex-shrink:0">'
-      +'<div style="flex:1;min-width:0">'
-      +'<div style="font-size:13px;font-weight:500">'+escHtml(p.make)+' '+escHtml(p.model)+'</div>'
-      +'<div style="font-size:11px;color:var(--text-3);margin-top:1px">'+escHtml(p.device_type_id)+(p.part_number?' \xb7 '+escHtml(p.part_number):'')+(p.power_watts?' \xb7 '+p.power_watts+'W':'')+(p.weight_kg?' \xb7 '+p.weight_kg+'kg':'')+'</div>'
-      +'</div>'
-      +(already?'<span style="font-size:11px;color:var(--text-3)">Already added</span>':'')
-      +'</label>';
-  }).join('');
-  pgpUpdateSelectedCount();
+function pgpRenderTypePills(){
+  const types=['all',...[...new Set(globalProducts.map(p=>p.device_type_id).filter(Boolean))].sort()];
+  document.getElementById('pgp-type-pills').innerHTML=types.map(t=>'<button class="tmpl-group-pill'+(pgpActiveType===t?' active':'')+'" onclick="pgpSetType(\''+escHtml(t)+'\')">'+escHtml(t==='all'?'All':t)+'</button>').join('');
 }
-function pgpUpdateSelectedCount(){
-  const checked=document.querySelectorAll('.pgp-cb:checked:not(:disabled)').length;
-  const el=document.getElementById('pgp-selected-count');if(el)el.textContent=checked+' selected';
-  const btn=document.getElementById('pgp-pull-btn');if(btn)btn.disabled=checked===0;
+function pgpSetType(t){pgpActiveType=t;pgpRenderTypePills();pgpRenderBrowser();}
+function pgpRenderBrowser(){
+  const q=(document.getElementById('pgp-search')||{}).value?.toLowerCase().trim()||'';
+  const list=document.getElementById('pgp-device-list');
+  let filtered=globalProducts;
+  if(pgpActiveType!=='all')filtered=filtered.filter(p=>p.device_type_id===pgpActiveType);
+  if(q)filtered=filtered.filter(p=>p.make.toLowerCase().includes(q)||p.model.toLowerCase().includes(q)||(p.device_type_id||'').toLowerCase().includes(q));
+  if(!filtered.length){list.innerHTML='<div class="tmpl-empty-panel">No products found</div>';return;}
+  list.innerHTML=filtered.map(p=>{
+    const added=pgpItems.find(i=>i.id===p.id);
+    const inProject=pgpPulledIds.has(p.id);
+    return '<div class="tmpl-device-row'+(added?' added':'')+(inProject?' added':'')+'" onclick="'+(inProject?'':('pgpToggleItem(\''+p.id+'\')'))+'\">'
+      +'<input type="checkbox" '+(added||inProject?'checked':'')+' '+(inProject?'disabled':'')+' onclick="event.stopPropagation();'+(inProject?'':('pgpToggleItem(\''+p.id+'\')'))+'\">'
+      +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600">'+escHtml(p.make)+' '+escHtml(p.model)+'</div>'
+      +'<div style="font-size:11px;color:var(--text-3)">'+escHtml(p.device_type_id||'')+(p.part_number?' \xb7 '+escHtml(p.part_number):'')+(p.power_watts?' \xb7 '+p.power_watts+'W':'')+'</div></div>'
+      +(inProject?'<span style="font-size:10px;color:var(--green);font-weight:600">&#x2713; In Project</span>':'')
+      +'</div>';
+  }).join('');
+}
+function pgpToggleItem(id){
+  const idx=pgpItems.findIndex(i=>i.id===id);
+  if(idx>=0)pgpItems.splice(idx,1);
+  else{const p=globalProducts.find(p=>p.id===id);if(p)pgpItems.push({id:p.id,make:p.make,model:p.model,device_type_id:p.device_type_id});}
+  pgpRenderBrowser();pgpRenderItemList();
+}
+function pgpRenderItemList(){
+  const c=document.getElementById('pgp-item-list');
+  document.getElementById('pgp-selected-header').textContent='Selected — '+pgpItems.length;
+  const btn=document.getElementById('pgp-pull-btn');if(btn)btn.disabled=pgpItems.length===0;
+  if(!pgpItems.length){c.innerHTML='<div class="tmpl-empty-panel">Tick products on the left to pull them into this project</div>';return;}
+  c.innerHTML=pgpItems.map(i=>'<div class="tmpl-item-row">'
+    +'<div class="tmpl-item-info" style="min-width:0"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(i.make)+' '+escHtml(i.model)+'</div>'
+    +'<div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(i.device_type_id)+'</div></div>'
+    +'<button class="btn-icon btn-sm" style="flex-shrink:0" onclick="pgpToggleItem(\''+i.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+    +'</div>').join('');
 }
 async function pullSelectedGlobalProducts(){
-  const checked=[...document.querySelectorAll('.pgp-cb:checked:not(:disabled)')];
-  if(!checked.length)return;
-  const ids=checked.map(cb=>cb.dataset.id);
+  if(!pgpItems.length)return;
   const btn=document.getElementById('pgp-pull-btn');btn.textContent='Pulling…';btn.disabled=true;
   try{
     let added=0;
-    for(const gid of ids){
-      const g=globalProducts.find(p=>p.id===gid);if(!g)continue;
+    for(const item of pgpItems){
+      const g=globalProducts.find(p=>p.id===item.id);if(!g)continue;
       await dbInsert('project_products',{
         project_id:currentProject.id,global_product_id:g.id,
         device_type_id:g.device_type_id,make:g.make,model:g.model,part_number:g.part_number||null,
@@ -3520,7 +3531,7 @@ async function pullSelectedGlobalProducts(){
     closePullGlobalProductsModal();
     loadProjectCatalogue();
   }catch(e){showToast('Could not pull: '+e.message,'error');}
-  finally{btn.textContent='Pull Selected';btn.disabled=false;}
+  finally{btn.textContent='Pull to Project';btn.disabled=false;}
 }
 
 // ── ROOM MATRIX ──
