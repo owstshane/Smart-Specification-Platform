@@ -882,7 +882,7 @@
         <span id="pgp-count"></span>
         <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pgp-hide-existing" onchange="renderPullGlobalProductsList()"> Hide already added</label>
       </div>
-      <div id="pgp-list" style="max-height:360px;overflow-y:auto;padding:0 20px 12px"></div>
+      <div id="pgp-list" style="max-height:360px;overflow-y:auto;overflow-x:hidden;padding:0 20px 12px"></div>
     </div>
     <div class="modal-footer">
       <span style="font-size:12px;color:var(--text-3)" id="pgp-selected-count">0 selected</span>
@@ -3479,7 +3479,7 @@ function renderPullGlobalProductsList(){
   if(!items.length){list.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px">No products found.</div>';pgpUpdateSelectedCount();return;}
   list.innerHTML=items.map(p=>{
     const already=alreadyPulled.has(p.id);
-    return '<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:'+(already?'default':'pointer')+';opacity:'+(already?'0.5':'1')+'">'
+    return '<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);width:100%;box-sizing:border-box;cursor:'+(already?'default':'pointer')+';opacity:'+(already?'0.5':'1')+'">'
       +'<input type="checkbox" class="pgp-cb" data-id="'+escHtml(p.id)+'" '+(already?'disabled checked':'')+'onchange="pgpUpdateSelectedCount()" style="flex-shrink:0">'
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-size:13px;font-weight:500">'+escHtml(p.make)+' '+escHtml(p.model)+'</div>'
