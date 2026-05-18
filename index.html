@@ -654,9 +654,9 @@
         <div class="section-tabs">
           <button class="section-tab active" id="tab-btn-proj-eq" onclick="switchEquipTab('project')">Project Library</button>
           <button class="section-tab" id="tab-btn-placed" onclick="switchEquipTab('placed')">Equipment Schedule</button>
+          <button class="section-tab" id="tab-btn-room-matrix" onclick="switchEquipTab('room-matrix')">Equipment Matrix</button>
           <button class="section-tab" id="tab-btn-zone-summary" onclick="switchEquipTab('zone-summary')">Zone Summary</button>
           <button class="section-tab" id="tab-btn-templates" onclick="switchEquipTab('templates')">Room Templates</button>
-          <button class="section-tab" id="tab-btn-room-matrix" onclick="switchEquipTab('room-matrix')">Room Matrix</button>
         </div>
         <div id="equip-project-tab">
           <div class="toolbar">
@@ -3322,7 +3322,7 @@ async function loadRoomMatrix(){
 function renderRoomMatrix(){
   const c=document.getElementById('room-matrix-container');
   if(!rmTypeDetails.length){
-    c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⊞</div><div class="empty-state-title">No equipment placed yet</div><div class="empty-state-text">Place equipment in rooms on the Equipment Schedule tab first.</div></div>';
+    c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⊞</div><div class="empty-state-title">No equipment placed yet</div><div class="empty-state-text">Place equipment in rooms via the Equipment Schedule tab first.</div></div>';
     return;
   }
   const filterGroup=(document.getElementById('rm-filter-group')||{}).value||'';
