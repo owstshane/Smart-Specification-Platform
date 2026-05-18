@@ -1964,17 +1964,22 @@ function renderFeatureMatrix(){
       const qty=cell&&cell.quantity;
       const linkedTypes=fmFeatureDeviceTypes[f.id]||[];
       // Determine cell state
+      // placedQty = sum of matching placed instances in this room
+      // Green = device placed AND qty matches placed count (or no manual qty set)
+      // Amber = no device placed OR qty has been manually set to a different value
       let bg='',content='',title='Click to tick';
       if(ticked){
-        const hasMatch=linkedTypes.length>0&&fmInstances.some(i=>i.room_id===room.id&&linkedTypes.includes(i.device_type_id));
-        if(hasMatch){
+        const placedQty=linkedTypes.length>0?fmInstances.filter(i=>i.room_id===room.id&&linkedTypes.includes(i.device_type_id)).reduce((s,i)=>s+(i.quantity||1),0):0;
+        const hasDevice=placedQty>0;
+        const qtyMatchesPlacement=!qty||qty===placedQty;
+        if(hasDevice&&qtyMatchesPlacement){
           bg='background:var(--green-light)';
-          content='<span style="color:var(--green);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+qty+'</div>':'');
-          title='Ticked — device placed in room. Click to edit.';
+          content='<span style="color:var(--green);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+qty+'</div>':'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+placedQty+'</div>');
+          title='Ticked — '+placedQty+' device'+(placedQty!==1?'s':'')+' placed in room. Click to edit.';
         }else{
           bg='background:var(--amber-light)';
           content='<span style="color:var(--amber);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--amber);margin-top:1px">\xd7'+qty+'</div>':'');
-          title='Ticked manually — no matching device placed. Click to edit.';
+          title=hasDevice?'Qty overridden (placed: '+placedQty+', set: '+qty+'). Click to edit.':'Ticked manually — no matching device placed. Click to edit.';
         }
       }
       html+='<td style="border:1px solid var(--border);padding:4px;text-align:center;cursor:pointer;'+bg+'" onclick="fmCellClick(\''+room.id+'\',\''+f.id+'\','+JSON.stringify(ticked)+','+JSON.stringify(qty)+',event)" title="'+title+'">'+content+'</td>';
