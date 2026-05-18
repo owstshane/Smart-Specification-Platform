@@ -296,6 +296,8 @@
   .fm-feat-row { transition: background 0.1s; }
   .fm-feat-row.fm-drag-over { border-top: 3px solid var(--accent) !important; }
   .fm-feat-row.fm-dragging { opacity: 0.35; }
+  .rm-drag-over-col { border-left: 3px solid var(--accent) !important; background: var(--accent-light) !important; }
+  .rm-col-dragging { opacity: 0.4; }
 
   /* EMPTY / LOADING */
   .empty-state { text-align: center; padding: 56px 32px; color: var(--text-3); }
@@ -3231,7 +3233,7 @@ function updateEquipBtn(){
 }
 
 // ── ROOM MATRIX ──
-let rmInstances=[], rmTypeDetails=[];
+let rmInstances=[], rmTypeDetails=[], rmDragTypeId=null;
 
 async function loadRoomMatrix(){
   const c=document.getElementById('room-matrix-container');
@@ -3291,26 +3293,31 @@ function renderRoomMatrix(){
   const rooms=currentRooms;
   const totalCols=types.length;
   const sumEl=document.getElementById('rm-summary');
-  if(sumEl)sumEl.textContent=rooms.length+' rooms · '+totalCols+' device type'+(totalCols!==1?'s':'');
-  // Render table
-  let html='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;min-width:100%"><thead>';
-  // Row 1 — system group headers
-  html+='<tr><th style="position:sticky;left:0;z-index:3;background:var(--surface);border:1px solid var(--border);padding:7px 12px;min-width:170px;text-align:left;font-size:11px;font-weight:700;color:var(--text-2)">Room</th>';
+  if(sumEl)sumEl.textContent=rooms.length+' rooms \xb7 '+totalCols+' device type'+(totalCols!==1?'s':'');
+  // Sticky row heights — row1 ≈ 29px (5px pad top/bottom + ~19px line), row2 ≈ 27px
+  const r1h=29,r2top=r1h;
+  // Render table — overflow:auto + max-height enables both sticky axes simultaneously
+  let html='<div style="overflow:auto;max-height:calc(100vh - 220px)"><table style="border-collapse:collapse;font-size:12px;min-width:100%"><thead>';
+  // Row 1 — system group headers (sticky top:0)
+  html+='<tr>';
+  html+='<th style="position:sticky;top:0;left:0;z-index:5;background:var(--surface);border:1px solid var(--border);padding:5px 12px;min-width:170px;text-align:left;font-size:11px;font-weight:700;color:var(--text-2)">Room</th>';
   groupSpans.forEach(g=>{
-    html+='<th colspan="'+g.count+'" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--border);padding:5px 8px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em">'+escHtml(g.name)+'</th>';
+    html+='<th colspan="'+g.count+'" style="position:sticky;top:0;z-index:4;background:var(--accent-light);color:var(--accent);border:1px solid var(--border);padding:5px 8px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em">'+escHtml(g.name)+'</th>';
   });
   html+='</tr>';
-  // Row 2 — device type headers
-  html+='<tr><th style="position:sticky;left:0;z-index:3;background:var(--surface2);border:1px solid var(--border);padding:4px 12px"></th>';
+  // Row 2 — device type headers (sticky top:r2top, draggable)
+  html+='<tr>';
+  html+='<th style="position:sticky;top:'+r2top+'px;left:0;z-index:5;background:var(--surface2);border:1px solid var(--border);padding:4px 12px;font-size:10px;color:var(--text-3)">drag cols to reorder ↔</th>';
   types.forEach(t=>{
-    html+='<th style="border:1px solid var(--border);padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)" title="'+escHtml(t.device_type_id)+' — '+escHtml(t.description)+'">'+escHtml(t.device_type_id)+'</th>';
+    const tid=t.device_type_id;
+    html+='<th draggable="true" ondragstart="rmDragColStart(event,\''+escHtml(tid)+'\')" ondragover="rmDragColOver(event,\''+escHtml(tid)+'\')" ondragleave="rmDragColLeave(event)" ondrop="rmDropCol(event,\''+escHtml(tid)+'\')" ondragend="rmDragColEnd()" style="position:sticky;top:'+r2top+'px;z-index:4;cursor:grab;border:1px solid var(--border);padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)" title="'+escHtml(tid)+' — '+escHtml(t.description)+' (drag to reorder)">'+escHtml(tid)+'</th>';
   });
   html+='</tr></thead><tbody>';
   // Room rows, grouped by deck
   currentDecks.forEach(deck=>{
     const deckRooms=rooms.filter(r=>r.deck_id===deck.id);
     if(!deckRooms.length)return;
-    html+='<tr><td colspan="'+(totalCols+1)+'" style="background:var(--surface2);border:1px solid var(--border);padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">'+escHtml(deck.name)+'</td></tr>';
+    html+='<tr><td colspan="'+(totalCols+1)+'" style="position:sticky;left:0;background:var(--surface2);border:1px solid var(--border);padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">'+escHtml(deck.name)+'</td></tr>';
     deckRooms.forEach(room=>{
       html+='<tr>';
       html+='<td style="position:sticky;left:0;z-index:1;background:var(--surface);border:1px solid var(--border);padding:7px 12px;white-space:nowrap;font-weight:500">'+escHtml(room.name)+'</td>';
@@ -3318,13 +3325,47 @@ function renderRoomMatrix(){
         const qty=instMap[room.id+'|'+t.device_type_id]||0;
         html+=qty
           ?'<td style="border:1px solid var(--border);padding:4px 6px;text-align:center;background:var(--accent-light);font-weight:700;color:var(--accent)">'+qty+'</td>'
-          :'<td style="border:1px solid var(--border);padding:4px 6px;text-align:center;color:var(--border);font-size:10px">·</td>';
+          :'<td style="border:1px solid var(--border);padding:4px 6px;text-align:center;color:var(--border);font-size:10px">\xb7</td>';
       });
       html+='</tr>';
     });
   });
   html+='</tbody></table></div>';
   c.innerHTML=html;
+}
+
+function rmDragColStart(e,typeId){
+  rmDragTypeId=typeId;
+  e.dataTransfer.effectAllowed='move';
+  e.currentTarget.classList.add('rm-col-dragging');
+}
+function rmDragColEnd(){
+  rmDragTypeId=null;
+  document.querySelectorAll('.rm-col-dragging').forEach(el=>el.classList.remove('rm-col-dragging'));
+  document.querySelectorAll('.rm-drag-over-col').forEach(el=>el.classList.remove('rm-drag-over-col'));
+}
+function rmDragColOver(e,typeId){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  if(typeId===rmDragTypeId)return;
+  document.querySelectorAll('.rm-drag-over-col').forEach(el=>el.classList.remove('rm-drag-over-col'));
+  e.currentTarget.classList.add('rm-drag-over-col');
+}
+function rmDragColLeave(e){
+  if(!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('rm-drag-over-col');
+}
+function rmDropCol(e,targetTypeId){
+  e.preventDefault();
+  document.querySelectorAll('.rm-drag-over-col').forEach(el=>el.classList.remove('rm-drag-over-col'));
+  document.querySelectorAll('.rm-col-dragging').forEach(el=>el.classList.remove('rm-col-dragging'));
+  if(!rmDragTypeId||rmDragTypeId===targetTypeId){rmDragTypeId=null;return;}
+  const fromIdx=rmTypeDetails.findIndex(t=>t.device_type_id===rmDragTypeId);
+  const toIdx=rmTypeDetails.findIndex(t=>t.device_type_id===targetTypeId);
+  if(fromIdx<0||toIdx<0){rmDragTypeId=null;return;}
+  const[moved]=rmTypeDetails.splice(fromIdx,1);
+  rmTypeDetails.splice(toIdx,0,moved);
+  rmDragTypeId=null;
+  renderRoomMatrix();
 }
 
 // ── ROOM TEMPLATES ──
