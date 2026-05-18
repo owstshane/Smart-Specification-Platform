@@ -298,8 +298,10 @@
   .fm-feat-row.fm-dragging { opacity: 0.35; }
   .rm-drag-over-col { border-left: 3px solid var(--accent) !important; background: var(--accent-light) !important; }
   .rm-col-dragging { opacity: 0.4; }
+  /* Room matrix — constrain container so page doesn't scroll horizontally (fixes sticky left) */
+  #room-matrix-container { overflow: hidden; }
   /* Room matrix table — border-collapse:separate so position:sticky works on body cells */
-  .rm-matrix-table { border-collapse: separate; border-spacing: 0; min-width: 100%; font-size: 12px; }
+  .rm-matrix-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 12px; }
   .rm-matrix-table th, .rm-matrix-table td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
   .rm-matrix-table thead tr:first-child > th { border-top: 1px solid var(--border); }
   .rm-matrix-table tr > th:first-child, .rm-matrix-table tr > td:first-child { border-left: 1px solid var(--border); }
@@ -2381,7 +2383,7 @@ function fmDragEnd(){
   document.querySelectorAll('.fm-drag-over').forEach(el=>el.classList.remove('fm-drag-over'));
 }
 function fmDragOver(e,id,catId){
-  if(fmCatDragId)return; // category drag in progress — ignore feature targets
+  if(fmCatDragId){e.preventDefault();return;} // keep drag alive over feature rows during category drag
   e.preventDefault();
   e.dataTransfer.dropEffect='move';
   if(id===fmDragId)return;
@@ -2395,6 +2397,7 @@ async function fmDrop(e,targetId,targetCatId){
   e.preventDefault();
   document.querySelectorAll('.fm-drag-over').forEach(el=>el.classList.remove('fm-drag-over'));
   document.querySelectorAll('.fm-dragging').forEach(el=>el.classList.remove('fm-dragging'));
+  if(fmCatDragId)return; // category drag in progress — ignore feature drop targets
   if(!fmDragId||fmDragId===targetId){fmDragId=null;return;}
   const fromIdx=fmFeatures.findIndex(f=>f.id===fmDragId);
   const toIdx=fmFeatures.findIndex(f=>f.id===targetId);
@@ -3348,7 +3351,7 @@ function renderRoomMatrix(){
   // Sticky row heights — row1 ≈ 29px (5px pad top/bottom + ~19px line), row2 ≈ 27px
   const r1h=29,r2top=r1h;
   // Render table — overflow:auto + max-height enables both sticky axes simultaneously
-  let html='<div style="overflow:auto;max-height:calc(100vh - 220px)"><table class="rm-matrix-table"><thead>';
+  let html='<div style="overflow:auto;max-height:calc(100vh - 220px);width:100%;-webkit-overflow-scrolling:touch"><table class="rm-matrix-table"><thead>';
   // Row 1 — system group headers (sticky top:0)
   html+='<tr>';
   html+='<th style="position:sticky;top:0;left:0;z-index:5;background:var(--surface);padding:5px 12px;min-width:170px;text-align:left;font-size:11px;font-weight:700;color:var(--text-2)">Room</th>';
