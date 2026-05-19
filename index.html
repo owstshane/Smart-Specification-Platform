@@ -2207,10 +2207,11 @@ async function syncFeatureMatrix(){
       const existing=cellMap[cellKey(room.id,f.id)];
       if(existing&&existing.ticked){skipped++;continue;} // never overwrite manual tick
       // Sum quantities of all placed instances in this room matching a linked type
-      const qty=fmInstances
+      const count=fmInstances
         .filter(i=>i.room_id===room.id&&linkedTypes.includes(i.device_type_id))
         .reduce((sum,i)=>sum+(i.quantity||1),0);
-      if(!qty)continue; // nothing placed here for this feature
+      if(!count)continue; // nothing placed here for this feature
+      const qty=f.quantity_tracked?count:null; // only store qty for qty-tracked features
       if(existing){toUpdate.push({id:existing.id,qty});}
       else{toInsert.push({room_id:room.id,feature_id:f.id,qty});}
     }
