@@ -2017,11 +2017,15 @@ function renderFeatureMatrix(){
     html+='<th style="border:1px solid var(--border);padding:6px 8px;text-align:center;font-weight:600;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(f.name)+'">'+escHtml(f.name)+'</th>';
   });
   html+='</tr></thead><tbody>';
-  // Room rows
-  rooms.forEach(room=>{
-    const deck=fmDecks.find(d=>d.id===room.deck_id);
+  const totalCols=orderedFeatures.length;
+  // Room rows grouped by deck
+  fmDecks.forEach(deck=>{
+    const deckRooms=rooms.filter(r=>r.deck_id===deck.id);
+    if(!deckRooms.length)return;
+    html+='<tr><td colspan="'+(totalCols+1)+'" style="position:sticky;left:0;background:var(--surface2);border:1px solid var(--border);padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">'+escHtml(deck.name)+'</td></tr>';
+    deckRooms.forEach(room=>{
     html+='<tr>';
-    html+='<td style="position:sticky;left:0;z-index:1;background:var(--surface);border:1px solid var(--border);padding:8px 12px;white-space:nowrap"><div style="font-weight:600;font-size:12px">'+escHtml(room.name)+'</div>'+(deck?'<div style="font-size:10px;color:var(--text-3)">'+escHtml(deck.name)+'</div>':'')+'</td>';
+    html+='<td style="position:sticky;left:0;z-index:1;background:var(--surface);border:1px solid var(--border);padding:8px 12px;white-space:nowrap;font-weight:600;font-size:12px">'+escHtml(room.name)+'</td>';
     orderedFeatures.forEach(f=>{
       const cell=fmMatrix.find(m=>m.room_id===room.id&&m.feature_id===f.id);
       const ticked=cell&&cell.ticked;
@@ -2058,7 +2062,8 @@ function renderFeatureMatrix(){
       html+='<td style="border:1px solid var(--border);padding:4px;text-align:center;cursor:pointer;'+bg+'" onclick="fmCellClick(\''+room.id+'\',\''+f.id+'\','+JSON.stringify(ticked)+','+JSON.stringify(qty)+','+qtTracked+',event)" '+dblClick+' title="'+title+(qtTracked&&ticked?' — double-click to set quantity':'')+'">'+content+'</td>';
     });
     html+='</tr>';
-  });
+    });// end deckRooms
+  });// end fmDecks
   html+='</tbody></table></div>';
   c.innerHTML=html;
 }
