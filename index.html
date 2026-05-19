@@ -1039,10 +1039,14 @@
       <button class="btn-icon" onclick="closePlaceModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body" style="padding-bottom:0">
-      <div class="form-row form-row-3" style="margin-bottom:16px">
+      <div class="form-row form-row-3" style="margin-bottom:8px">
         <div><label class="form-label">Location Type</label><select id="pl-loc-type" onchange="plUpdateLocation()"><option value="room">Room</option><option value="zone">Rack Zone</option></select></div>
         <div><label class="form-label">Location <span class="required">*</span></label><select id="pl-location" onchange="plRefreshBrowser()"><option value="">— Select —</option></select></div>
         <div><label class="form-label">Default Installation Type</label><select id="pl-install-type" onchange="plRefreshItemList()"><option value="room-mounted">Room-mounted</option><option value="rack-mounted">Rack-mounted</option></select></div>
+      </div>
+      <div id="pl-serves-room-row" style="display:none;margin-bottom:16px">
+        <label class="form-label">Serves Room <span class="optional">optional — for feature matrix</span></label>
+        <select id="pl-serves-room" style="max-width:340px"><option value="">— None / not room-specific —</option></select>
       </div>
       <div class="tmpl-builder" style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
         <div class="tmpl-browser">
@@ -2034,17 +2038,24 @@ function renderFeatureMatrix(){
       // Amber = no device placed OR qty has been manually set to a different value
       let bg='',content='',title='Click to tick';
       if(ticked){
-        const placedQty=linkedTypes.length>0?fmInstances.filter(i=>i.room_id===room.id&&linkedTypes.includes(i.device_type_id)).reduce((s,i)=>s+(i.quantity||1),0):0;
-        const hasDevice=placedQty>0;
-        const qtyMatchesPlacement=!qty||qty===placedQty;
-        if(hasDevice&&qtyMatchesPlacement){
+        if(linkedTypes.length===0){
+          // No device types linked — can't check placement, treat as manually confirmed
           bg='background:var(--green-light)';
-          content='<span style="color:var(--green);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+qty+'</div>':'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+placedQty+'</div>');
-          title='Ticked — '+placedQty+' device'+(placedQty!==1?'s':'')+' placed in room. Click to edit.';
+          content='<span style="color:var(--green);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+qty+'</div>':'');
+          title='Ticked (no device type linked — manually confirmed). Click to remove.';
         }else{
-          bg='background:var(--amber-light)';
-          content='<span style="color:var(--amber);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--amber);margin-top:1px">\xd7'+qty+'</div>':'');
-          title=hasDevice?'Qty overridden (placed: '+placedQty+', set: '+qty+'). Click to edit.':'Ticked manually — no matching device placed. Click to edit.';
+          const placedQty=fmInstances.filter(i=>i.room_id===room.id&&linkedTypes.includes(i.device_type_id)).reduce((s,i)=>s+(i.quantity||1),0);
+          const hasDevice=placedQty>0;
+          const qtyMatchesPlacement=!qty||qty===placedQty;
+          if(hasDevice&&qtyMatchesPlacement){
+            bg='background:var(--green-light)';
+            content='<span style="color:var(--green);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+qty+'</div>':'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+placedQty+'</div>');
+            title='Ticked — '+placedQty+' device'+(placedQty!==1?'s':'')+' placed in room. Click to untick.';
+          }else{
+            bg='background:var(--amber-light)';
+            content='<span style="color:var(--amber);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--amber);margin-top:1px">\xd7'+qty+'</div>':'');
+            title=hasDevice?'Qty overridden (placed: '+placedQty+', set: '+qty+'). Click to untick.':'Ticked — no matching device placed yet. Click to untick.';
+          }
         }
       }
       const qtTracked=!!f.quantity_tracked;
@@ -4464,15 +4475,23 @@ function closePlaceModal(){document.getElementById('place-modal-overlay').classL
 function plUpdateLocation(){
   const type=document.getElementById('pl-loc-type').value;
   const sel=document.getElementById('pl-location');
+  const roomOptHtml='<option value="">— Select room —</option>'
+    +currentDecks.map(d=>{
+      const dr=currentRooms.filter(r=>r.deck_id===d.id);
+      if(!dr.length)return'';
+      return'<optgroup label="'+escHtml(d.name)+'">'+dr.map(r=>'<option value="'+r.id+'">'+escHtml(r.name)+(r.room_number?' ('+r.room_number+')':'')+'</option>').join('')+'</optgroup>';
+    }).join('');
   if(type==='room'){
-    sel.innerHTML='<option value="">— Select room —</option>'
-      +currentDecks.map(d=>{
-        const dr=currentRooms.filter(r=>r.deck_id===d.id);
-        if(!dr.length)return'';
-        return'<optgroup label="'+escHtml(d.name)+'">'+dr.map(r=>'<option value="'+r.id+'">'+escHtml(r.name)+(r.room_number?' ('+r.room_number+')':'')+'</option>').join('')+'</optgroup>';
-      }).join('');
+    sel.innerHTML=roomOptHtml;
+    document.getElementById('pl-serves-room-row').style.display='none';
   } else {
     sel.innerHTML='<option value="">— Select rack zone —</option>'+currentZones.map(z=>'<option value="'+z.id+'">'+escHtml(z.name)+'</option>').join('');
+    const srvSel=document.getElementById('pl-serves-room');
+    srvSel.innerHTML='<option value="">— None / not room-specific —</option>'+currentDecks.map(d=>{
+      const dr=currentRooms.filter(r=>r.deck_id===d.id);if(!dr.length)return'';
+      return'<optgroup label="'+escHtml(d.name)+'">'+dr.map(r=>'<option value="'+r.id+'">'+escHtml(r.name)+(r.room_number?' ('+r.room_number+')':'')+'</option>').join('')+'</optgroup>';
+    }).join('');
+    document.getElementById('pl-serves-room-row').style.display='block';
   }
   plItems=[];
   plAlreadyPlaced=[];
@@ -4576,12 +4595,13 @@ async function savePlacement(){
       for(let i=0;i<item.quantity;i++){
         seqBase++;
         const deviceId=(roomNum||'0')+'-'+String(seqBase).padStart(4,'0');
+        const servesRoom=locType==='zone'?(document.getElementById('pl-serves-room')||{}).value||null:null;
         await dbInsert('equipment_instances',{
           project_id:currentProject.id,
           project_equipment_id:item.peId,
           device_id:deviceId,
           quantity:1,
-          room_id:locType==='room'?locId:null,
+          room_id:locType==='room'?locId:(servesRoom||null),
           rack_zone_id:locType==='zone'?locId:null,
           installation_type:item.install
         });
