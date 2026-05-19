@@ -2036,7 +2036,7 @@ function renderFeatureMatrix(){
         if(linkedTypes.length===0){
           // No device types linked — can't check placement, treat as manually confirmed
           bg='background:var(--green-light)';
-          content='<span style="color:var(--green);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+qty+'</div>':'');
+          content=qty?'<span style="color:var(--green);font-size:14px;font-weight:700">'+qty+'</span>':'<span style="color:var(--green);font-size:16px">&#x2713;</span>';
           title='Ticked (no device type linked — manually confirmed). Click to remove.';
         }else{
           const placedQty=fmInstances.filter(i=>i.room_id===room.id&&linkedTypes.includes(i.device_type_id)).reduce((s,i)=>s+(i.quantity||1),0);
@@ -2044,11 +2044,11 @@ function renderFeatureMatrix(){
           const qtyMatchesPlacement=!qty||qty===placedQty;
           if(hasDevice&&qtyMatchesPlacement){
             bg='background:var(--green-light)';
-            content='<span style="color:var(--green);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+qty+'</div>':'<div style="font-size:10px;color:var(--green);margin-top:1px">\xd7'+placedQty+'</div>');
+            content=qty?'<span style="color:var(--green);font-size:14px;font-weight:700">'+qty+'</span>':'<span style="color:var(--green);font-size:16px">&#x2713;</span>';
             title='Ticked — '+placedQty+' device'+(placedQty!==1?'s':'')+' placed in room. Click to untick.';
           }else{
             bg='background:var(--amber-light)';
-            content='<span style="color:var(--amber);font-size:16px">✓</span>'+(qty?'<div style="font-size:10px;color:var(--amber);margin-top:1px">\xd7'+qty+'</div>':'');
+            content=qty?'<span style="color:var(--amber);font-size:14px;font-weight:700">'+qty+'</span>':'<span style="color:var(--amber);font-size:16px">&#x2713;</span>';
             title=hasDevice?'Qty overridden (placed: '+placedQty+', set: '+qty+'). Click to untick.':'Ticked — no matching device placed yet. Click to untick.';
           }
         }
