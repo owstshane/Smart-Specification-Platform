@@ -950,9 +950,12 @@
           <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3);display:block;margin-bottom:4px">Category</label>
           <select id="fm-new-feat-cat" style="width:100%"><option value="">— None —</option></select>
         </div>
-        <div style="flex-shrink:0;display:flex;gap:6px">
-          <button class="btn btn-primary btn-sm" onclick="fmAddFeature()">Add Feature</button>
-          <button class="btn btn-secondary btn-sm" onclick="fmShowAddCat()">+ Category</button>
+        <div style="flex-shrink:0;display:flex;flex-direction:column;gap:4px;justify-content:flex-end">
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="fm-new-feat-qty-tracked" style="accent-color:var(--accent)"> Track qty</label>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-primary btn-sm" onclick="fmAddFeature()">Add Feature</button>
+            <button class="btn btn-secondary btn-sm" onclick="fmShowAddCat()">+ Category</button>
+          </div>
         </div>
       </div>
       <!-- Add category inline bar -->
@@ -2044,7 +2047,9 @@ function renderFeatureMatrix(){
           title=hasDevice?'Qty overridden (placed: '+placedQty+', set: '+qty+'). Click to edit.':'Ticked manually — no matching device placed. Click to edit.';
         }
       }
-      html+='<td style="border:1px solid var(--border);padding:4px;text-align:center;cursor:pointer;'+bg+'" onclick="fmCellClick(\''+room.id+'\',\''+f.id+'\','+JSON.stringify(ticked)+','+JSON.stringify(qty)+',event)" title="'+title+'">'+content+'</td>';
+      const qtTracked=!!f.quantity_tracked;
+      const dblClick=qtTracked?'ondblclick="fmCellDblClick(\''+room.id+'\',\''+f.id+'\','+JSON.stringify(ticked)+','+JSON.stringify(qty)+',event)"':'';
+      html+='<td style="border:1px solid var(--border);padding:4px;text-align:center;cursor:pointer;'+bg+'" onclick="fmCellClick(\''+room.id+'\',\''+f.id+'\','+JSON.stringify(ticked)+','+JSON.stringify(qty)+','+qtTracked+',event)" '+dblClick+' title="'+title+(qtTracked&&ticked?' — double-click to set quantity':'')+'">'+content+'</td>';
     });
     html+='</tr>';
   });
@@ -2052,10 +2057,25 @@ function renderFeatureMatrix(){
   c.innerHTML=html;
 }
 
-function fmCellClick(roomId,featureId,currentTicked,currentQty,event){
+function fmCellClick(roomId,featureId,currentTicked,currentQty,quantityTracked,event){
   event.stopPropagation();
-  if(!currentTicked){fmTickCell(roomId,featureId);}
-  else{fmShowCellPopup(roomId,featureId,currentQty,event);}
+  if(!quantityTracked){
+    // Instant toggle — no double-click ambiguity
+    if(currentTicked)fmRemoveTick(roomId,featureId);else fmTickCell(roomId,featureId);
+    return;
+  }
+  // Qty-tracked: delay single click to distinguish from double-click
+  if(fmClickTimer){clearTimeout(fmClickTimer);fmClickTimer=null;}
+  fmClickTimer=setTimeout(()=>{
+    fmClickTimer=null;
+    if(currentTicked)fmRemoveTick(roomId,featureId);else fmTickCell(roomId,featureId);
+  },220);
+}
+function fmCellDblClick(roomId,featureId,currentTicked,currentQty,event){
+  event.stopPropagation();
+  if(fmClickTimer){clearTimeout(fmClickTimer);fmClickTimer=null;}
+  if(currentTicked){fmShowCellPopup(roomId,featureId,currentQty,event);}
+  else{fmTickCell(roomId,featureId);}
 }
 async function fmTickCell(roomId,featureId){
   if(!currentProject)return;
@@ -2084,7 +2104,7 @@ function fmShowCellPopup(roomId,featureId,currentQty,event){
     +'<input type="number" id="fm-cell-qty" min="1" value="'+(currentQty||'')+'" placeholder="—" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:var(--surface);color:var(--text);box-sizing:border-box"></div>'
     +'<div style="display:flex;gap:6px">'
     +'<button onclick="fmSaveCellQty(\''+roomId+'\',\''+featureId+'\')" style="flex:1;padding:6px 10px;background:var(--accent);color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer">Save</button>'
-    +'<button onclick="fmRemoveTick(\''+roomId+'\',\''+featureId+'\')" style="flex:1;padding:6px 10px;background:var(--surface2);color:#c0392b;border:1px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer">Remove</button>'
+    +'<button onclick="fmRemoveTick(\''+roomId+'\',\''+featureId+'\')" style="flex:1;padding:6px 10px;background:var(--surface2);color:#c0392b;border:1px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer">Untick</button>'
     +'</div>';
   document.body.appendChild(pop);
   setTimeout(()=>{
@@ -2213,7 +2233,7 @@ async function syncFeatureMatrix(){
 }
 function exportFeatureMatrix(){showToast('Export — coming soon','success');}
 
-let fmSelectedFeatureId=null, fmFeatureDeviceTypes={}, fmEditingCatId=null, fmEditingFeatId=null, fmDragId=null, fmCatDragId=null;
+let fmSelectedFeatureId=null, fmFeatureDeviceTypes={}, fmEditingCatId=null, fmEditingFeatId=null, fmDragId=null, fmCatDragId=null, fmClickTimer=null;
 
 function closeFmManageModal(){document.getElementById('fm-manage-modal-overlay').classList.remove('open');renderFeatureMatrix();}
 async function openFmManageModal(){
@@ -2293,7 +2313,7 @@ function fmFeatRow(f,chv,edi,del,catId){
     +'<span class="fm-drag-handle" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>'
     +'<div style="flex:1;min-width:0">'
     +'<div style="font-size:13px;font-weight:500;color:'+(sel?'var(--accent)':'var(--text-1)')+'">'+escHtml(f.name)+'</div>'
-    +'<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+(linked.length?linked.length+' device type'+(linked.length!==1?'s':'')+' linked':'No device types linked')+'</div>'
+    +'<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+(linked.length?linked.length+' device type'+(linked.length!==1?'s':'')+' linked':'No device types linked')+(f.quantity_tracked?' \xb7 <span style="color:var(--accent);font-weight:600">Qty</span>':'')+'</div>'
     +'</div>'
     +(sel?chv:'')
     +'<button class="btn-icon btn-sm" title="Rename" onclick="event.stopPropagation();fmStartFeatEdit(\''+f.id+'\')">'+edi+'</button>'
@@ -2505,11 +2525,13 @@ async function fmAddFeature(){
   const name=document.getElementById('fm-new-feat-name').value.trim();
   if(!name){showToast('Please enter a feature name','error');return;}
   const category_id=document.getElementById('fm-new-feat-cat').value||null;
+  const quantity_tracked=!!(document.getElementById('fm-new-feat-qty-tracked')||{}).checked;
   try{
-    const created=await dbInsert('features',{project_id:currentProject.id,name,category_id,sort_order:fmFeatures.length});
+    const created=await dbInsert('features',{project_id:currentProject.id,name,category_id,sort_order:fmFeatures.length,quantity_tracked});
     if(created&&created[0]){
       fmFeatures.push(created[0]);
       document.getElementById('fm-new-feat-name').value='';
+      const cb=document.getElementById('fm-new-feat-qty-tracked');if(cb)cb.checked=false;
       fmSelectedFeatureId=created[0].id;
       fmRenderFeatList();
       fmRenderDeviceLinker();
