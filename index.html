@@ -934,51 +934,46 @@
 
 <!-- FEATURE MATRIX MANAGE MODAL -->
 <div class="modal-overlay" id="fm-manage-modal-overlay">
-  <div class="modal" style="max-width:900px;width:100%">
+  <div class="modal" style="max-width:960px;width:100%">
     <div class="modal-header">
       <div class="modal-title">Manage Features</div>
       <button class="btn-icon" onclick="closeFmManageModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body" style="padding:0">
-      <!-- Add feature bar -->
-      <div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-end;background:var(--surface)">
-        <div style="flex:2;min-width:0">
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3);display:block;margin-bottom:4px">Feature Name</label>
-          <input type="text" id="fm-new-feat-name" placeholder="e.g. Display, Speakers, CCTV…" onkeydown="if(event.key==='Enter')fmAddFeature()">
-        </div>
-        <div style="flex:1;min-width:0">
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3);display:block;margin-bottom:4px">Category</label>
-          <select id="fm-new-feat-cat" style="width:100%"><option value="">— None —</option></select>
-        </div>
-        <div style="flex-shrink:0;display:flex;flex-direction:column;gap:4px;justify-content:flex-end">
-          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="fm-new-feat-qty-tracked" style="accent-color:var(--accent)"> Track qty</label>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-primary btn-sm" onclick="fmAddFeature()">Add Feature</button>
-            <button class="btn btn-secondary btn-sm" onclick="fmShowAddCat()">+ Category</button>
-          </div>
-        </div>
-      </div>
-      <!-- Add category inline bar -->
-      <div id="fm-add-cat-bar" style="display:none;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--accent-light);flex-shrink:0">
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" id="fm-new-cat" placeholder="New category name…" style="flex:1;max-width:300px" onkeydown="if(event.key==='Enter')fmAddCategory()">
-          <button class="btn btn-primary btn-sm" onclick="fmAddCategory()">Add</button>
-          <button class="btn btn-secondary btn-sm" onclick="fmHideAddCat()">Cancel</button>
-        </div>
-      </div>
-      <!-- Side by side -->
-      <div class="tmpl-builder" style="border:none">
+      <div class="tmpl-builder" style="border:none;grid-template-columns:2fr 3fr">
+        <!-- LEFT: category + feature list -->
         <div class="tmpl-browser">
-          <div class="tmpl-panel-header" id="fm-feat-panel-header">Features</div>
+          <div class="tmpl-panel-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-right:10px">
+            <span id="fm-feat-panel-header">Features</span>
+            <div style="display:flex;gap:4px;flex-shrink:0">
+              <button class="btn btn-primary btn-sm" onclick="fmShowAddFeatureBar()">+ Feature</button>
+              <button class="btn btn-secondary btn-sm" onclick="fmShowAddCat()">+ Category</button>
+            </div>
+          </div>
+          <!-- inline add-feature bar -->
+          <div id="fm-add-feat-bar" style="display:none;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--accent-light);flex-shrink:0">
+            <div style="display:flex;gap:6px;align-items:center">
+              <input type="text" id="fm-new-feat-name" placeholder="Feature name…" style="flex:2;min-width:0" onkeydown="if(event.key==='Enter')fmAddFeature();if(event.key==='Escape')fmHideAddFeatureBar()">
+              <select id="fm-new-feat-cat" style="flex:1;min-width:0"><option value="">— None —</option></select>
+              <button class="btn btn-primary btn-sm" onclick="fmAddFeature()">Add</button>
+              <button class="btn-icon" title="Cancel" onclick="fmHideAddFeatureBar()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+          </div>
+          <!-- inline add-category bar -->
+          <div id="fm-add-cat-bar" style="display:none;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0">
+            <div style="display:flex;gap:6px;align-items:center">
+              <input type="text" id="fm-new-cat" placeholder="Category name…" style="flex:1" onkeydown="if(event.key==='Enter')fmAddCategory();if(event.key==='Escape')fmHideAddCat()">
+              <button class="btn btn-primary btn-sm" onclick="fmAddCategory()">Add</button>
+              <button class="btn-icon" title="Cancel" onclick="fmHideAddCat()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+          </div>
           <div id="fm-feat-list" class="tmpl-device-list"></div>
         </div>
+        <!-- RIGHT: feature editor + device type linker -->
         <div class="tmpl-selected">
-          <div class="tmpl-panel-header" id="fm-linker-header">Device Types</div>
-          <div id="fm-linker-search-bar" style="display:none;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0">
-            <input type="text" id="fm-linker-search" placeholder="Search device types…" oninput="fmRenderLinkerList()" style="width:100%;padding:6px 10px;font-size:13px">
-          </div>
-          <div id="fm-device-linker" class="tmpl-item-list">
-            <div class="tmpl-empty-panel">Select a feature on the left to link device types to it</div>
+          <div class="tmpl-panel-header" id="fm-right-panel-header">Feature Details</div>
+          <div id="fm-right-panel" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+            <div class="tmpl-empty-panel">Select a feature on the left to edit it and link device types to it</div>
           </div>
         </div>
       </div>
@@ -2256,11 +2251,19 @@ async function openFmManageModal(){
     fmFeatureDeviceTypes={};
     links.forEach(l=>{if(!fmFeatureDeviceTypes[l.feature_id])fmFeatureDeviceTypes[l.feature_id]=[];fmFeatureDeviceTypes[l.feature_id].push(l.device_type_id);});
   }
-  fmHideAddCat();
-  fmPopulateCatSelect();
-  fmRenderFeatList();
-  fmRenderDeviceLinker();
+  fmHideAddFeatureBar();fmHideAddCat();
+  fmRenderFeatList();fmRenderRightPanel();
   document.getElementById('fm-manage-modal-overlay').classList.add('open');
+}
+function fmShowAddFeatureBar(){
+  const bar=document.getElementById('fm-add-feat-bar');if(!bar)return;
+  const sel=document.getElementById('fm-new-feat-cat');
+  if(sel)sel.innerHTML='<option value="">— None —</option>'+fmCategories.map(c=>'<option value="'+c.id+'">'+escHtml(c.name)+'</option>').join('');
+  bar.style.display='block';
+  const inp=document.getElementById('fm-new-feat-name');if(inp){inp.value='';inp.focus();}
+}
+function fmHideAddFeatureBar(){
+  const bar=document.getElementById('fm-add-feat-bar');if(bar)bar.style.display='none';
 }
 function fmShowAddCat(){
   const bar=document.getElementById('fm-add-cat-bar');
@@ -2269,16 +2272,11 @@ function fmShowAddCat(){
 function fmHideAddCat(){
   const bar=document.getElementById('fm-add-cat-bar');if(bar)bar.style.display='none';
 }
-function fmPopulateCatSelect(){
-  const sel=document.getElementById('fm-new-feat-cat');
-  if(sel)sel.innerHTML='<option value="">— None —</option>'+fmCategories.map(cat=>'<option value="'+cat.id+'">'+escHtml(cat.name)+'</option>').join('');
-}
 function fmRenderFeatList(){
   const c=document.getElementById('fm-feat-list');
   const hdr=document.getElementById('fm-feat-panel-header');
   if(hdr)hdr.textContent='Features'+(fmFeatures.length?' — '+fmFeatures.length:'');
-  if(!fmFeatures.length){c.innerHTML='<div class="tmpl-empty-panel">No features yet — add one above</div>';return;}
-  const edi='<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  if(!fmFeatures.length){c.innerHTML='<div class="tmpl-empty-panel">No features yet — click + Feature to add one</div>';return;}
   const del='<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg>';
   const chv='<svg width="11" height="11" fill="none" stroke="var(--accent)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>';
   let html='';
@@ -2292,64 +2290,69 @@ function fmRenderFeatList(){
         +'<button class="btn btn-secondary btn-sm" onclick="fmCancelCatEdit()">Cancel</button>'
         +'</div>';
     }else{
-      html+='<div class="fm-cat-row" draggable="true" ondragstart="fmCatDragStart(event,\''+cat.id+'\')" ondragover="fmCatDragOver(event,\''+cat.id+'\')" ondragleave="fmCatDragLeave(event)" ondrop="fmCatDrop(event,\''+cat.id+'\')" ondragend="fmCatDragEnd()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">'
-        +'<span class="fm-drag-handle" title="Drag to reorder category (moves all features with it)">⠿</span>'
-        +'<span style="flex:1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">'+escHtml(cat.name)+'</span>'
-        +'<button class="btn-icon btn-sm" title="Rename" onclick="event.stopPropagation();fmEditCategory(\''+cat.id+'\')">'+edi+'</button>'
-        +'<button class="btn-icon btn-sm" title="Delete" onclick="event.stopPropagation();fmDeleteCategory(\''+cat.id+'\',\''+escHtml(cat.name)+'\')">'+del+'</button>'
+      html+='<div class="fm-cat-row" draggable="true" ondragstart="fmCatDragStart(event,\''+cat.id+'\')" ondragover="fmCatDragOver(event,\''+cat.id+'\')" ondragleave="fmCatDragLeave(event)" ondrop="fmCatDrop(event,\''+cat.id+'\')" ondragend="fmCatDragEnd()" style="display:flex;align-items:center;gap:4px;padding:5px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">'
+        +'<span class="fm-drag-handle" title="Drag to reorder">⠿</span>'
+        +'<span style="flex:1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);cursor:pointer" onclick="event.stopPropagation();fmEditCategory(\''+cat.id+'\')" title="Click to rename">'+escHtml(cat.name)+'</span>'
+        +'<button class="btn-icon btn-sm" title="Delete category" onclick="event.stopPropagation();fmDeleteCategory(\''+cat.id+'\',\''+escHtml(cat.name)+'\')">'+del+'</button>'
         +'</div>';
     }
-    feats.forEach(f=>{html+=fmFeatRow(f,chv,edi,del,cat.id);});
+    feats.forEach(f=>{html+=fmFeatRow(f,chv,del,cat.id);});
   });
   const uncat=fmFeatures.filter(f=>!f.category_id);
   if(uncat.length){
-    html+='<div style="padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">'
-      +'<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Uncategorised</span></div>';
-    uncat.forEach(f=>{html+=fmFeatRow(f,chv,edi,del,null);});
+    html+='<div style="padding:5px 12px;background:var(--surface2);border-bottom:1px solid var(--border)"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">Uncategorised</span></div>';
+    uncat.forEach(f=>{html+=fmFeatRow(f,chv,del,null);});
   }
   c.innerHTML=html;
 }
-function fmFeatRow(f,chv,edi,del,catId){
+function fmFeatRow(f,chv,del,catId){
   const linked=fmFeatureDeviceTypes[f.id]||[];
   const sel=f.id===fmSelectedFeatureId;
   const cid=catId!=null?catId:'';
-  if(fmEditingFeatId===f.id){
-    return '<div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--accent-light)">'
-      +'<input id="fm-feat-edit-input" value="'+escHtml(f.name)+'" onkeydown="if(event.key===\'Enter\')fmSaveFeatEdit(\''+f.id+'\');if(event.key===\'Escape\')fmCancelFeatEdit()" style="flex:1;padding:4px 8px;font-size:13px;border:1px solid var(--accent);border-radius:4px;background:var(--surface);color:var(--text)">'
-      +'<button class="btn btn-primary btn-sm" onclick="fmSaveFeatEdit(\''+f.id+'\')">Save</button>'
-      +'<button class="btn btn-secondary btn-sm" onclick="fmCancelFeatEdit()">Cancel</button>'
-      +'</div>';
-  }
-  return '<div class="fm-feat-row" draggable="true" style="display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;'+(sel?'background:var(--accent-light)':'')+'" onclick="fmSelectFeature(\''+f.id+'\')" ondragstart="fmDragStart(event,\''+f.id+'\')" ondragover="fmDragOver(event,\''+f.id+'\',\''+cid+'\')" ondragleave="fmDragLeave(event)" ondrop="fmDrop(event,\''+f.id+'\',\''+cid+'\')" ondragend="fmDragEnd()">'
+  return '<div class="fm-feat-row" draggable="true" style="display:flex;align-items:center;gap:6px;padding:9px 12px 9px 20px;border-bottom:1px solid var(--border);cursor:pointer;'+(sel?'background:var(--accent-light)':'')+'" onclick="fmSelectFeature(\''+f.id+'\')" ondragstart="fmDragStart(event,\''+f.id+'\')" ondragover="fmDragOver(event,\''+f.id+'\',\''+cid+'\')" ondragleave="fmDragLeave(event)" ondrop="fmDrop(event,\''+f.id+'\',\''+cid+'\')" ondragend="fmDragEnd()">'
     +'<span class="fm-drag-handle" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>'
     +'<div style="flex:1;min-width:0">'
     +'<div style="font-size:13px;font-weight:500;color:'+(sel?'var(--accent)':'var(--text-1)')+'">'+escHtml(f.name)+'</div>'
-    +'<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+(linked.length?linked.length+' device type'+(linked.length!==1?'s':'')+' linked':'No device types linked')+(f.quantity_tracked?' \xb7 <span style="color:var(--accent);font-weight:600">Qty</span>':'')+'</div>'
+    +'<div style="font-size:11px;color:var(--text-3);margin-top:1px">'+(linked.length?linked.length+' device type'+(linked.length!==1?'s':'')+' linked':'No device types linked')+(f.quantity_tracked?' \xb7 <span style="color:var(--accent);font-weight:600">Qty</span>':'')+'</div>'
     +'</div>'
     +(sel?chv:'')
-    +'<button class="btn-icon btn-sm" title="Rename" onclick="event.stopPropagation();fmStartFeatEdit(\''+f.id+'\')">'+edi+'</button>'
     +'<button class="btn-icon btn-sm" title="Delete" onclick="event.stopPropagation();fmDeleteFeature(\''+f.id+'\',\''+escHtml(f.name)+'\')">'+del+'</button>'
     +'</div>';
 }
 function fmSelectFeature(id){
   fmSelectedFeatureId=id;
   fmRenderFeatList();
-  fmRenderDeviceLinker();
+  fmRenderRightPanel();
 }
-function fmRenderDeviceLinker(){
-  const hdr=document.getElementById('fm-linker-header');
-  const linker=document.getElementById('fm-device-linker');
-  const searchBar=document.getElementById('fm-linker-search-bar');
+function fmRenderRightPanel(){
+  const hdr=document.getElementById('fm-right-panel-header');
+  const panel=document.getElementById('fm-right-panel');
+  if(!panel)return;
   if(!fmSelectedFeatureId){
-    if(hdr)hdr.textContent='Device Types';
-    if(searchBar)searchBar.style.display='none';
-    if(linker)linker.innerHTML='<div class="tmpl-empty-panel">Select a feature on the left to link device types to it</div>';
+    if(hdr)hdr.textContent='Feature Details';
+    panel.innerHTML='<div class="tmpl-empty-panel">Select a feature on the left to edit it and link device types to it</div>';
     return;
   }
   const feat=fmFeatures.find(f=>f.id===fmSelectedFeatureId);
-  if(!feat){return;}
-  if(hdr)hdr.textContent='Device Types — '+feat.name;
-  if(searchBar)searchBar.style.display='block';
+  if(!feat){fmSelectedFeatureId=null;fmRenderRightPanel();return;}
+  if(hdr)hdr.textContent=escHtml(feat.name);
+  const catOpts='<option value="">— None —</option>'+fmCategories.map(c=>'<option value="'+c.id+'"'+(feat.category_id===c.id?' selected':'')+'>'+escHtml(c.name)+'</option>').join('');
+  panel.innerHTML=
+    '<div style="padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">'
+    +'<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3);display:block;margin-bottom:4px">Feature Name</label>'
+    +'<input id="fm-detail-name" type="text" value="'+escHtml(feat.name)+'" style="width:100%;box-sizing:border-box" onblur="fmAutoSaveName(\''+feat.id+'\')" onkeydown="if(event.key===\'Enter\')this.blur()"></div>'
+    +'<div style="display:flex;gap:12px;align-items:flex-end">'
+    +'<div style="flex:1"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3);display:block;margin-bottom:4px">Category</label>'
+    +'<select id="fm-detail-cat" style="width:100%" onchange="fmAutoSaveCat(\''+feat.id+'\')">'+catOpts+'</select></div>'
+    +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;padding-bottom:7px;font-size:13px;color:var(--text-2)">'
+    +'<input type="checkbox" id="fm-detail-qty" '+(feat.quantity_tracked?'checked':'')+' onchange="fmAutoSaveQty(\''+feat.id+'\')" style="accent-color:var(--accent);width:15px;height:15px;flex-shrink:0"> Track quantity</label>'
+    +'</div>'
+    +'</div>'
+    +'<div style="padding:8px 12px 6px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface2)">'
+    +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3);margin-bottom:6px">Linked Device Types</div>'
+    +'<input type="text" id="fm-linker-search" placeholder="Search device types…" oninput="fmRenderLinkerList()" style="width:100%;padding:6px 10px;font-size:13px;box-sizing:border-box">'
+    +'</div>'
+    +'<div id="fm-device-linker" style="overflow-y:auto;flex:1"></div>';
   fmRenderLinkerList();
 }
 function fmRenderLinkerList(){
@@ -2391,16 +2394,51 @@ async function fmToggleDeviceTypeLink(featureId,typeId){
     fmRenderLinkerList();
   }catch(e){showToast('Could not update link: '+e.message,'error');fmRenderLinkerList();}
 }
+async function fmAutoSaveName(id){
+  const inp=document.getElementById('fm-detail-name');
+  const name=inp?inp.value.trim():'';
+  if(!name)return;
+  const feat=fmFeatures.find(f=>f.id===id);
+  if(!feat||feat.name===name)return;
+  try{
+    await dbUpdate('features',id,{name});
+    feat.name=name;
+    const hdr=document.getElementById('fm-right-panel-header');if(hdr)hdr.textContent=escHtml(name);
+    fmRenderFeatList();
+  }catch(e){showToast('Could not save name: '+e.message,'error');}
+}
+async function fmAutoSaveCat(id){
+  const sel=document.getElementById('fm-detail-cat');
+  const category_id=sel?sel.value||null:null;
+  const feat=fmFeatures.find(f=>f.id===id);
+  if(!feat)return;
+  try{
+    await dbUpdate('features',id,{category_id});
+    feat.category_id=category_id;
+    fmRenderFeatList();
+  }catch(e){showToast('Could not save category: '+e.message,'error');}
+}
+async function fmAutoSaveQty(id){
+  const cb=document.getElementById('fm-detail-qty');
+  const quantity_tracked=cb?cb.checked:false;
+  const feat=fmFeatures.find(f=>f.id===id);
+  if(!feat)return;
+  try{
+    await dbUpdate('features',id,{quantity_tracked});
+    feat.quantity_tracked=quantity_tracked;
+    fmRenderFeatList();
+  }catch(e){showToast('Could not save: '+e.message,'error');}
+}
 async function fmAddCategory(){
   const input=document.getElementById('fm-new-cat');
-  const name=input.value.trim();if(!name)return;
+  const name=input?input.value.trim():'';if(!name)return;
   try{
     const created=await dbInsert('feature_categories',{project_id:currentProject.id,name,sort_order:fmCategories.length});
-    if(created&&created[0]){fmCategories.push(created[0]);input.value='';fmHideAddCat();fmPopulateCatSelect();fmRenderFeatList();}
+    if(created&&created[0]){fmCategories.push(created[0]);if(input)input.value='';fmHideAddCat();fmRenderFeatList();}
   }catch(e){showToast('Could not add: '+e.message,'error');}
 }
 function fmEditCategory(id){
-  fmEditingCatId=id;fmEditingFeatId=null;
+  fmEditingCatId=id;
   fmRenderFeatList();
   setTimeout(()=>{const i=document.getElementById('fm-cat-edit-input');if(i){i.focus();i.select();}},30);
 }
@@ -2412,27 +2450,10 @@ async function fmSaveCatEdit(id){
   try{
     await dbUpdate('feature_categories',id,{name});
     const cat=fmCategories.find(c=>c.id===id);if(cat)cat.name=name;
-    fmPopulateCatSelect();fmRenderFeatList();
+    fmRenderFeatList();fmRenderRightPanel();
   }catch(e){showToast('Could not rename: '+e.message,'error');fmRenderFeatList();}
 }
 function fmCancelCatEdit(){fmEditingCatId=null;fmRenderFeatList();}
-function fmStartFeatEdit(id){
-  fmEditingFeatId=id;fmEditingCatId=null;
-  fmRenderFeatList();
-  setTimeout(()=>{const i=document.getElementById('fm-feat-edit-input');if(i){i.focus();i.select();}},30);
-}
-async function fmSaveFeatEdit(id){
-  const inp=document.getElementById('fm-feat-edit-input');
-  const name=inp?inp.value.trim():'';
-  fmEditingFeatId=null;
-  if(!name){fmRenderFeatList();return;}
-  try{
-    await dbUpdate('features',id,{name});
-    const feat=fmFeatures.find(f=>f.id===id);if(feat)feat.name=name;
-    fmRenderFeatList();
-  }catch(e){showToast('Could not rename: '+e.message,'error');fmRenderFeatList();}
-}
-function fmCancelFeatEdit(){fmEditingFeatId=null;fmRenderFeatList();}
 async function fmMoveFeat(id,direction){
   const idx=fmFeatures.findIndex(f=>f.id===id);
   const newIdx=idx+direction;
@@ -2528,25 +2549,25 @@ function fmDeleteCategory(id,name){
       await dbDelete('feature_categories',id);
       fmCategories=fmCategories.filter(c=>c.id!==id);
       fmFeatures.forEach(f=>{if(f.category_id===id)f.category_id=null;});
-      fmPopulateCatSelect();fmRenderFeatList();
+      fmRenderFeatList();
     }catch(e){showToast('Could not delete: '+e.message,'error');}
   });
 }
 async function fmAddFeature(){
-  const name=document.getElementById('fm-new-feat-name').value.trim();
+  const nameEl=document.getElementById('fm-new-feat-name');
+  const name=nameEl?nameEl.value.trim():'';
   if(!name){showToast('Please enter a feature name','error');return;}
-  const category_id=document.getElementById('fm-new-feat-cat').value||null;
-  const quantity_tracked=!!(document.getElementById('fm-new-feat-qty-tracked')||{}).checked;
+  const category_id=(document.getElementById('fm-new-feat-cat')||{}).value||null;
   try{
-    const created=await dbInsert('features',{project_id:currentProject.id,name,category_id,sort_order:fmFeatures.length,quantity_tracked});
+    const created=await dbInsert('features',{project_id:currentProject.id,name,category_id,sort_order:fmFeatures.length,quantity_tracked:false});
     if(created&&created[0]){
       fmFeatures.push(created[0]);
-      document.getElementById('fm-new-feat-name').value='';
-      const cb=document.getElementById('fm-new-feat-qty-tracked');if(cb)cb.checked=false;
+      if(nameEl)nameEl.value='';
+      fmHideAddFeatureBar();
       fmSelectedFeatureId=created[0].id;
       fmRenderFeatList();
-      fmRenderDeviceLinker();
-      showToast(name+' added — link device types on the right','success');
+      fmRenderRightPanel();
+      showToast(name+' added','success');
     }
   }catch(e){showToast('Could not add: '+e.message,'error');}
 }
@@ -2557,7 +2578,7 @@ function fmDeleteFeature(id,name){
       fmFeatures=fmFeatures.filter(f=>f.id!==id);
       fmMatrix=fmMatrix.filter(m=>m.feature_id!==id);
       delete fmFeatureDeviceTypes[id];
-      if(fmSelectedFeatureId===id){fmSelectedFeatureId=null;fmRenderDeviceLinker();}
+      if(fmSelectedFeatureId===id){fmSelectedFeatureId=null;fmRenderRightPanel();}
       fmRenderFeatList();renderFeatureMatrix();
     }catch(e){showToast('Could not delete: '+e.message,'error');}
   });
