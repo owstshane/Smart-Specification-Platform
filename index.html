@@ -248,6 +248,13 @@
   .zs-card-meta { font-size: 11px; color: var(--text-3); }
   .zs-device-count { font-size: 22px; font-weight: 700; color: var(--accent); text-align: right; line-height: 1; }
   .zs-device-count span { font-size: 11px; font-weight: 400; color: var(--text-3); display: block; }
+  .zs-expand { display: flex; gap: 16px; padding: 10px 14px 12px; background: var(--surface2); }
+  .zs-expand-col { flex: 1; min-width: 0; }
+  .zs-expand-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 5px; }
+  .zs-expand-item { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; font-size: 11px; gap: 8px; }
+  .zs-expand-name { color: var(--text-2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .zs-expand-val { color: var(--text-1); font-weight: 600; white-space: nowrap; }
+  .zs-chevron { font-size: 9px; margin-left: 4px; color: var(--text-3); vertical-align: middle; }
   .zs-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 0; }
   .zs-stat { padding: 12px 16px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
   .zs-stat:nth-child(3n) { border-right: none; }
@@ -4085,12 +4092,28 @@ async function loadZoneSummary(){
   }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
 }
 
+function zsToggle(id){
+  const el=document.getElementById(id);if(!el)return;
+  const open=el.style.display==='table-row';
+  el.style.display=open?'none':'table-row';
+  const chv=document.getElementById('chv-'+id);
+  if(chv)chv.innerHTML=open?'&#9658;':'&#9660;';
+}
 function renderZoneSummary(instances){
   const c=document.getElementById('zone-summary-container');
   const roomZoneMap={};
   currentRooms.forEach(r=>{if(r.rack_zone_id)roomZoneMap[r.id]=r.rack_zone_id;});
   const zones={};
-  currentZones.forEach(z=>{zones[z.id]={lan_demand:0,poe_port_demand:0,poe_watts_demand:0,spk_channel_demand:0,spk_watts_demand:0,rack_power_demand:0,ups_watts:0,mains_watts:0,device_count:0,avip_requires:0,avip_provides:0,lan_supply:0,poe_port_supply:0,poe_budget_supply:0,amp_channel_supply:0,amp_watts_supply:0};});
+  currentZones.forEach(z=>{zones[z.id]={
+    lan_demand:0,lan_supply:0,poe_port_demand:0,poe_port_supply:0,
+    poe_watts_demand:0,poe_budget_supply:0,spk_channel_demand:0,spk_watts_demand:0,
+    rack_power_demand:0,ups_watts:0,mains_watts:0,device_count:0,
+    avip_requires:0,avip_provides:0,amp_channel_supply:0,amp_watts_supply:0,
+    lan_di:[],lan_si:[],poe_di:[],poe_si:[],poe_budget_di:[],poe_budget_si:[],
+    spk_di:[],spk_pwr_di:[],amp_si:[],amp_pwr_si:[],
+    avip_ri:[],avip_pi:[],ups_di:[],mains_di:[]
+  };});
+  const addItem=(list,desc,qty,each)=>{const ex=list.find(i=>i.desc===desc);if(ex){ex.qty+=qty;ex.total+=each*qty;}else list.push({desc,qty,each,total:each*qty});};
   instances.forEach(inst=>{
     const pe=projectEquipment.find(e=>e.id===inst.project_equipment_id);
     if(!pe)return;
@@ -4100,56 +4123,111 @@ function renderZoneSummary(instances){
     const t=zones[zoneId];const qty=inst.quantity||1;
     const isInfra=pe.network_role==='infrastructure';
     const isEndpoint=pe.network_role==='endpoint';
+    const desc=pe.description||pe.device_type_id;
     t.device_count+=qty;
-    // ── DEMAND (endpoints only) ──
     if(isEndpoint){
-      t.lan_demand+=(pe.lan_ports||0)*qty;
-      if((pe.poe_ports||0)>0){t.poe_port_demand+=(pe.poe_ports||0)*qty;const poeW=pe.poe_type==='802.3bt'?60:pe.poe_type==='802.3at'?25.5:pe.poe_type==='802.3af'?12.95:0;t.poe_watts_demand+=poeW*(pe.poe_ports||0)*qty;}
+      if(pe.lan_ports){t.lan_demand+=(pe.lan_ports||0)*qty;addItem(t.lan_di,desc,qty,pe.lan_ports);}
+      if((pe.poe_ports||0)>0){
+        t.poe_port_demand+=(pe.poe_ports||0)*qty;addItem(t.poe_di,desc,qty,pe.poe_ports);
+        const poeW=pe.poe_type==='802.3bt'?60:pe.poe_type==='802.3at'?25.5:pe.poe_type==='802.3af'?12.95:0;
+        t.poe_watts_demand+=poeW*(pe.poe_ports||0)*qty;addItem(t.poe_budget_di,desc,qty,Math.round(poeW*(pe.poe_ports||0)));
+      }
     }
-    // Audio demand — devices that require amp channels
     if(pe.audio_role==='requires'){
-      t.spk_channel_demand+=(pe.speaker_channels||0)*qty;
-      t.spk_watts_demand+=((pe.spk_watts||0)*(pe.speaker_channels||0))*qty;
+      const ch=pe.speaker_channels||0;const pw=(pe.spk_watts||0)*ch;
+      t.spk_channel_demand+=ch*qty;t.spk_watts_demand+=pw*qty;
+      if(ch)addItem(t.spk_di,desc,qty,ch);
+      if(pw)addItem(t.spk_pwr_di,desc,qty,pw);
     }
     if(inst.installation_type==='rack-mounted')t.rack_power_demand+=(pe.power_watts||0)*qty;
-    if(pe.power_watts){if(pe.ups_protected)t.ups_watts+=(pe.power_watts||0)*qty;else t.mains_watts+=(pe.power_watts||0)*qty;}
-    if(pe.avip_role==='requires')t.avip_requires+=qty;
-    if(pe.avip_role==='provides')t.avip_provides+=qty;
-    // ── SUPPLY (infrastructure, rack-mounted only) ──
-    if(isInfra&&inst.installation_type==='rack-mounted'){
-      t.lan_supply+=(pe.lan_ports||0)*qty;
-      t.poe_port_supply+=(pe.poe_ports||0)*qty;
-      t.poe_budget_supply+=(pe.poe_budget_watts||0)*qty;
+    if(pe.power_watts){
+      if(pe.ups_protected){t.ups_watts+=(pe.power_watts||0)*qty;addItem(t.ups_di,desc,qty,pe.power_watts);}
+      else{t.mains_watts+=(pe.power_watts||0)*qty;addItem(t.mains_di,desc,qty,pe.power_watts);}
     }
-    // Audio supply — devices that provide amp channels (any installation type)
+    if(pe.avip_role==='requires'){t.avip_requires+=qty;addItem(t.avip_ri,desc,qty,1);}
+    if(pe.avip_role==='provides'){t.avip_provides+=qty;addItem(t.avip_pi,desc,qty,1);}
+    if(isInfra&&inst.installation_type==='rack-mounted'){
+      t.lan_supply+=(pe.lan_ports||0)*qty;if(pe.lan_ports)addItem(t.lan_si,desc,qty,pe.lan_ports);
+      t.poe_port_supply+=(pe.poe_ports||0)*qty;if(pe.poe_ports)addItem(t.poe_si,desc,qty,pe.poe_ports);
+      t.poe_budget_supply+=(pe.poe_budget_watts||0)*qty;if(pe.poe_budget_watts)addItem(t.poe_budget_si,desc,qty,pe.poe_budget_watts);
+    }
     if(pe.audio_role==='provides'){
-      t.amp_channel_supply+=(pe.speaker_channels||0)*qty;
-      t.amp_watts_supply+=((pe.spk_watts||0)*(pe.speaker_channels||0))*qty;
+      const ch=pe.speaker_channels||0;const pw=(pe.spk_watts||0)*ch;
+      t.amp_channel_supply+=ch*qty;t.amp_watts_supply+=pw*qty;
+      if(ch)addItem(t.amp_si,desc,qty,ch);
+      if(pw)addItem(t.amp_pwr_si,desc,qty,pw);
     }
   });
-  const statusIcon=(d,s)=>{if(!s)return'';if(d>s)return' <span style="color:#e53e3e">⚠</span>';if(d>s*0.8)return' <span style="color:#dd6b20">~</span>';return' <span style="color:#38a169">✓</span>';};
+  const statusIcon=(d,s)=>{if(!s)return'';if(d>s)return' <span style="color:#e53e3e">&#9888;</span>';if(d>s*0.8)return' <span style="color:#dd6b20">~</span>';return' <span style="color:#38a169">&#10003;</span>';};
   const sectionHdr=label=>'<tr><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);padding:10px 12px 4px;background:var(--surface2)">'+label+'</td></tr>';
-  const row=(label,demand,supply,unit='')=>{if(!demand&&!supply)return'';const d=demand?demand+(unit?' '+unit:''):'—';const s=supply?supply+(unit?' '+unit:''):'—';return'<tr><td style="font-size:12px;color:var(--text-2);padding:7px 12px;border-bottom:1px solid var(--border)">'+label+'</td><td style="font-size:13px;font-weight:600;padding:7px 12px;text-align:right;border-bottom:1px solid var(--border)">'+d+'</td><td style="font-size:13px;padding:7px 12px;text-align:right;color:var(--text-2);border-bottom:1px solid var(--border)">'+s+(supply?statusIcon(demand,supply):'')+'</td></tr>';};
-  const countRow=(label,val)=>val?'<tr><td style="font-size:12px;color:var(--text-2);padding:7px 12px;border-bottom:1px solid var(--border)">'+label+'</td><td colspan="2" style="font-size:13px;font-weight:600;padding:7px 12px;text-align:right;border-bottom:1px solid var(--border)">'+val+'</td></tr>':'';
   const thStyle='padding:8px 12px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);background:var(--surface2);border-bottom:1px solid var(--border)';
+  let _rid=0;
+  const itemList=(items,unit)=>items.map(i=>{
+    const val=(i.qty>1?(i.qty+' × '+i.each+' = '+i.total):i.total)+(unit?' '+unit:'');
+    return '<div class="zs-expand-item"><span class="zs-expand-name">'+escHtml(i.desc)+'</span><span class="zs-expand-val">'+val+'</span></div>';
+  }).join('');
+  const expandBoth=(di,si,unit)=>{
+    if(!di.length&&!si.length)return'';
+    let s='<div class="zs-expand">';
+    if(di.length)s+='<div class="zs-expand-col"><div class="zs-expand-label">Required</div>'+itemList(di,unit)+'</div>';
+    if(si.length)s+='<div class="zs-expand-col"><div class="zs-expand-label">Available</div>'+itemList(si,unit)+'</div>';
+    return s+'</div>';
+  };
+  const expandSingle=(items,unit)=>items.length?'<div class="zs-expand"><div class="zs-expand-col">'+itemList(items,unit)+'</div></div>':'';
+  const tdBase='font-size:12px;color:var(--text-2);padding:7px 12px;border-bottom:1px solid var(--border)';
+  const valBase='font-size:13px;font-weight:600;padding:7px 12px;text-align:right;border-bottom:1px solid var(--border)';
+  const supBase='font-size:13px;padding:7px 12px;text-align:right;color:var(--text-2);border-bottom:1px solid var(--border)';
+  const row=(label,demand,supply,unit,di,si)=>{
+    if(!demand&&!supply)return'';
+    const d=demand?demand+(unit?' '+unit:''):'—';const s=supply?supply+(unit?' '+unit:''):'—';
+    const expand=expandBoth(di||[],si||[],unit||'');
+    const rid='zsr'+(++_rid);
+    const chv=expand?' <span class="zs-chevron" id="chv-'+rid+'">&#9658;</span>':'';
+    const clk=expand?' style="cursor:pointer" onclick="zsToggle(\''+rid+'\')"':'';
+    let out='<tr'+clk+'><td style="'+tdBase+'">'+label+chv+'</td><td style="'+valBase+'">'+d+'</td><td style="'+supBase+'">'+s+(supply?statusIcon(demand,supply):'')+'</td></tr>';
+    if(expand)out+='<tr id="'+rid+'" style="display:none"><td colspan="3" style="padding:0;border-bottom:1px solid var(--border)">'+expand+'</td></tr>';
+    return out;
+  };
+  const countRow=(label,val,items)=>{
+    if(!val)return'';
+    const expand=items&&items.length?expandSingle(items,'W'):'';
+    const rid='zsr'+(++_rid);
+    const chv=expand?' <span class="zs-chevron" id="chv-'+rid+'">&#9658;</span>':'';
+    const clk=expand?' style="cursor:pointer" onclick="zsToggle(\''+rid+'\')"':'';
+    let out='<tr'+clk+'><td style="'+tdBase+'">'+label+chv+'</td><td colspan="2" style="'+valBase+'">'+val+'</td></tr>';
+    if(expand)out+='<tr id="'+rid+'" style="display:none"><td colspan="3" style="padding:0;border-bottom:1px solid var(--border)">'+expand+'</td></tr>';
+    return out;
+  };
   let html='<div class="zs-grid">';
   currentZones.forEach(z=>{
     const t=zones[z.id];const zoneRooms=currentRooms.filter(r=>r.rack_zone_id===z.id);
     let rows='';
-    if(t.lan_demand||t.lan_supply||t.poe_port_demand||t.poe_port_supply){rows+=sectionHdr('Network');rows+=row('LAN Ports',t.lan_demand,t.lan_supply);rows+=row('PoE Ports',t.poe_port_demand,t.poe_port_supply);rows+=row('PoE Budget',Math.round(t.poe_watts_demand),t.poe_budget_supply,'W');}
-    if(t.spk_channel_demand||t.amp_channel_supply){rows+=sectionHdr('Audio');rows+=row('Amp Channels',t.spk_channel_demand,t.amp_channel_supply);rows+=row('Amp Power',Math.round(t.spk_watts_demand),Math.round(t.amp_watts_supply),'W');}
-    if(t.avip_requires||t.avip_provides){rows+=sectionHdr('AV over IP');rows+=row('AVoIP Stream',t.avip_requires,t.avip_provides);}
+    if(t.lan_demand||t.lan_supply||t.poe_port_demand||t.poe_port_supply){
+      rows+=sectionHdr('Network');
+      rows+=row('LAN Ports',t.lan_demand,t.lan_supply,'',t.lan_di,t.lan_si);
+      rows+=row('PoE Ports',t.poe_port_demand,t.poe_port_supply,'',t.poe_di,t.poe_si);
+      rows+=row('PoE Budget',Math.round(t.poe_watts_demand),t.poe_budget_supply,'W',t.poe_budget_di,t.poe_budget_si);
+    }
+    if(t.spk_channel_demand||t.amp_channel_supply){
+      rows+=sectionHdr('Audio');
+      rows+=row('Amp Channels',t.spk_channel_demand,t.amp_channel_supply,'',t.spk_di,t.amp_si);
+      rows+=row('Amp Power',Math.round(t.spk_watts_demand),Math.round(t.amp_watts_supply),'W',t.spk_pwr_di,t.amp_pwr_si);
+    }
+    if(t.avip_requires||t.avip_provides){
+      rows+=sectionHdr('AV over IP');
+      rows+=row('AVoIP Stream',t.avip_requires,t.avip_provides,'',t.avip_ri,t.avip_pi);
+    }
     const totalPwr=t.ups_watts+t.mains_watts;
     if(totalPwr){
       rows+=sectionHdr('Power');
       if(t.ups_watts&&t.mains_watts){
-        rows+=countRow('UPS Load',Math.round(t.ups_watts)+' W');
-        rows+=countRow('Mains Load',Math.round(t.mains_watts)+' W');
+        rows+=countRow('UPS Load',Math.round(t.ups_watts)+' W',t.ups_di);
+        rows+=countRow('Mains Load',Math.round(t.mains_watts)+' W',t.mains_di);
         rows+='<tr><td style="font-size:12px;font-weight:600;padding:7px 12px;border-bottom:1px solid var(--border)">Total</td><td colspan="2" style="font-size:13px;font-weight:700;padding:7px 12px;text-align:right;border-bottom:1px solid var(--border)">'+Math.round(totalPwr)+' W</td></tr>';
       }else if(t.ups_watts){
-        rows+=countRow('UPS Load',Math.round(t.ups_watts)+' W');
+        rows+=countRow('UPS Load',Math.round(t.ups_watts)+' W',t.ups_di);
       }else{
-        rows+=countRow('Mains Load',Math.round(t.mains_watts)+' W');
+        rows+=countRow('Mains Load',Math.round(t.mains_watts)+' W',t.mains_di);
       }
     }
     html+='<div class="zs-card">'
