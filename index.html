@@ -4090,7 +4090,7 @@ function renderZoneSummary(instances){
   const roomZoneMap={};
   currentRooms.forEach(r=>{if(r.rack_zone_id)roomZoneMap[r.id]=r.rack_zone_id;});
   const zones={};
-  currentZones.forEach(z=>{zones[z.id]={lan_demand:0,poe_port_demand:0,poe_watts_demand:0,spk_channel_demand:0,spk_watts_demand:0,rack_power_demand:0,device_count:0,avip_requires:0,avip_provides:0,lan_supply:0,poe_port_supply:0,poe_budget_supply:0,amp_channel_supply:0,amp_watts_supply:0};});
+  currentZones.forEach(z=>{zones[z.id]={lan_demand:0,poe_port_demand:0,poe_watts_demand:0,spk_channel_demand:0,spk_watts_demand:0,rack_power_demand:0,ups_watts:0,mains_watts:0,device_count:0,avip_requires:0,avip_provides:0,lan_supply:0,poe_port_supply:0,poe_budget_supply:0,amp_channel_supply:0,amp_watts_supply:0};});
   instances.forEach(inst=>{
     const pe=projectEquipment.find(e=>e.id===inst.project_equipment_id);
     if(!pe)return;
@@ -4112,6 +4112,7 @@ function renderZoneSummary(instances){
       t.spk_watts_demand+=((pe.spk_watts||0)*(pe.speaker_channels||0))*qty;
     }
     if(inst.installation_type==='rack-mounted')t.rack_power_demand+=(pe.power_watts||0)*qty;
+    if(pe.power_watts){if(pe.ups_protected)t.ups_watts+=(pe.power_watts||0)*qty;else t.mains_watts+=(pe.power_watts||0)*qty;}
     if(pe.avip_role==='requires')t.avip_requires+=qty;
     if(pe.avip_role==='provides')t.avip_provides+=qty;
     // ── SUPPLY (infrastructure, rack-mounted only) ──
@@ -4137,7 +4138,19 @@ function renderZoneSummary(instances){
     if(t.lan_demand||t.lan_supply||t.poe_port_demand||t.poe_port_supply){rows+=sectionHdr('Network');rows+=row('LAN Ports',t.lan_demand,t.lan_supply);rows+=row('PoE Ports',t.poe_port_demand,t.poe_port_supply);rows+=row('PoE Budget',Math.round(t.poe_watts_demand),t.poe_budget_supply,'W');}
     if(t.spk_channel_demand||t.amp_channel_supply){rows+=sectionHdr('Audio');rows+=row('Amp Channels',t.spk_channel_demand,t.amp_channel_supply);rows+=row('Amp Power',Math.round(t.spk_watts_demand),Math.round(t.amp_watts_supply),'W');}
     if(t.avip_requires||t.avip_provides){rows+=sectionHdr('AV over IP');rows+=row('AVoIP Stream',t.avip_requires,t.avip_provides);}
-    if(t.rack_power_demand){rows+=sectionHdr('Rack Power');rows+='<tr><td style="font-size:12px;color:var(--text-2);padding:7px 12px">Total Draw</td><td colspan="2" style="font-size:13px;font-weight:600;padding:7px 12px;text-align:right">'+Math.round(t.rack_power_demand)+' W</td></tr>';}
+    const totalPwr=t.ups_watts+t.mains_watts;
+    if(totalPwr){
+      rows+=sectionHdr('Power');
+      if(t.ups_watts&&t.mains_watts){
+        rows+=countRow('UPS Load',Math.round(t.ups_watts)+' W');
+        rows+=countRow('Mains Load',Math.round(t.mains_watts)+' W');
+        rows+='<tr><td style="font-size:12px;font-weight:600;padding:7px 12px;border-bottom:1px solid var(--border)">Total</td><td colspan="2" style="font-size:13px;font-weight:700;padding:7px 12px;text-align:right;border-bottom:1px solid var(--border)">'+Math.round(totalPwr)+' W</td></tr>';
+      }else if(t.ups_watts){
+        rows+=countRow('UPS Load',Math.round(t.ups_watts)+' W');
+      }else{
+        rows+=countRow('Mains Load',Math.round(t.mains_watts)+' W');
+      }
+    }
     html+='<div class="zs-card">'
       +'<div class="zs-card-header" style="border-left:4px solid '+(z.colour||'var(--accent)')+'"><div><div class="zs-card-name">'+escHtml(z.name)+'</div><div class="zs-card-meta">'+zoneRooms.length+' room'+(zoneRooms.length!==1?'s':'')+' · '+(z.rack_count||0)+' rack'+(z.rack_count!==1?'s':'')+'</div></div><div class="zs-device-count">'+t.device_count+' <span>devices</span></div></div>'
       +(rows?'<table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+thStyle+'"></th><th style="'+thStyle+';text-align:right">Required</th><th style="'+thStyle+';text-align:right">Available</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div style="padding:14px 16px;font-size:12px;color:var(--text-3)">No equipment assigned to this zone yet.</div>')
