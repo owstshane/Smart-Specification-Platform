@@ -4118,7 +4118,8 @@ function renderZoneSummary(instances){
     // ── SUPPLY (infrastructure, rack-mounted only) ──
     if(isInfra&&inst.installation_type==='rack-mounted'){
       t.lan_supply+=(pe.lan_ports||0)*qty;
-            t.poe_budget_supply+=(pe.poe_budget_watts||0)*qty;
+      t.poe_port_supply+=(pe.poe_ports||0)*qty;
+      t.poe_budget_supply+=(pe.poe_budget_watts||0)*qty;
     }
     // Audio supply — devices that provide amp channels (any installation type)
     if(pe.audio_role==='provides'){
@@ -4318,7 +4319,7 @@ async function quickPullToProject(globalId){
   if(!currentProject){showToast('Please open a project first','error');return;}
   const d=globalLibrary.find(d=>d.id===globalId);if(!d)return;
   try{
-    await dbInsert('project_equipment',{project_id:currentProject.id,global_equipment_id:globalId,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'});
+    await dbInsert('project_equipment',{project_id:currentProject.id,global_equipment_id:globalId,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,poe_budget_watts:d.poe_budget_watts||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,power_watts:d.power_watts||null,ups_protected:d.ups_protected||false,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'});
     showToast(d.device_type_id+' added to project','success');
     projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
     renderGlobalLibrary();
