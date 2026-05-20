@@ -262,6 +262,41 @@
   .zs-stat-value { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.2; }
   .zs-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-top: 3px; }
 
+  /* CHANGE CONTROL */
+  .cc-stats { display: flex; gap: 12px; padding: 16px 20px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .cc-stat-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; text-align: center; }
+  .cc-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 4px; }
+  .cc-stat-value { font-size: 20px; font-weight: 700; color: var(--text); }
+  .cc-cr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; }
+  .cc-cr-header { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; flex-wrap: wrap; }
+  .cc-cr-header:hover { background: var(--surface2); }
+  .cc-cr-num { font-size: 12px; font-weight: 700; color: var(--accent); min-width: 52px; flex-shrink: 0; }
+  .cc-cr-title { flex: 1; font-size: 13px; font-weight: 600; min-width: 120px; }
+  .cc-cr-meta { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+  .cc-badge { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0; }
+  .cc-badge-formal { background: #ebf4ff; color: #2b6cb0; }
+  .cc-badge-internal { background: #f0fff4; color: #276749; }
+  .cc-badge-draft { background: var(--surface2); color: var(--text-3); }
+  .cc-badge-pending_internal { background: #fffbeb; color: #92400e; }
+  .cc-badge-pending_owner { background: #fff7ed; color: #9a3412; }
+  .cc-badge-approved { background: #f0fff4; color: #276749; }
+  .cc-badge-closed { background: #ebf4ff; color: #2b6cb0; }
+  .cc-badge-rejected { background: #fff5f5; color: #c53030; }
+  .cc-badge-preliminary { background: var(--surface2); color: var(--text-3); }
+  .cc-badge-added { background: #f0fff4; color: #276749; }
+  .cc-badge-removed { background: #fff5f5; color: #c53030; }
+  .cc-badge-updated { background: #fffbeb; color: #92400e; }
+  .cc-cr-detail { padding: 16px; border-top: 1px solid var(--border); background: var(--surface2); }
+  .cc-log-item { display: flex; gap: 10px; align-items: flex-start; padding: 9px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .cc-log-time { font-size: 11px; color: var(--text-3); white-space: nowrap; min-width: 90px; }
+  .cc-log-summary { flex: 1; font-size: 12px; color: var(--text); min-width: 160px; }
+  .cc-log-cr { font-size: 11px; color: var(--accent); white-space: nowrap; }
+  .cc-rev-row { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .cc-rev-row:hover { background: var(--surface2); }
+  .cc-rev-number { font-size: 14px; font-weight: 700; min-width: 72px; }
+  .cc-rev-meta { flex: 1; font-size: 12px; color: var(--text-2); }
+  .cc-empty { padding: 40px 20px; text-align: center; color: var(--text-3); font-size: 13px; }
+
   /* IMPORT/EXPORT */
   .ie-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
   .ie-section-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
@@ -398,6 +433,10 @@
       <div class="nav-item sub disabled" onclick="showPage('feature-matrix')" id="nav-feature-matrix">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Feature Matrix
+      </div>
+      <div class="nav-item sub disabled" onclick="showPage('change-control')" id="nav-change-control">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Change Control
       </div>
       <div class="divider"></div>
       <div class="nav-item" onclick="showPage('import-export')" id="nav-import-export">
@@ -658,6 +697,36 @@
           <button class="btn btn-primary btn-sm" onclick="exportFeatureMatrix()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
         </div>
         <div id="feature-matrix-container"><div class="empty-state"><div class="empty-state-icon">⊞</div><div class="empty-state-title">No features defined</div><div class="empty-state-text">Click Manage Features to add feature categories and features for this project.</div></div></div>
+      </div>
+
+      <!-- CHANGE CONTROL -->
+      <div id="page-change-control" class="hidden">
+        <div id="cc-stats-bar" class="cc-stats"></div>
+        <div class="tab-bar">
+          <button class="tab-btn active" id="cc-tab-crs" onclick="showCCTab('crs')">Change Requests</button>
+          <button class="tab-btn" id="cc-tab-revisions" onclick="showCCTab('revisions')">Revisions</button>
+          <button class="tab-btn" id="cc-tab-log" onclick="showCCTab('log')">Change Log</button>
+        </div>
+        <div id="cc-crs-panel">
+          <div class="toolbar">
+            <select id="cc-cr-filter-type" onchange="renderCRs()" style="width:auto;padding:8px 11px"><option value="">All types</option><option value="formal">Formal</option><option value="internal">Internal</option></select>
+            <select id="cc-cr-filter-status" onchange="renderCRs()" style="width:auto;padding:8px 11px"><option value="">All statuses</option><option value="draft">Draft</option><option value="pending_internal">Pending Internal</option><option value="pending_owner">Pending Owner</option><option value="approved">Approved</option><option value="closed">Closed</option><option value="rejected">Rejected</option></select>
+            <button class="btn btn-primary btn-sm" onclick="openNewCRModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Raise CR</button>
+          </div>
+          <div id="cc-cr-list" style="padding:0 20px 20px"></div>
+        </div>
+        <div id="cc-revisions-panel" class="hidden">
+          <div class="toolbar">
+            <button class="btn btn-primary btn-sm" onclick="openNewRevisionModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Revision</button>
+          </div>
+          <div id="cc-revision-list" style="padding:0 20px 20px"></div>
+        </div>
+        <div id="cc-log-panel" class="hidden">
+          <div class="toolbar">
+            <select id="cc-log-filter-area" onchange="renderChangeLog()" style="width:auto;padding:8px 11px"><option value="">All areas</option><option value="equipment">Equipment</option><option value="rooms">Rooms</option><option value="layout">Layout</option><option value="features">Features</option><option value="zones">Zones</option><option value="project">Project</option></select>
+          </div>
+          <div id="cc-log-list"></div>
+        </div>
       </div>
 
       <!-- EQUIPMENT -->
@@ -1239,6 +1308,42 @@
   </div>
 </div>
 
+<!-- RAISE CR MODAL -->
+<div id="cr-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header"><div class="modal-title">Raise Change Request</div><button class="modal-close" onclick="closeCRModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div><label>Type</label><select id="cr-type"><option value="formal">Formal CR</option><option value="internal">Internal</option></select></div>
+        <div><label>Raised by</label><input type="text" id="cr-raised-by" placeholder="Your name"></div>
+      </div>
+      <div class="form-group"><label>Title *</label><input type="text" id="cr-title" placeholder="Brief description of the change"></div>
+      <div class="form-group"><label>Description</label><textarea id="cr-description" rows="3" placeholder="Full details of what needs to change and why"></textarea></div>
+      <div class="form-row form-row-2"><div><label>Date raised</label><input type="date" id="cr-raised-date"></div><div></div></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeCRModal()">Cancel</button><button class="btn btn-primary" onclick="saveCR()">Raise CR</button></div>
+  </div>
+</div>
+
+<!-- NEW REVISION MODAL -->
+<div id="revision-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title">New Revision</div><button class="modal-close" onclick="closeRevisionModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div><label>Revision Number *</label><input type="text" id="rev-number" placeholder="e.g. R0.1, R1, R1.1"></div>
+        <div><label>Type</label><select id="rev-type"><option value="preliminary">Preliminary</option><option value="formal">Formal</option></select></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div><label>Issued by</label><input type="text" id="rev-issued-by" placeholder="Name"></div>
+        <div><label>Date</label><input type="date" id="rev-issued-date"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="rev-notes" rows="2" placeholder="Summary of changes in this revision"></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeRevisionModal()">Cancel</button><button class="btn btn-primary" onclick="saveRevision()">Create Revision</button></div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div class="login-overlay" id="login-overlay" style="display:none">
   <div class="login-box">
@@ -1272,6 +1377,7 @@ let projectProducts=[], productModalMode='global'; // 'global' or 'project'
 let pgpItems=[], pgpPulledIds=new Set(), pgpActiveType='all';
 let selectingProductForPeId=null, editingSgId=null, editingDcId=null;
 let currentUser=null, ieImportData=null, ieImportOption='add';
+let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null;
 
 // ── UTILS ──
 function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1373,9 +1479,9 @@ function toggleAvatarPopup(){const p=document.getElementById('avatar-popup'),c=d
 function closeAvatarPopup(){const p=document.getElementById('avatar-popup'),c=document.getElementById('avatar-chevron');if(p)p.classList.remove('open');if(c)c.style.transform='';}
 
 // ── NAVIGATION ──
-const pages=['dashboard','project-info','decks-rooms','import-export','equipment','feature-matrix','global-library','product-catalogue','system-groups','global-templates'];
-const navIds={'dashboard':'nav-dashboard','project-info':'nav-project-info','decks-rooms':'nav-decks-rooms','import-export':'nav-import-export','equipment':'nav-equipment','feature-matrix':'nav-feature-matrix','global-library':'nav-global-library','product-catalogue':'nav-product-catalogue','system-groups':'nav-system-groups','global-templates':'nav-global-templates'};
-const titles={'dashboard':['All Projects','Overview of all active and archived projects'],'project-info':['Project Info',''],'decks-rooms':['Layout & Zones',''],'import-export':['Import / Export',''],'equipment':['Equipment',''],'global-library':['Device Types',''],'product-catalogue':['Product Catalogue',''],'system-groups':['Groups & Categories',''],'global-templates':['Room Templates','']};
+const pages=['dashboard','project-info','decks-rooms','import-export','equipment','feature-matrix','change-control','global-library','product-catalogue','system-groups','global-templates'];
+const navIds={'dashboard':'nav-dashboard','project-info':'nav-project-info','decks-rooms':'nav-decks-rooms','import-export':'nav-import-export','equipment':'nav-equipment','feature-matrix':'nav-feature-matrix','change-control':'nav-change-control','global-library':'nav-global-library','product-catalogue':'nav-product-catalogue','system-groups':'nav-system-groups','global-templates':'nav-global-templates'};
+const titles={'dashboard':['All Projects','Overview of all active and archived projects'],'project-info':['Project Info',''],'decks-rooms':['Layout & Zones',''],'import-export':['Import / Export',''],'equipment':['Equipment',''],'feature-matrix':['Feature Matrix',''],'change-control':['Change Control',''],'global-library':['Device Types',''],'product-catalogue':['Product Catalogue',''],'system-groups':['Groups & Categories',''],'global-templates':['Room Templates','']};
 
 function refreshCurrentPage(){
   const btn=document.getElementById('topbar-refresh-btn');
@@ -1422,11 +1528,12 @@ function showPage(page){
   else if(page==='global-templates')loadGlobalTemplates();
   else if(page==='system-groups')loadSgPage();
   else if(page==='feature-matrix')loadFeatureMatrix();
+  else if(page==='change-control')loadChangeControl();
 }
 function updateSidebarProject(){
   const has=!!currentProject;
   document.getElementById('nav-project-name').textContent=has?currentProject.name:'— None open —';
-  ['nav-project-info','nav-decks-rooms','nav-equipment','nav-feature-matrix'].forEach(id=>document.getElementById(id).classList.toggle('disabled',!has));
+  ['nav-project-info','nav-decks-rooms','nav-equipment','nav-feature-matrix','nav-change-control'].forEach(id=>document.getElementById(id).classList.toggle('disabled',!has));
   const closeBtn=document.getElementById('close-project-btn');
   if(closeBtn)closeBtn.style.display=has?'':'none';
 }
@@ -4972,6 +5079,293 @@ async function init(){
     document.getElementById('login-overlay').style.display='flex';
     setConn('disconnected');
   }
+}
+
+// ── CHANGE CONTROL ──
+async function loadChangeControl(){
+  if(!currentProject)return;
+  try{
+    ccCRs=await dbGet('change_requests','project_id=eq.'+currentProject.id+'&order=created_at.desc');
+    ccRevisions=await dbGet('project_revisions','project_id=eq.'+currentProject.id+'&order=created_at.desc');
+    ccLog=await dbGet('change_log','project_id=eq.'+currentProject.id+'&order=created_at.desc&limit=200');
+    renderCCStats();
+    if(activeCCTab==='crs')renderCRs();
+    else if(activeCCTab==='revisions')renderRevisions();
+    else renderChangeLog();
+  }catch(e){showToast('Failed to load change control: '+e.message,'error');}
+}
+
+function renderCCStats(){
+  const open=ccCRs.filter(c=>!['closed','rejected'].includes(c.status)).length;
+  const issued=ccRevisions.filter(r=>r.status==='issued').sort((a,b)=>new Date(b.issued_date)-new Date(a.issued_date));
+  const latest=issued[0]||ccRevisions[0];
+  document.getElementById('cc-stats-bar').innerHTML=
+    '<div class="cc-stat-card"><div class="cc-stat-label">Current Revision</div><div class="cc-stat-value">'+(latest?escHtml(latest.revision_number):'—')+'</div></div>'+
+    '<div class="cc-stat-card"><div class="cc-stat-label">Open CRs</div><div class="cc-stat-value">'+open+'</div></div>'+
+    '<div class="cc-stat-card"><div class="cc-stat-label">Last Issued</div><div class="cc-stat-value">'+(issued[0]?ccFmtDate(issued[0].issued_date):'—')+'</div></div>'+
+    '<div class="cc-stat-card"><div class="cc-stat-label">Total Changes</div><div class="cc-stat-value">'+ccLog.length+'</div></div>';
+}
+
+function showCCTab(tab){
+  activeCCTab=tab;
+  ['crs','revisions','log'].forEach(t=>{
+    document.getElementById('cc-'+t+'-panel').classList.toggle('hidden',t!==tab);
+    document.getElementById('cc-tab-'+t).classList.toggle('active',t===tab);
+  });
+  if(tab==='crs')renderCRs();
+  else if(tab==='revisions')renderRevisions();
+  else renderChangeLog();
+}
+
+function ccFmtDate(d){
+  if(!d)return'—';
+  const dt=new Date(d);if(isNaN(dt))return d;
+  return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
+function ccFmtDateTime(d){
+  if(!d)return'';
+  const dt=new Date(d);if(isNaN(dt))return'';
+  return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
+function crStatusLabel(s){return{draft:'Draft',pending_internal:'Pending Internal',pending_owner:'Pending Owner',approved:'Approved',closed:'Closed',rejected:'Rejected'}[s]||s;}
+
+function renderCRs(){
+  const fType=document.getElementById('cc-cr-filter-type')?.value||'';
+  const fStatus=document.getElementById('cc-cr-filter-status')?.value||'';
+  const list=ccCRs.filter(c=>(!fType||c.type===fType)&&(!fStatus||c.status===fStatus));
+  const el=document.getElementById('cc-cr-list');
+  if(!list.length){el.innerHTML='<div class="cc-empty">No change requests yet.<br>Click <strong>Raise CR</strong> to log the first change.</div>';return;}
+  el.innerHTML=list.map(cr=>{
+    const isOpen=expandedCRId===cr.id;
+    const logEntries=ccLog.filter(l=>l.cr_id===cr.id);
+    let detail='';
+    if(isOpen){
+      detail='<div class="cc-cr-detail">';
+      if(cr.description)detail+='<p style="font-size:12px;color:var(--text-2);margin:0 0 14px">'+escHtml(cr.description)+'</p>';
+      if(cr.type==='formal'){
+        detail+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3);margin-bottom:8px">Approval Workflow</div>';
+        detail+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">';
+        // Internal approval box
+        detail+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px">';
+        detail+='<div style="font-size:11px;font-weight:600;color:var(--text-3);margin-bottom:6px">1. Internal Approval</div>';
+        if(cr.internal_approved_by){
+          detail+='<div style="font-size:12px;font-weight:600">'+escHtml(cr.internal_approved_by)+'</div>';
+          detail+='<div style="font-size:11px;color:var(--text-3)">'+ccFmtDate(cr.internal_approved_date)+'</div>';
+        }else if(['draft','pending_internal'].includes(cr.status)){
+          detail+='<div style="display:flex;flex-direction:column;gap:5px">';
+          detail+='<input type="text" id="cr-ia-name-'+cr.id+'" placeholder="Approved by" style="font-size:12px">';
+          detail+='<input type="date" id="cr-ia-date-'+cr.id+'" style="font-size:12px">';
+          detail+='<button class="btn btn-secondary btn-sm" onclick="approveCRInternal(\''+cr.id+'\')">Record Approval</button>';
+          detail+='</div>';
+        }else{detail+='<div style="font-size:12px;color:var(--text-3)">Not yet recorded</div>';}
+        detail+='</div>';
+        // Owner approval box
+        detail+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px">';
+        detail+='<div style="font-size:11px;font-weight:600;color:var(--text-3);margin-bottom:6px">2. Owner Sign-off</div>';
+        if(cr.owner_approved_by){
+          detail+='<div style="font-size:12px;font-weight:600">'+escHtml(cr.owner_approved_by)+'</div>';
+          detail+='<div style="font-size:11px;color:var(--text-3)">'+ccFmtDate(cr.owner_approved_date)+'</div>';
+        }else if(cr.status==='pending_owner'){
+          detail+='<div style="display:flex;flex-direction:column;gap:5px">';
+          detail+='<input type="text" id="cr-oa-name-'+cr.id+'" placeholder="Approved by" style="font-size:12px">';
+          detail+='<input type="date" id="cr-oa-date-'+cr.id+'" style="font-size:12px">';
+          detail+='<button class="btn btn-secondary btn-sm" onclick="approveCROwner(\''+cr.id+'\')">Record Sign-off</button>';
+          detail+='</div>';
+        }else{detail+='<div style="font-size:12px;color:var(--text-3)">Awaiting internal first</div>';}
+        detail+='</div>';
+        detail+='</div>';
+      }else{
+        if(!cr.internal_approved_by&&cr.status==='draft'){
+          detail+='<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:14px">';
+          detail+='<div style="flex:1"><label style="font-size:11px;color:var(--text-3)">Approved by</label><input type="text" id="cr-ia-name-'+cr.id+'" placeholder="Name" style="font-size:12px;margin-top:3px"></div>';
+          detail+='<div><label style="font-size:11px;color:var(--text-3)">Date</label><input type="date" id="cr-ia-date-'+cr.id+'" style="font-size:12px;margin-top:3px"></div>';
+          detail+='<button class="btn btn-secondary btn-sm" onclick="approveCRInternal(\''+cr.id+'\')">Approve</button>';
+          detail+='</div>';
+        }else if(cr.internal_approved_by){
+          detail+='<div style="font-size:12px;color:var(--text-2);margin-bottom:14px">Approved by <strong>'+escHtml(cr.internal_approved_by)+'</strong>'+(cr.internal_approved_date?' · '+ccFmtDate(cr.internal_approved_date):'')+'</div>';
+        }
+      }
+      // Action buttons
+      detail+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+      if(cr.status==='approved')detail+='<button class="btn btn-primary btn-sm" onclick="closeCR(\''+cr.id+'\')">Close CR</button>';
+      if(!['closed','rejected'].includes(cr.status))detail+='<button class="btn btn-secondary btn-sm" onclick="rejectCR(\''+cr.id+'\')">Reject</button>';
+      detail+='<button class="btn btn-secondary btn-sm" onclick="deleteCR(\''+cr.id+'\')">Delete</button>';
+      detail+='</div>';
+      if(logEntries.length){
+        detail+='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">';
+        detail+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3);margin-bottom:8px">Logged Changes ('+logEntries.length+')</div>';
+        detail+=logEntries.map(l=>'<div style="display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">'
+          +'<span class="cc-badge cc-badge-'+l.action+'">'+l.action+'</span>'
+          +'<span style="flex:1;color:var(--text-2)">'+escHtml(l.summary)+'</span>'
+          +'<span style="color:var(--text-3);white-space:nowrap">'+ccFmtDate(l.created_at)+'</span>'
+          +'</div>').join('');
+        detail+='</div>';
+      }
+      detail+='</div>';
+    }
+    return '<div class="cc-cr-card">'
+      +'<div class="cc-cr-header" onclick="toggleCRExpand(\''+cr.id+'\')">'
+      +'<span class="cc-cr-num">'+escHtml(cr.cr_number)+'</span>'
+      +'<span class="cc-cr-title">'+escHtml(cr.title)+'</span>'
+      +'<span class="cc-badge cc-badge-'+cr.type+'">'+cr.type+'</span>'
+      +'<span class="cc-badge cc-badge-'+cr.status+'">'+crStatusLabel(cr.status)+'</span>'
+      +(cr.raised_by?'<span class="cc-cr-meta">'+escHtml(cr.raised_by)+'</span>':'')
+      +(cr.raised_date?'<span class="cc-cr-meta">'+ccFmtDate(cr.raised_date)+'</span>':'')
+      +'<span style="color:var(--text-3);font-size:11px">'+(isOpen?'▾':'▸')+'</span>'
+      +'</div>'+detail+'</div>';
+  }).join('');
+}
+
+function toggleCRExpand(id){expandedCRId=expandedCRId===id?null:id;renderCRs();}
+
+function openNewCRModal(){
+  document.getElementById('cr-title').value='';
+  document.getElementById('cr-description').value='';
+  document.getElementById('cr-type').value='formal';
+  document.getElementById('cr-raised-by').value=currentUser?.user_metadata?.full_name||currentUser?.email||'';
+  document.getElementById('cr-raised-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('cr-modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('cr-title').focus(),50);
+}
+function closeCRModal(){document.getElementById('cr-modal').classList.add('hidden');}
+
+async function saveCR(){
+  const title=document.getElementById('cr-title').value.trim();
+  if(!title){showToast('Title is required','error');return;}
+  const num='CR-'+String(ccCRs.length+1).padStart(3,'0');
+  try{
+    await dbInsert('change_requests',{project_id:currentProject.id,cr_number:num,title,
+      type:document.getElementById('cr-type').value,status:'draft',
+      description:document.getElementById('cr-description').value.trim()||null,
+      raised_by:document.getElementById('cr-raised-by').value.trim()||null,
+      raised_date:document.getElementById('cr-raised-date').value||null});
+    closeCRModal();await loadChangeControl();showToast(num+' raised','success');
+  }catch(e){showToast('Could not raise CR: '+e.message,'error');}
+}
+
+async function approveCRInternal(id){
+  const by=document.getElementById('cr-ia-name-'+id)?.value.trim();
+  const date=document.getElementById('cr-ia-date-'+id)?.value||null;
+  if(!by){showToast('Enter approver name','error');return;}
+  const cr=ccCRs.find(c=>c.id===id);if(!cr)return;
+  const newStatus=cr.type==='internal'?'approved':'pending_owner';
+  try{
+    await dbUpdate('change_requests',id,{internal_approved_by:by,internal_approved_date:date,status:newStatus});
+    await loadChangeControl();showToast('Internal approval recorded','success');
+  }catch(e){showToast('Failed: '+e.message,'error');}
+}
+
+async function approveCROwner(id){
+  const by=document.getElementById('cr-oa-name-'+id)?.value.trim();
+  const date=document.getElementById('cr-oa-date-'+id)?.value||null;
+  if(!by){showToast('Enter approver name','error');return;}
+  try{
+    await dbUpdate('change_requests',id,{owner_approved_by:by,owner_approved_date:date,status:'approved'});
+    await loadChangeControl();showToast('Owner sign-off recorded','success');
+  }catch(e){showToast('Failed: '+e.message,'error');}
+}
+
+async function closeCR(id){
+  try{await dbUpdate('change_requests',id,{status:'closed'});await loadChangeControl();showToast('CR closed','success');}
+  catch(e){showToast('Failed: '+e.message,'error');}
+}
+async function rejectCR(id){
+  if(!confirm('Reject this change request?'))return;
+  try{await dbUpdate('change_requests',id,{status:'rejected'});await loadChangeControl();showToast('CR rejected','success');}
+  catch(e){showToast('Failed: '+e.message,'error');}
+}
+async function deleteCR(id){
+  if(!confirm('Delete this CR permanently?'))return;
+  try{
+    await dbDelete('change_requests',id);
+    if(expandedCRId===id)expandedCRId=null;
+    await loadChangeControl();showToast('CR deleted','success');
+  }catch(e){showToast('Failed: '+e.message,'error');}
+}
+
+function renderRevisions(){
+  const el=document.getElementById('cc-revision-list');
+  if(!ccRevisions.length){el.innerHTML='<div class="cc-empty">No revisions yet.<br>Click <strong>New Revision</strong> to create the first one.</div>';return;}
+  el.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">'
+    +ccRevisions.map(r=>'<div class="cc-rev-row">'
+      +'<span class="cc-rev-number">'+escHtml(r.revision_number)+'</span>'
+      +'<span class="cc-badge cc-badge-'+(r.revision_type==='formal'?'closed':'draft')+'">'+r.revision_type+'</span>'
+      +'<span class="cc-badge cc-badge-'+(r.status==='issued'?'approved':'draft')+'" style="margin-left:4px">'+r.status+'</span>'
+      +'<span class="cc-rev-meta">'+(r.issued_by?escHtml(r.issued_by):'')+(r.issued_date?' · '+ccFmtDate(r.issued_date):'')+(r.notes?' — '+escHtml(r.notes):'')+'</span>'
+      +(r.status==='draft'?'<button class="btn btn-primary btn-sm" onclick="issueRevision(\''+r.id+'\')">Issue</button>':'')
+      +'<button class="btn btn-secondary btn-sm" onclick="deleteRevision(\''+r.id+'\')">Delete</button>'
+      +'</div>').join('')
+    +'</div>';
+}
+
+function openNewRevisionModal(){
+  document.getElementById('rev-number').value='';
+  document.getElementById('rev-type').value='preliminary';
+  document.getElementById('rev-issued-by').value=currentUser?.user_metadata?.full_name||currentUser?.email||'';
+  document.getElementById('rev-issued-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('rev-notes').value='';
+  document.getElementById('revision-modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('rev-number').focus(),50);
+}
+function closeRevisionModal(){document.getElementById('revision-modal').classList.add('hidden');}
+
+async function saveRevision(){
+  const num=document.getElementById('rev-number').value.trim();
+  if(!num){showToast('Revision number is required','error');return;}
+  try{
+    await dbInsert('project_revisions',{project_id:currentProject.id,revision_number:num,
+      revision_type:document.getElementById('rev-type').value,status:'draft',
+      issued_by:document.getElementById('rev-issued-by').value.trim()||null,
+      issued_date:document.getElementById('rev-issued-date').value||null,
+      notes:document.getElementById('rev-notes').value.trim()||null});
+    closeRevisionModal();await loadChangeControl();showToast('Revision '+num+' created','success');
+  }catch(e){showToast('Could not create revision: '+e.message,'error');}
+}
+async function issueRevision(id){
+  if(!confirm('Mark this revision as issued? This cannot be undone.'))return;
+  try{await dbUpdate('project_revisions',id,{status:'issued'});await loadChangeControl();showToast('Revision issued','success');}
+  catch(e){showToast('Failed: '+e.message,'error');}
+}
+async function deleteRevision(id){
+  if(!confirm('Delete this revision?'))return;
+  try{
+    await dbDelete('project_revisions',id);
+    await loadChangeControl();showToast('Revision deleted','success');
+  }catch(e){showToast('Failed: '+e.message,'error');}
+}
+
+function renderChangeLog(){
+  const fArea=document.getElementById('cc-log-filter-area')?.value||'';
+  const list=fArea?ccLog.filter(l=>l.area===fArea):ccLog;
+  const el=document.getElementById('cc-log-list');
+  if(!list.length){el.innerHTML='<div class="cc-empty">No changes logged yet.</div>';return;}
+  const areaColor={equipment:['#ebf4ff','#2b6cb0'],rooms:['#f0fff4','#276749'],layout:['#fffbeb','#92400e'],features:['#faf5ff','#6b21a8'],zones:['#fff5f5','#c53030'],project:['#f7fafc','#4a5568']};
+  el.innerHTML=list.map(l=>{
+    const cr=ccCRs.find(c=>c.id===l.cr_id);
+    const ac=areaColor[l.area]||['var(--surface2)','var(--text-3)'];
+    return '<div class="cc-log-item">'
+      +'<span class="cc-log-time">'+ccFmtDateTime(l.created_at)+'</span>'
+      +'<span class="cc-badge" style="background:'+ac[0]+';color:'+ac[1]+'">'+l.area+'</span>'
+      +'<span class="cc-badge cc-badge-'+l.action+'">'+l.action+'</span>'
+      +'<span class="cc-log-summary">'+escHtml(l.summary)+'</span>'
+      +(cr?'<span class="cc-log-cr">'+escHtml(cr.cr_number)+'</span>':'')
+      +(l.changed_by?'<span style="font-size:11px;color:var(--text-3);white-space:nowrap">'+escHtml(l.changed_by)+'</span>':'')
+      +'</div>';
+  }).join('');
+}
+
+async function logChange(area,action,summary,crId=null){
+  if(!currentProject)return;
+  try{
+    const entry={project_id:currentProject.id,area,action,summary};
+    if(crId)entry.cr_id=crId;
+    if(currentUser?.email)entry.changed_by=currentUser.email;
+    await dbInsert('change_log',entry);
+    if(currentPage==='change-control'&&activeCCTab==='log'){
+      ccLog=await dbGet('change_log','project_id=eq.'+currentProject.id+'&order=created_at.desc&limit=200');
+      renderChangeLog();
+    }
+  }catch(e){console.warn('logChange failed:',e.message);}
 }
 
 // ── EVENT LISTENERS ──
