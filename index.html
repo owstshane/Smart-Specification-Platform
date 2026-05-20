@@ -277,6 +277,14 @@
   .ie-option.selected { border-color: var(--accent); background: var(--accent-light); }
   .ie-option-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
   .ie-option-sub { font-size: 11px; color: var(--text-3); }
+  .ie-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+  .ie-row { display: flex; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+  .ie-row:last-child { border-bottom: none; }
+  .ie-row-meta { flex: 1; min-width: 0; }
+  .ie-row-title { font-size: 13px; font-weight: 600; }
+  .ie-row-desc { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .ie-row-btns { display: flex; gap: 8px; flex-shrink: 0; }
+  .ie-inline-confirm { padding: 16px 20px; background: var(--accent-light); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 
   /* SECTION TABS */
   .section-tabs { display: flex; gap: 2px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; width: fit-content; margin-bottom: 20px; }
@@ -485,21 +493,16 @@
 
         <!-- GLOBAL TAB -->
         <div id="ie-panel-global">
-          <div class="ie-section">
-            <div class="ie-section-title">Export — Device Types</div>
-            <div class="ie-section-sub">Download the full global device type library as an Excel file.</div>
-            <button class="btn btn-primary" onclick="ieExportGlobalDevices()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Device Types</button>
-          </div>
-          <div class="ie-section">
-            <div class="ie-section-title">Import — Device Types</div>
-            <div class="ie-section-sub">Upload an Excel file to import global device types.</div>
-            <div class="ie-upload-area" id="ie-upload-gd" onclick="document.getElementById('ie-file-gd').click()" ondragover="ieDragOver(event,'ie-upload-gd')" ondragleave="ieDragLeave('ie-upload-gd')" ondrop="ieDrop(event,'global-devices')">
-              <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
-              <div class="ie-upload-text">Click to choose file or drag and drop</div>
-              <div class="ie-upload-sub">Excel files only (.xlsx)</div>
+          <div class="ie-table">
+            <div class="ie-row">
+              <div class="ie-row-meta"><div class="ie-row-title">Device Types</div><div class="ie-row-desc">Global device type library — all types, categories and specs</div></div>
+              <div class="ie-row-btns">
+                <button class="btn btn-secondary btn-sm" onclick="ieExportGlobalDevices()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ie-file-gd').click()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import</button>
+                <input type="file" id="ie-file-gd" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'global-devices')">
+              </div>
             </div>
-            <input type="file" id="ie-file-gd" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'global-devices')">
-            <div id="ie-preview-gd" class="hidden">
+            <div id="ie-preview-gd" class="ie-inline-confirm hidden">
               <div class="ie-import-options">
                 <div class="ie-option selected" id="ie-opt-gd-add" onclick="ieSelectOpt('gd','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep current device types and add new ones</div></div>
                 <div class="ie-option" id="ie-opt-gd-replace" onclick="ieSelectOpt('gd','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL device types and replace with file</div></div>
@@ -510,22 +513,15 @@
                 <button class="btn btn-primary" onclick="ieConfirm('global-devices')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
               </div>
             </div>
-          </div>
-          <div class="ie-section">
-            <div class="ie-section-title">Export — Product Catalogue</div>
-            <div class="ie-section-sub">Download the full global product catalogue as an Excel file.</div>
-            <button class="btn btn-primary" onclick="ieExportGlobalProducts()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Product Catalogue</button>
-          </div>
-          <div class="ie-section">
-            <div class="ie-section-title">Import — Product Catalogue</div>
-            <div class="ie-section-sub">Upload an Excel file to import products into the global catalogue.</div>
-            <div class="ie-upload-area" id="ie-upload-gp" onclick="document.getElementById('ie-file-gp').click()" ondragover="ieDragOver(event,'ie-upload-gp')" ondragleave="ieDragLeave('ie-upload-gp')" ondrop="ieDrop(event,'global-products')">
-              <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
-              <div class="ie-upload-text">Click to choose file or drag and drop</div>
-              <div class="ie-upload-sub">Excel files only (.xlsx)</div>
+            <div class="ie-row">
+              <div class="ie-row-meta"><div class="ie-row-title">Product Catalogue</div><div class="ie-row-desc">Global product catalogue — makes, models and part numbers</div></div>
+              <div class="ie-row-btns">
+                <button class="btn btn-secondary btn-sm" onclick="ieExportGlobalProducts()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ie-file-gp').click()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import</button>
+                <input type="file" id="ie-file-gp" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'global-products')">
+              </div>
             </div>
-            <input type="file" id="ie-file-gp" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'global-products')">
-            <div id="ie-preview-gp" class="hidden">
+            <div id="ie-preview-gp" class="ie-inline-confirm hidden">
               <div class="ie-import-options">
                 <div class="ie-option selected" id="ie-opt-gp-add" onclick="ieSelectOpt('gp','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep current products and add new ones</div></div>
                 <div class="ie-option" id="ie-opt-gp-replace" onclick="ieSelectOpt('gp','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL products and replace with file</div></div>
@@ -536,38 +532,37 @@
                 <button class="btn btn-primary" onclick="ieConfirm('global-products')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
               </div>
             </div>
-          </div>
-          <div class="ie-section">
-            <div class="ie-section-title">Export — Room Templates</div>
-            <div class="ie-section-sub">Download all global room templates and their device type items as an Excel file.</div>
-            <button class="btn btn-primary" onclick="ieExportGlobalTemplates()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Room Templates</button>
-          </div>
-          <div class="ie-section">
-            <div class="ie-section-title">Export — System Groups &amp; Categories</div>
-            <div class="ie-section-sub">Download all system groups and device categories as an Excel file.</div>
-            <button class="btn btn-primary" onclick="ieExportSystemGroups()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download System Groups &amp; Categories</button>
+            <div class="ie-row">
+              <div class="ie-row-meta"><div class="ie-row-title">Room Templates</div><div class="ie-row-desc">Global room templates and their device type items</div></div>
+              <div class="ie-row-btns">
+                <button class="btn btn-secondary btn-sm" onclick="ieExportGlobalTemplates()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+              </div>
+            </div>
+            <div class="ie-row">
+              <div class="ie-row-meta"><div class="ie-row-title">System Groups &amp; Categories</div><div class="ie-row-desc">All system groups and device categories</div></div>
+              <div class="ie-row-btns">
+                <button class="btn btn-secondary btn-sm" onclick="ieExportSystemGroups()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+              </div>
+            </div>
           </div>
         </div>
+
+        <!-- PROJECT TAB -->
         <div id="ie-panel-project" class="hidden">
           <div id="ie-no-project" class="hidden">
-            <div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-title">No project selected</div><div class="empty-state-text">Open a project first to import or export project equipment data.</div></div>
+            <div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-title">No project selected</div><div class="empty-state-text">Open a project first to import or export project data.</div></div>
           </div>
           <div id="ie-project-content">
-            <div class="ie-section">
-              <div class="ie-section-title">Export — Project Equipment</div>
-              <div class="ie-section-sub">Download the equipment list for the current project as an Excel file.</div>
-              <button class="btn btn-primary" onclick="ieExportProjectEquipment()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Project Equipment</button>
-            </div>
-            <div class="ie-section">
-              <div class="ie-section-title">Import — Project Equipment</div>
-              <div class="ie-section-sub">Upload an Excel file to import equipment into the current project.</div>
-              <div class="ie-upload-area" id="ie-upload-pe" onclick="document.getElementById('ie-file-pe').click()" ondragover="ieDragOver(event,'ie-upload-pe')" ondragleave="ieDragLeave('ie-upload-pe')" ondrop="ieDrop(event,'project-equipment')">
-                <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
-                <div class="ie-upload-text">Click to choose file or drag and drop</div>
-                <div class="ie-upload-sub">Excel files only (.xlsx)</div>
+            <div class="ie-table">
+              <div class="ie-row">
+                <div class="ie-row-meta"><div class="ie-row-title">Project Equipment</div><div class="ie-row-desc">Equipment library for the current project</div></div>
+                <div class="ie-row-btns">
+                  <button class="btn btn-secondary btn-sm" onclick="ieExportProjectEquipment()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+                  <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ie-file-pe').click()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import</button>
+                  <input type="file" id="ie-file-pe" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'project-equipment')">
+                </div>
               </div>
-              <input type="file" id="ie-file-pe" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'project-equipment')">
-              <div id="ie-preview-pe" class="hidden">
+              <div id="ie-preview-pe" class="ie-inline-confirm hidden">
                 <div class="ie-import-options">
                   <div class="ie-option selected" id="ie-opt-pe-add" onclick="ieSelectOpt('pe','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep current equipment and add new rows</div></div>
                   <div class="ie-option" id="ie-opt-pe-replace" onclick="ieSelectOpt('pe','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL project equipment and replace with file</div></div>
@@ -578,57 +573,65 @@
                   <button class="btn btn-primary" onclick="ieConfirm('project-equipment')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
                 </div>
               </div>
-            </div>
-            <div class="ie-section">
-              <div class="ie-section-title">Export — Placed Equipment</div>
-              <div class="ie-section-sub">Download all placed equipment instances for the current project.</div>
-              <button class="btn btn-primary" onclick="ieExportPlacedEquipment()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Placed Equipment</button>
-            </div>
-            <div class="ie-section">
-              <div class="ie-section-title">Import — Placed Equipment</div>
-              <div class="ie-section-sub">Upload an Excel file to import placed equipment. Matches on Device ID — existing records will be updated, new ones added.</div>
-              <div class="ie-upload-area" id="ie-upload-placed" onclick="document.getElementById('ie-file-placed').click()" ondragover="ieDragOver(event,'ie-upload-placed')" ondragleave="ieDragLeave('ie-upload-placed')" ondrop="ieDrop(event,'placed-equipment')">
-                <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
-                <div class="ie-upload-text">Click to choose file or drag and drop</div>
-                <div class="ie-upload-sub">Excel files only (.xlsx)</div>
+              <div class="ie-row">
+                <div class="ie-row-meta"><div class="ie-row-title">Placed Equipment</div><div class="ie-row-desc">All placed equipment instances — device IDs, rooms and quantities</div></div>
+                <div class="ie-row-btns">
+                  <button class="btn btn-secondary btn-sm" onclick="ieExportPlacedEquipment()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+                  <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ie-file-placed').click()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import</button>
+                  <input type="file" id="ie-file-placed" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'placed-equipment')">
+                </div>
               </div>
-              <input type="file" id="ie-file-placed" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'placed-equipment')">
-              <div id="ie-preview-placed" class="hidden">
+              <div id="ie-preview-placed" class="ie-inline-confirm hidden">
                 <div class="ie-preview" id="ie-preview-table-placed"></div>
                 <div style="display:flex;gap:10px;margin-top:12px">
                   <button class="btn btn-secondary" onclick="ieResetPanel('placed')">Cancel</button>
                   <button class="btn btn-primary" onclick="ieConfirm('placed-equipment')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
                 </div>
               </div>
-            </div>
-            <div class="ie-section">
-              <div class="ie-section-title">Export — Project Room Templates</div>
-              <div class="ie-section-sub">Download all room templates for the current project as an Excel file.</div>
-              <button class="btn btn-primary" onclick="ieExportProjectTemplates()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Project Templates</button>
-            </div>
-            <div class="ie-section">
-              <div class="ie-section-title">Export — Decks, Rooms &amp; Zones</div>
-              <div class="ie-section-sub">Download all decks, rooms and rack zone assignments for the current project.</div>
-              <button class="btn btn-primary" onclick="exportToExcel()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Decks &amp; Rooms</button>
-            </div>
-            <div class="ie-section">
-              <div class="ie-section-title">Import — Decks, Rooms &amp; Zones</div>
-              <div class="ie-section-sub">Upload a multi-sheet Excel file to set up decks, rooms and rack zones. Best used when setting up a new project from scratch.</div>
-              <div class="ie-import-options">
-                <div class="ie-option selected" id="ie-opt-drz-add" onclick="ieSelectOpt('drz','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep existing layout and add new items</div></div>
-                <div class="ie-option" id="ie-opt-drz-replace" onclick="ieSelectOpt('drz','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL decks, rooms and zones and replace</div></div>
+              <div class="ie-row">
+                <div class="ie-row-meta"><div class="ie-row-title">Decks, Rooms &amp; Zones</div><div class="ie-row-desc">Project layout — decks, rooms and rack zone assignments</div></div>
+                <div class="ie-row-btns">
+                  <button class="btn btn-secondary btn-sm" onclick="exportToExcel()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+                  <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ie-file-drz').click()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import</button>
+                  <input type="file" id="ie-file-drz" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'decks-rooms-zones')">
+                </div>
               </div>
-              <div class="ie-upload-area" id="ie-upload-drz" onclick="document.getElementById('ie-file-drz').click()" ondragover="ieDragOver(event,'ie-upload-drz')" ondragleave="ieDragLeave('ie-upload-drz')" ondrop="ieDrop(event,'decks-rooms-zones')">
-                <div style="font-size:32px;margin-bottom:10px;opacity:0.5">📂</div>
-                <div class="ie-upload-text">Click to choose file or drag and drop</div>
-                <div class="ie-upload-sub">Excel files only (.xlsx) — must contain Decks, Rooms and Zones sheets</div>
-              </div>
-              <input type="file" id="ie-file-drz" accept=".xlsx" style="display:none" onchange="ieFileSelected(event,'decks-rooms-zones')">
-              <div id="ie-preview-drz" class="hidden">
+              <div id="ie-preview-drz" class="ie-inline-confirm hidden">
+                <div class="ie-import-options">
+                  <div class="ie-option selected" id="ie-opt-drz-add" onclick="ieSelectOpt('drz','add')"><div class="ie-option-title">Add to existing</div><div class="ie-option-sub">Keep existing layout and add new items</div></div>
+                  <div class="ie-option" id="ie-opt-drz-replace" onclick="ieSelectOpt('drz','replace')"><div class="ie-option-title" style="color:#c0392b">Replace all</div><div class="ie-option-sub">Delete ALL decks, rooms and zones and replace</div></div>
+                </div>
                 <div class="ie-preview" id="ie-preview-table-drz"></div>
                 <div style="display:flex;gap:10px;margin-top:12px">
                   <button class="btn btn-secondary" onclick="ieResetPanel('drz')">Cancel</button>
                   <button class="btn btn-primary" onclick="ieConfirm('decks-rooms-zones')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import</button>
+                </div>
+              </div>
+              <div class="ie-row">
+                <div class="ie-row-meta"><div class="ie-row-title">Project Room Templates</div><div class="ie-row-desc">Room templates for the current project</div></div>
+                <div class="ie-row-btns">
+                  <button class="btn btn-secondary btn-sm" onclick="ieExportProjectTemplates()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);margin:20px 0 8px">Reports</div>
+            <div class="ie-table">
+              <div class="ie-row">
+                <div class="ie-row-meta"><div class="ie-row-title">Equipment Schedule</div><div class="ie-row-desc">All placed devices with room, type, make, model and technical specs</div></div>
+                <div class="ie-row-btns">
+                  <button class="btn btn-secondary btn-sm" onclick="exportEquipmentSchedule()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+                </div>
+              </div>
+              <div class="ie-row">
+                <div class="ie-row-meta"><div class="ie-row-title">Equipment Matrix</div><div class="ie-row-desc">Rooms vs device types grid showing quantities per room</div></div>
+                <div class="ie-row-btns">
+                  <button class="btn btn-secondary btn-sm" onclick="exportEquipmentMatrix()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
+                </div>
+              </div>
+              <div class="ie-row">
+                <div class="ie-row-meta"><div class="ie-row-title">Feature Matrix</div><div class="ie-row-desc">Rooms vs features grid with tick states and quantities</div></div>
+                <div class="ie-row-btns">
+                  <button class="btn btn-secondary btn-sm" onclick="exportFeatureMatrix()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>
                 </div>
               </div>
             </div>
@@ -2245,8 +2248,24 @@ async function syncFeatureMatrix(){
     renderFeatureMatrix();
   }catch(e){showToast('Sync failed: '+e.message,'error');}
 }
-function exportFeatureMatrix(){
+async function exportFeatureMatrix(){
   if(!currentProject){showToast('No project selected','error');return;}
+  try{
+    if(!fmDecks.length)fmDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    if(!fmRooms.length&&fmDecks.length)fmRooms=await dbGet('rooms','deck_id=in.('+fmDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
+    if(!fmCategories.length)fmCategories=await dbGet('feature_categories','project_id=eq.'+currentProject.id+'&order=sort_order.asc,name.asc');
+    if(!fmFeatures.length)fmFeatures=await dbGet('features','project_id=eq.'+currentProject.id+'&order=sort_order.asc,name.asc');
+    if(fmFeatures.length&&fmRooms.length&&!fmMatrix.length)fmMatrix=await dbGet('project_feature_matrix','project_id=eq.'+currentProject.id);
+    if(fmFeatures.length&&fmRooms.length&&!fmInstances.length){
+      fmInstances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
+      const peData=projectEquipment.length?projectEquipment:await dbGet('project_equipment','project_id=eq.'+currentProject.id);
+      fmInstances.forEach(i=>{const pe=peData.find(p=>p.id===i.project_equipment_id);if(pe)i.device_type_id=pe.device_type_id;});
+    }
+    if(!Object.keys(fmFeatureDeviceTypes).length&&fmFeatures.length){
+      const links=await dbGet('feature_device_types','feature_id=in.('+fmFeatures.map(f=>f.id).join(',')+')'  );
+      fmFeatureDeviceTypes={};links.forEach(l=>{if(!fmFeatureDeviceTypes[l.feature_id])fmFeatureDeviceTypes[l.feature_id]=[];fmFeatureDeviceTypes[l.feature_id].push(l.device_type_id);});
+    }
+  }catch(e){showToast('Export failed: '+e.message,'error');return;}
   if(!fmFeatures.length){showToast('No features defined','error');return;}
   if(!fmRooms.length){showToast('No rooms in project','error');return;}
   try{
@@ -2663,7 +2682,7 @@ function ieResetPanel(panel){
     placed:['ie-file-placed','ie-upload-placed','ie-preview-placed'],
     drz:['ie-file-drz','ie-upload-drz','ie-preview-drz']
   }[panel];
-  if(ids){const el=document.getElementById(ids[0]);if(el)el.value='';document.getElementById(ids[1]).classList.remove('hidden');document.getElementById(ids[2]).classList.add('hidden');}
+  if(ids){const el=document.getElementById(ids[0]);if(el)el.value='';const up=document.getElementById(ids[1]);if(up)up.classList.remove('hidden');document.getElementById(ids[2]).classList.add('hidden');}
   if(panel==='gd'||panel==='gp'||panel==='pe')ieSelectOpt(panel,'add');
 }
 function ieDragOver(e,uploadId){e.preventDefault();document.getElementById(uploadId).classList.add('dragover');}
@@ -2734,7 +2753,7 @@ function ieParseFile(wb,dataset){
   // For multi-sheet imports, store entire workbook
   if(dataset==='decks-rooms-zones'){
     ieState[panel].data=wb;
-    document.getElementById(uploadId).classList.add('hidden');
+    const _upEl=document.getElementById(uploadId);if(_upEl)_upEl.classList.add('hidden');
     // Build preview summary from all sheets
     const sheetSummary=wb.SheetNames.map(name=>{const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:''});return escHtml(name)+': '+rows.length+' rows';}).join(' &nbsp;|&nbsp; ');
     document.getElementById('ie-preview-table-'+panel).innerHTML='<div style="font-size:12px;color:var(--text-2);padding:8px 0">Sheets found: '+sheetSummary+'</div>';
@@ -2745,7 +2764,7 @@ function ieParseFile(wb,dataset){
   const rows=XLSX.utils.sheet_to_json(sheet,{defval:''});
   if(!rows.length){showToast('No data found in file','error');return;}
   ieState[panel].data=rows;
-  document.getElementById(uploadId).classList.add('hidden');
+  const _upEl=document.getElementById(uploadId);if(_upEl)_upEl.classList.add('hidden');
   const cols=Object.keys(rows[0]).slice(0,6);
   let html='<div style="font-size:12px;color:var(--text-2);margin-bottom:8px">'+rows.length+' rows found in file</div><table style="width:100%;font-size:11px;border-collapse:collapse"><tr>'+cols.map(c=>'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);color:var(--text-2)">'+escHtml(c)+'</th>').join('')+'</tr>';
   rows.slice(0,8).forEach(r=>{html+='<tr>'+cols.map(c=>'<td style="padding:4px 6px;border-bottom:1px solid var(--border);color:var(--text-1)">'+escHtml(String(r[c]||''))+'</td>').join('')+'</tr>';});
@@ -2975,30 +2994,21 @@ async function exportToExcel(){
   }catch(e){showToast('Export failed: '+e.message,'error');}
 }
 
-function exportEquipmentSchedule(){
+async function exportEquipmentSchedule(){
   if(!currentProject){showToast('No project selected','error');return;}
-  if(!placedEquipment.length){showToast('No equipment in schedule','error');return;}
   try{
+    if(!placedEquipment.length)placedEquipment=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&order=created_at.asc');
+    if(!projectEquipment.length)projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id);
+    if(!currentDecks.length)currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
+    if(!currentZones.length)currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
+    if(!placedEquipment.length){showToast('No equipment in schedule','error');return;}
     const rows=[['Device ID','Type','Description','Make','Model','Location','Install Type','LAN Ports','PoE Ports','PoE Type','Speaker Ch','Speaker W','Power W']];
     placedEquipment.forEach(p=>{
       const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
       const room=currentRooms.find(r=>r.id===p.room_id);
       const zone=currentZones.find(z=>z.id===p.rack_zone_id);
-      rows.push([
-        p.device_id||'',
-        pe?pe.device_type_id:'',
-        pe?pe.description:'',
-        pe&&pe.make?pe.make:'',
-        pe&&pe.model?pe.model:'',
-        room?room.name:zone?zone.name:'',
-        p.installation_type==='rack-mounted'?'Rack':'Room',
-        pe&&pe.lan_ports?pe.lan_ports:'',
-        pe&&pe.poe_ports?pe.poe_ports:'',
-        pe&&pe.poe_type?pe.poe_type:'',
-        pe&&pe.speaker_channels?pe.speaker_channels:'',
-        pe&&pe.spk_watts?pe.spk_watts:'',
-        pe&&pe.power_watts?pe.power_watts:''
-      ]);
+      rows.push([p.device_id||'',pe?pe.device_type_id:'',pe?pe.description:'',pe&&pe.make?pe.make:'',pe&&pe.model?pe.model:'',room?room.name:zone?zone.name:'',p.installation_type==='rack-mounted'?'Rack':'Room',pe&&pe.lan_ports?pe.lan_ports:'',pe&&pe.poe_ports?pe.poe_ports:'',pe&&pe.poe_type?pe.poe_type:'',pe&&pe.speaker_channels?pe.speaker_channels:'',pe&&pe.spk_watts?pe.spk_watts:'',pe&&pe.power_watts?pe.power_watts:'']);
     });
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Equipment Schedule');
@@ -3007,13 +3017,22 @@ function exportEquipmentSchedule(){
   }catch(e){showToast('Export failed: '+e.message,'error');}
 }
 
-function exportEquipmentMatrix(){
+async function exportEquipmentMatrix(){
   if(!currentProject){showToast('No project selected','error');return;}
-  if(!rmTypeDetails.length){showToast('Open the Equipment Matrix tab first to load data','error');return;}
   try{
+    if(!currentDecks.length)currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
+    if(!projectEquipment.length)projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id);
+    if(!rmInstances.length)rmInstances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
+    if(!rmTypeDetails.length){
+      rmInstances.forEach(i=>{const pe=projectEquipment.find(p=>p.id===i.project_equipment_id);if(pe){i.device_type_id=pe.device_type_id;i.system_group=pe.system_group;i.description=pe.description;}});
+      const ids=[...new Set(rmInstances.map(i=>i.device_type_id).filter(Boolean))];
+      rmTypeDetails=ids.map(tid=>projectEquipment.find(pe=>pe.device_type_id===tid)).filter(Boolean);
+      rmTypeDetails.sort((a,b)=>(a.system_group||'').localeCompare(b.system_group||'')||a.description.localeCompare(b.description));
+    }
+    if(!rmTypeDetails.length){showToast('No equipment placed','error');return;}
     const instMap={};
     rmInstances.forEach(i=>{if(!i.device_type_id)return;const k=i.room_id+'|'+i.device_type_id;instMap[k]=(instMap[k]||0)+(i.quantity||1);});
-    // Row 1: system group headers
     const groupRow=['Room'];let lastGroup=null;
     rmTypeDetails.forEach(t=>{const g=t.system_group||'Other';groupRow.push(g===lastGroup?'':g);lastGroup=g;});
     const rows=[groupRow,['Room',...rmTypeDetails.map(t=>t.device_type_id)]];
@@ -3021,9 +3040,7 @@ function exportEquipmentMatrix(){
       const deckRooms=currentRooms.filter(r=>r.deck_id===deck.id);
       if(!deckRooms.length)return;
       rows.push(['— '+deck.name+' —',...rmTypeDetails.map(()=>'')]);
-      deckRooms.forEach(room=>{
-        rows.push([room.name,...rmTypeDetails.map(t=>instMap[room.id+'|'+t.device_type_id]||'')]);
-      });
+      deckRooms.forEach(room=>{rows.push([room.name,...rmTypeDetails.map(t=>instMap[room.id+'|'+t.device_type_id]||'')]);});
     });
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Equipment Matrix');
