@@ -248,8 +248,9 @@
   .zs-card-meta { font-size: 11px; color: var(--text-3); }
   .zs-device-count { font-size: 22px; font-weight: 700; color: var(--accent); text-align: right; line-height: 1; }
   .zs-device-count span { font-size: 11px; font-weight: 400; color: var(--text-3); display: block; }
-  .zs-expand { display: flex; gap: 16px; padding: 10px 14px 12px; background: var(--surface2); }
-  .zs-expand-col { flex: 1; min-width: 0; }
+  .zs-expand { display: block; padding: 10px 14px 12px; background: var(--surface2); }
+  .zs-expand-col { width: 100%; }
+  .zs-expand-col + .zs-expand-col { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
   .zs-expand-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 5px; }
   .zs-expand-item { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; font-size: 11px; gap: 8px; }
   .zs-expand-name { color: var(--text-2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -4163,8 +4164,9 @@ function renderZoneSummary(instances){
   const thStyle='padding:8px 12px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);background:var(--surface2);border-bottom:1px solid var(--border)';
   let _rid=0;
   const itemList=(items,unit)=>items.map(i=>{
-    const val=(i.qty>1?(i.qty+' × '+i.each+' = '+i.total):i.total)+(unit?' '+unit:'');
-    return '<div class="zs-expand-item"><span class="zs-expand-name">'+escHtml(i.desc)+'</span><span class="zs-expand-val">'+val+'</span></div>';
+    const name=escHtml(i.desc)+(i.qty>1?' ×'+i.qty:'');
+    const val=i.total+(unit?' '+unit:'');
+    return '<div class="zs-expand-item"><span class="zs-expand-name">'+name+'</span><span class="zs-expand-val">'+val+'</span></div>';
   }).join('');
   const expandBoth=(di,si,unit)=>{
     if(!di.length&&!si.length)return'';
