@@ -680,6 +680,7 @@
           <div class="toolbar">
             <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pl-search" placeholder="Search placed equipment…" oninput="renderPlacedEquipment()"></div>
             <button class="btn btn-primary btn-sm" onclick="openPlaceModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Place Equipment</button>
+            <button class="btn btn-secondary btn-sm" onclick="exportEquipmentSchedule()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
           </div>
           <div class="deck-filter-tabs" id="pl-deck-filter-tabs"></div>
           <div id="placed-equipment-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
@@ -699,7 +700,8 @@
             <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="rm-search-type" placeholder="Search device types…" oninput="renderRoomMatrix()"></div>
             <select id="rm-filter-deck" onchange="renderRoomMatrix()" style="width:auto;padding:8px 11px"><option value="">All decks</option></select>
             <select id="rm-filter-group" onchange="renderRoomMatrix()" style="width:auto;padding:8px 11px"><option value="">All systems</option></select>
-            <span style="margin-left:auto;font-size:11px;color:var(--text-3)" id="rm-summary"></span>
+            <span style="font-size:11px;color:var(--text-3)" id="rm-summary"></span>
+            <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="exportEquipmentMatrix()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
           </div>
           <div id="room-matrix-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
         </div>
@@ -2243,7 +2245,47 @@ async function syncFeatureMatrix(){
     renderFeatureMatrix();
   }catch(e){showToast('Sync failed: '+e.message,'error');}
 }
-function exportFeatureMatrix(){showToast('Export — coming soon','success');}
+function exportFeatureMatrix(){
+  if(!currentProject){showToast('No project selected','error');return;}
+  if(!fmFeatures.length){showToast('No features defined','error');return;}
+  if(!fmRooms.length){showToast('No rooms in project','error');return;}
+  try{
+    const orderedFeatures=[];
+    fmCategories.forEach(cat=>{orderedFeatures.push(...fmFeatures.filter(f=>f.category_id===cat.id));});
+    orderedFeatures.push(...fmFeatures.filter(f=>!f.category_id));
+    // Row 1: category headers (merge hint via repeated blanks)
+    const catRow=['Room'];
+    fmCategories.forEach(cat=>{const cf=fmFeatures.filter(f=>f.category_id===cat.id);if(!cf.length)return;catRow.push(cat.name);for(let i=1;i<cf.length;i++)catRow.push('');});
+    const uncatF=fmFeatures.filter(f=>!f.category_id);
+    if(uncatF.length){catRow.push('Other');for(let i=1;i<uncatF.length;i++)catRow.push('');}
+    const rows=[catRow,['Room',...orderedFeatures.map(f=>f.name)]];
+    fmDecks.forEach(deck=>{
+      const deckRooms=fmRooms.filter(r=>r.deck_id===deck.id);
+      if(!deckRooms.length)return;
+      rows.push(['— '+deck.name+' —',...orderedFeatures.map(()=>'')]);
+      deckRooms.forEach(room=>{
+        const row=[room.name];
+        orderedFeatures.forEach(f=>{
+          const cell=fmMatrix.find(m=>m.room_id===room.id&&m.feature_id===f.id);
+          if(!cell||!cell.ticked){row.push('');return;}
+          const qty=cell.quantity;
+          const linked=fmFeatureDeviceTypes[f.id]||[];
+          if(!linked.length){row.push(qty||'✓');return;}
+          const placedQty=fmInstances.filter(i=>i.room_id===room.id&&linked.includes(i.device_type_id)).reduce((s,i)=>s+(i.quantity||1),0);
+          const green=placedQty>0&&(!qty||qty===placedQty);
+          row.push(green?qty||'✓':(qty||'✓')+'*');
+        });
+        rows.push(row);
+      });
+    });
+    rows.push([]);
+    rows.push(['* = Ticked manually (no matching device placed, or quantity overridden)']);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Feature Matrix');
+    XLSX.writeFile(wb,(currentProject.project_code||'project')+'_feature_matrix.xlsx');
+    showToast('Feature matrix exported','success');
+  }catch(e){showToast('Export failed: '+e.message,'error');}
+}
 
 let fmSelectedFeatureId=null, fmFeatureDeviceTypes={}, fmEditingCatId=null, fmEditingFeatId=null, fmDragId=null, fmCatDragId=null, fmClickTimer=null;
 
@@ -2930,6 +2972,63 @@ async function exportToExcel(){
     zones.forEach(z=>{const rr=rooms.find(r=>r.id===z.rack_room_id);zoneData.push([z.zone_id,z.name,rr?rr.name:'',z.rack_count,z.colour,z.notes||'']);});
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(zoneData),'Rack Zones');
     XLSX.writeFile(wb,(currentProject.project_code||'project')+'_export.xlsx');showToast('Excel file downloaded','success');
+  }catch(e){showToast('Export failed: '+e.message,'error');}
+}
+
+function exportEquipmentSchedule(){
+  if(!currentProject){showToast('No project selected','error');return;}
+  if(!placedEquipment.length){showToast('No equipment in schedule','error');return;}
+  try{
+    const rows=[['Device ID','Type','Description','Make','Model','Location','Install Type','LAN Ports','PoE Ports','PoE Type','Speaker Ch','Speaker W','Power W']];
+    placedEquipment.forEach(p=>{
+      const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
+      const room=currentRooms.find(r=>r.id===p.room_id);
+      const zone=currentZones.find(z=>z.id===p.rack_zone_id);
+      rows.push([
+        p.device_id||'',
+        pe?pe.device_type_id:'',
+        pe?pe.description:'',
+        pe&&pe.make?pe.make:'',
+        pe&&pe.model?pe.model:'',
+        room?room.name:zone?zone.name:'',
+        p.installation_type==='rack-mounted'?'Rack':'Room',
+        pe&&pe.lan_ports?pe.lan_ports:'',
+        pe&&pe.poe_ports?pe.poe_ports:'',
+        pe&&pe.poe_type?pe.poe_type:'',
+        pe&&pe.speaker_channels?pe.speaker_channels:'',
+        pe&&pe.spk_watts?pe.spk_watts:'',
+        pe&&pe.power_watts?pe.power_watts:''
+      ]);
+    });
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Equipment Schedule');
+    XLSX.writeFile(wb,(currentProject.project_code||'project')+'_equipment_schedule.xlsx');
+    showToast('Equipment schedule exported','success');
+  }catch(e){showToast('Export failed: '+e.message,'error');}
+}
+
+function exportEquipmentMatrix(){
+  if(!currentProject){showToast('No project selected','error');return;}
+  if(!rmTypeDetails.length){showToast('Open the Equipment Matrix tab first to load data','error');return;}
+  try{
+    const instMap={};
+    rmInstances.forEach(i=>{if(!i.device_type_id)return;const k=i.room_id+'|'+i.device_type_id;instMap[k]=(instMap[k]||0)+(i.quantity||1);});
+    // Row 1: system group headers
+    const groupRow=['Room'];let lastGroup=null;
+    rmTypeDetails.forEach(t=>{const g=t.system_group||'Other';groupRow.push(g===lastGroup?'':g);lastGroup=g;});
+    const rows=[groupRow,['Room',...rmTypeDetails.map(t=>t.device_type_id)]];
+    currentDecks.forEach(deck=>{
+      const deckRooms=currentRooms.filter(r=>r.deck_id===deck.id);
+      if(!deckRooms.length)return;
+      rows.push(['— '+deck.name+' —',...rmTypeDetails.map(()=>'')]);
+      deckRooms.forEach(room=>{
+        rows.push([room.name,...rmTypeDetails.map(t=>instMap[room.id+'|'+t.device_type_id]||'')]);
+      });
+    });
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Equipment Matrix');
+    XLSX.writeFile(wb,(currentProject.project_code||'project')+'_equipment_matrix.xlsx');
+    showToast('Equipment matrix exported','success');
   }catch(e){showToast('Export failed: '+e.message,'error');}
 }
 
