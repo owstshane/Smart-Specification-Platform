@@ -2967,10 +2967,7 @@ async function ieConfirm(dataset){
   const data=ieState[panel].data;
   const opt=ieState[panel].opt;
   if(!data){showToast('No data to import','error');return;}
-  if(opt==='replace'){
-    const msg={'global-devices':'This will DELETE ALL global device types and replace them. Continue?','global-products':'This will DELETE ALL global products and replace them. Continue?','project-equipment':'This will DELETE ALL equipment from this project and replace it. Continue?','placed-equipment':'This will DELETE ALL placed equipment from this project and replace it. Continue?','decks-rooms-zones':'This will DELETE ALL decks, rooms and zones from this project and replace them. Continue?'}[dataset];
-    if(!confirm(msg))return;
-  }
+  const run=async()=>{
   try{
     if(dataset==='global-devices'){
       const rows=data;
@@ -3066,6 +3063,13 @@ async function ieConfirm(dataset){
     }
     ieResetPanel(panel);
   }catch(e){showToast('Import failed: '+e.message,'error');}
+  };// end run
+  if(opt==='replace'){
+    const msgMap={'global-devices':'This will DELETE ALL global device types and replace them. Are you sure?','global-products':'This will DELETE ALL global products and replace them. Are you sure?','project-equipment':'This will DELETE ALL equipment from this project and replace it. Are you sure?','placed-equipment':'This will DELETE ALL placed equipment from this project and replace it. Are you sure?','decks-rooms-zones':'This will DELETE ALL decks, rooms and zones from this project and replace them. Are you sure?'};
+    openConfirm('Replace All Data',msgMap[dataset]||'This will replace all existing data. Continue?',run,'Replace','btn-danger');
+  }else{
+    await run();
+  }
 }
 async function ieExportGlobalDevices(){
   try{
@@ -4208,11 +4212,12 @@ function toggleApplyRoom(roomId){
 
 async function confirmApplyTemplate(){
   if(!applyTemplateRoomSelections.size){showToast('Please select at least one room','error');return;}
-  const btn=document.getElementById('apply-tmpl-confirm-btn');btn.textContent='Applying…';btn.disabled=true;
+  const btn=document.getElementById('apply-tmpl-confirm-btn');
   try{
+    btn.textContent='Applying…';btn.disabled=true;
     // Load template items
     const tItems=await dbGet('room_template_items','template_id=eq.'+applyingTemplateId+'&order=created_at.asc');
-    if(!tItems.length){showToast('Template has no items','error');return;}
+    if(!tItems.length){showToast('Template has no items','error');btn.textContent='Apply to Rooms';btn.disabled=false;return;}
     // Load existing project equipment and placed equipment
     const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&select=id,device_type_id');
     const placed=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&select=id,room_id,project_equipment_id');
@@ -4221,41 +4226,49 @@ async function confirmApplyTemplate(){
     for(const roomId of applyTemplateRoomSelections){
       if(placed.find(p=>p.room_id===roomId))roomsWithEquip.push(roomId);
     }
+    const doApply=async()=>{
+      btn.textContent='Applying…';btn.disabled=true;
+      try{
+        let placed_count=0;
+        for(const roomId of applyTemplateRoomSelections){
+          const alreadyPlacedPeIds=placed.filter(p=>p.room_id===roomId).map(p=>p.project_equipment_id);
+          for(const item of tItems){
+            // Ensure in project equipment list
+            let peEntry=pe.find(p=>p.device_type_id===item.device_type_id);
+            if(!peEntry){
+              const gd=await dbGet('global_equipment','device_type_id=eq.'+item.device_type_id+'&limit=1');
+              if(!gd.length)continue;
+              const d=gd[0];
+              const newPe=await dbInsert('project_equipment',{project_id:currentProject.id,global_equipment_id:d.id,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,speaker_channels:d.speaker_channels||null,power_types:d.power_types||null,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'});
+              peEntry={id:newPe[0].id,device_type_id:d.device_type_id};
+              pe.push(peEntry);
+            }
+            // Skip if already placed in this room
+            if(alreadyPlacedPeIds.includes(peEntry.id))continue;
+            // Generate device ID
+            const existingInRoom=placed.filter(p=>p.room_id===roomId);
+            const seq=String(existingInRoom.length+1).padStart(4,'0');
+            const roomData=await dbGet('rooms','id=eq.'+roomId+'&select=room_number&limit=1');
+            const roomNum=roomData.length?roomData[0].room_number||'?':'?';
+            const deviceId=roomNum+'-'+seq;
+            await dbInsert('equipment_instances',{project_id:currentProject.id,project_equipment_id:peEntry.id,room_id:roomId,quantity:item.quantity||1,device_id:deviceId});
+            placed.push({room_id:roomId,project_equipment_id:peEntry.id});
+            placed_count++;
+          }
+        }
+        showToast(placed_count+' device'+(placed_count!==1?'s':'')+' placed across '+applyTemplateRoomSelections.size+' room'+(applyTemplateRoomSelections.size!==1?'s':''),'success');
+        closeApplyTemplateModal();
+      }catch(e){showToast('Could not apply template: '+e.message,'error');}
+      finally{btn.textContent='Apply to Rooms';btn.disabled=false;}
+    };
     if(roomsWithEquip.length){
       const msg=roomsWithEquip.length+' room'+(roomsWithEquip.length>1?'s have':' has')+' existing equipment. Device types already placed there will be skipped. Continue?';
-      if(!confirm(msg)){btn.textContent='Apply to Rooms';btn.disabled=false;return;}
+      btn.textContent='Apply to Rooms';btn.disabled=false;
+      openConfirm('Existing Equipment',msg,doApply,'Continue','btn-primary');
+    }else{
+      await doApply();
     }
-    let placed_count=0;
-    for(const roomId of applyTemplateRoomSelections){
-      const alreadyPlacedPeIds=placed.filter(p=>p.room_id===roomId).map(p=>p.project_equipment_id);
-      for(const item of tItems){
-        // Ensure in project equipment list
-        let peEntry=pe.find(p=>p.device_type_id===item.device_type_id);
-        if(!peEntry){
-          const gd=await dbGet('global_equipment','device_type_id=eq.'+item.device_type_id+'&limit=1');
-          if(!gd.length)continue;
-          const d=gd[0];
-          const newPe=await dbInsert('project_equipment',{project_id:currentProject.id,global_equipment_id:d.id,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,speaker_channels:d.speaker_channels||null,power_types:d.power_types||null,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'});
-          peEntry={id:newPe[0].id,device_type_id:d.device_type_id};
-          pe.push(peEntry);
-        }
-        // Skip if already placed in this room
-        if(alreadyPlacedPeIds.includes(peEntry.id))continue;
-        // Generate device ID
-        const existingInRoom=placed.filter(p=>p.room_id===roomId);
-        const seq=String(existingInRoom.length+1).padStart(4,'0');
-        const roomData=await dbGet('rooms','id=eq.'+roomId+'&select=room_number&limit=1');
-        const roomNum=roomData.length?roomData[0].room_number||'?':'?';
-        const deviceId=roomNum+'-'+seq;
-        await dbInsert('equipment_instances',{project_id:currentProject.id,project_equipment_id:peEntry.id,room_id:roomId,quantity:item.quantity||1,device_id:deviceId});
-        placed.push({room_id:roomId,project_equipment_id:peEntry.id});
-        placed_count++;
-      }
-    }
-    showToast(placed_count+' device'+(placed_count!==1?'s':'')+' placed across '+applyTemplateRoomSelections.size+' room'+(applyTemplateRoomSelections.size!==1?'s':''),'success');
-    closeApplyTemplateModal();
-  }catch(e){showToast('Could not apply template: '+e.message,'error');}
-  finally{btn.textContent='Apply to Rooms';btn.disabled=false;}
+  }catch(e){showToast('Could not apply template: '+e.message,'error');btn.textContent='Apply to Rooms';btn.disabled=false;}
 }
 
 // ── ZONE SUMMARY ──
@@ -5079,10 +5092,13 @@ async function savePlacement(){
 
 // ── CONFIRM DIALOG ──
 let confirmCallback=null;
-function openConfirm(title,text,callback){
+function openConfirm(title,text,callback,okLabel='Confirm',okClass='btn-danger'){
   document.getElementById('confirm-title').textContent=title;
   document.getElementById('confirm-text').textContent=text;
   confirmCallback=callback;
+  const btn=document.getElementById('confirm-ok-btn');
+  btn.textContent=okLabel;
+  btn.className='btn '+okClass;
   document.getElementById('confirm-overlay').classList.add('open');
 }
 function closeConfirm(){document.getElementById('confirm-overlay').classList.remove('open');confirmCallback=null;}
@@ -5403,7 +5419,7 @@ async function closeCR(id){
   catch(e){showToast('Failed: '+e.message,'error');}
 }
 async function rejectCR(id){
-  if(!confirm('Reject this CR? All item statuses (Added/Modified/Removed) logged against it will be cleared back to baseline.'))return;
+  openConfirm('Reject CR','Reject this CR? All item statuses (Added/Modified/Removed) logged against it will be cleared back to baseline.',async()=>{
   try{
     await dbUpdate('change_requests',id,{status:'rejected'});
     // Clear change tracking on all items linked to this CR
@@ -5416,14 +5432,16 @@ async function rejectCR(id){
     await loadChangeControl();
     showToast('CR rejected — item statuses cleared','success');
   }catch(e){showToast('Failed: '+e.message,'error');}
+  },'Reject','btn-danger');
 }
 async function deleteCR(id){
-  if(!confirm('Delete this CR permanently?'))return;
+  openConfirm('Delete CR','Delete this CR permanently? This cannot be undone.',async()=>{
   try{
     await dbDelete('change_requests',id);
     if(expandedCRId===id)expandedCRId=null;
     await loadChangeControl();showToast('CR deleted','success');
   }catch(e){showToast('Failed: '+e.message,'error');}
+  },'Delete','btn-danger');
 }
 
 function renderRevisions(){
@@ -5493,35 +5511,39 @@ async function saveRevision(){
 }
 async function issueRevision(id){
   const rev=ccRevisions.find(r=>r.id===id);
-  if(!confirm('Mark '+(rev?rev.revision_number:'this revision')+' as issued? This cannot be undone.'))return;
-  try{
-    await dbUpdate('project_revisions',id,{status:'issued'});
-    await loadChangeControl();
-    showToast((rev?rev.revision_number:'Revision')+' issued','success');
-    // Offer to start the next draft revision
-    const nextNum=suggestNextRevision();
-    if(nextNum&&confirm((rev?rev.revision_number:'Revision')+' issued.\n\nStart '+nextNum+' as a new draft revision?')){
-      await dbInsert('project_revisions',{project_id:currentProject.id,revision_number:nextNum,revision_type:'preliminary',status:'draft'});
+  const revLabel=rev?rev.revision_number:'this revision';
+  openConfirm('Issue Revision','Mark '+revLabel+' as issued? This cannot be undone.',async()=>{
+    try{
+      await dbUpdate('project_revisions',id,{status:'issued'});
       await loadChangeControl();
-      showToast(nextNum+' draft created','success');
-      // If there are approved/closed CRs not yet linked to any revision, open Link CRs straight away
-      const newRev=ccRevisions.find(r=>r.revision_number===nextNum&&r.status==='draft');
-      const unlinked=ccCRs.filter(c=>!c.revision_id&&['approved','closed'].includes(c.status));
-      if(newRev&&unlinked.length){
-        showCCTab('revisions');
-        openLinkCRsModal(newRev.id);
+      showToast((rev?rev.revision_number:'Revision')+' issued','success');
+      // Offer to start the next draft revision
+      const nextNum=suggestNextRevision();
+      if(nextNum){
+        openConfirm('Start Next Draft','Start '+nextNum+' as a new draft revision?',async()=>{
+          try{
+            await dbInsert('project_revisions',{project_id:currentProject.id,revision_number:nextNum,revision_type:'preliminary',status:'draft'});
+            await loadChangeControl();
+            showToast(nextNum+' draft created','success');
+            // If there are approved/closed CRs not yet linked to any revision, open Link CRs straight away
+            const newRev=ccRevisions.find(r=>r.revision_number===nextNum&&r.status==='draft');
+            const unlinked=ccCRs.filter(c=>!c.revision_id&&['approved','closed'].includes(c.status));
+            if(newRev&&unlinked.length){showCCTab('revisions');openLinkCRsModal(newRev.id);}
+          }catch(e){showToast('Failed: '+e.message,'error');}
+        },'Create Draft','btn-primary');
       }
-    }
-  }catch(e){showToast('Failed: '+e.message,'error');}
+    }catch(e){showToast('Failed: '+e.message,'error');}
+  },'Issue','btn-primary');
 }
 async function deleteRevision(id){
-  if(!confirm('Delete this revision?'))return;
+  openConfirm('Delete Revision','Delete this revision? Any CRs linked to it will be unlinked. This cannot be undone.',async()=>{
   try{
     // Unlink any CRs attached to this revision before deleting
     await supaFetch('PATCH','change_requests',{revision_id:null},null,'revision_id=eq.'+id);
     await dbDelete('project_revisions',id);
     await loadChangeControl();showToast('Revision deleted','success');
   }catch(e){showToast('Failed: '+e.message,'error');}
+  },'Delete','btn-danger');
 }
 
 let linkingRevisionId=null;
@@ -5643,12 +5665,13 @@ function showActiveCRBanner(){
     +'<button class="acr-stop" onclick="clearActiveCR()">Stop logging</button>';
 }
 async function reopenCR(id){
-  if(!confirm('Re-open this CR? It will return to Draft status.'))return;
+  openConfirm('Re-open CR','Re-open this CR? It will return to Draft status.',async()=>{
   try{
     await dbUpdate('change_requests',id,{status:'draft'});
     await loadChangeControl();
     showToast('CR re-opened','success');
   }catch(e){showToast('Failed: '+e.message,'error');}
+  },'Re-open','btn-primary');
 }
 
 // ── EVENT LISTENERS ──
