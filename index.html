@@ -1428,11 +1428,49 @@ function prodUpdateNetworkFields(){
 }
 
 // ── DB ──
+async function refreshTokenIfNeeded(){
+  if(!currentUser)return;
+  try{
+    const stored=localStorage.getItem('smart_session');
+    if(!stored)return;
+    const session=JSON.parse(stored);
+    // Refresh if within 5 minutes of expiry (or already expired)
+    if(Date.now()>session.expires_at-300000){
+      const refreshToken=session.refresh_token||currentUser.refresh_token;
+      if(!refreshToken)return;
+      const res=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});
+      if(res.ok){
+        const data=await res.json();
+        currentUser=data;
+        localStorage.setItem('smart_session',JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token,expires_at:Date.now()+data.expires_in*1000,email:data.user?.email||session.email}));
+      }
+    }
+  }catch(e){console.warn('Token refresh failed:',e);}
+}
 async function supaFetch(method,table,body,id,params){
+  await refreshTokenIfNeeded();
   let url=SUPABASE_URL+'/rest/v1/'+table;
   if(id)url+='?id=eq.'+id;
   if(params)url+=(id?'&':'?')+params;
-  const res=await fetch(url,{method,headers:{'apikey':SUPABASE_KEY,'Authorization':getAuthHeader(),'Content-Type':'application/json','Prefer':'return=representation'},body:body?JSON.stringify(body):undefined});
+  const doFetch=()=>fetch(url,{method,headers:{'apikey':SUPABASE_KEY,'Authorization':getAuthHeader(),'Content-Type':'application/json','Prefer':'return=representation'},body:body?JSON.stringify(body):undefined});
+  let res=await doFetch();
+  // If JWT expired mid-session, force refresh and retry once
+  if(res.status===401){
+    try{
+      const stored=localStorage.getItem('smart_session');
+      const session=stored?JSON.parse(stored):{};
+      const refreshToken=session.refresh_token||(currentUser&&currentUser.refresh_token);
+      if(refreshToken){
+        const rr=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});
+        if(rr.ok){
+          const data=await rr.json();
+          currentUser=data;
+          localStorage.setItem('smart_session',JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token,expires_at:Date.now()+data.expires_in*1000,email:data.user?.email||session.email}));
+          res=await doFetch();
+        }
+      }
+    }catch(e){console.warn('Retry refresh failed:',e);}
+  }
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.message||'HTTP '+res.status);}
   const t=await res.text();return t?JSON.parse(t):[];
 }
