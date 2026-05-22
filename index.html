@@ -1309,7 +1309,7 @@
 </div>
 
 <!-- RAISE CR MODAL -->
-<div id="cr-modal" class="modal-overlay hidden">
+<div id="cr-modal" class="modal-overlay">
   <div class="modal" style="max-width:520px">
     <div class="modal-header"><div class="modal-title">Raise Change Request</div><button class="modal-close" onclick="closeCRModal()">&times;</button></div>
     <div class="modal-body">
@@ -1326,7 +1326,7 @@
 </div>
 
 <!-- NEW REVISION MODAL -->
-<div id="revision-modal" class="modal-overlay hidden">
+<div id="revision-modal" class="modal-overlay">
   <div class="modal" style="max-width:480px">
     <div class="modal-header"><div class="modal-title">New Revision</div><button class="modal-close" onclick="closeRevisionModal()">&times;</button></div>
     <div class="modal-body">
@@ -5224,10 +5224,10 @@ function openNewCRModal(){
   document.getElementById('cr-type').value='formal';
   document.getElementById('cr-raised-by').value=currentUser?.user_metadata?.full_name||currentUser?.email||'';
   document.getElementById('cr-raised-date').value=new Date().toISOString().split('T')[0];
-  document.getElementById('cr-modal').classList.remove('hidden');
+  document.getElementById('cr-modal').classList.add('open');
   setTimeout(()=>document.getElementById('cr-title').focus(),50);
 }
-function closeCRModal(){document.getElementById('cr-modal').classList.add('hidden');}
+function closeCRModal(){document.getElementById('cr-modal').classList.remove('open');}
 
 async function saveCR(){
   const title=document.getElementById('cr-title').value.trim();
@@ -5304,10 +5304,10 @@ function openNewRevisionModal(){
   document.getElementById('rev-issued-by').value=currentUser?.user_metadata?.full_name||currentUser?.email||'';
   document.getElementById('rev-issued-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('rev-notes').value='';
-  document.getElementById('revision-modal').classList.remove('hidden');
+  document.getElementById('revision-modal').classList.add('open');
   setTimeout(()=>document.getElementById('rev-number').focus(),50);
 }
-function closeRevisionModal(){document.getElementById('revision-modal').classList.add('hidden');}
+function closeRevisionModal(){document.getElementById('revision-modal').classList.remove('open');}
 
 async function saveRevision(){
   const num=document.getElementById('rev-number').value.trim();
