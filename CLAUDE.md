@@ -169,3 +169,4 @@ Audio role drives show/hide of amp channel fields.
 - Formal CRs = CR-### numbering; Internal changes = IC-### (separate sequences, avoids client confusion with gaps)
 - All confirm dialogs use custom openConfirm() modal — no native browser confirm() anywhere
 - File delivered as index.html for direct GitHub Pages deployment
+- **Code review (May 2026):** Full audit completed; bugs fixed (token refresh race, CSS variable gaps, null crash in modalAddDiscipline); performance fixes (feature matrix pre-built Maps, template apply inner loop); batch DB ops (savePlacement, fmSeedFromLibrary, saveModalIntegrators, saveCRRevisionLinks all converted to single bulk requests); dead code removed (ccFmtDateTime duplicate, ieActiveTab unread variable)
