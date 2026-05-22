@@ -1896,15 +1896,14 @@ function modalRemoveIntegrator(idx){
 }
 
 async function saveModalIntegrators(projectId){
-  // Delete existing and re-insert
+  // Bulk delete then batch insert
   try{
-    const existing=await dbGet('project_integrators','project_id=eq.'+projectId+'&select=id');
-    for(const e of existing)await dbDelete('project_integrators',e.id);
-    for(let i=0;i<modalIntegrators.length;i++){
-      const ig=modalIntegrators[i];
-      if(!ig.company_name.trim())continue;
-      await dbInsert('project_integrators',{project_id:projectId,company_name:ig.company_name.trim(),disciplines:ig.disciplines||[],sort_order:i});
-    }
+    await supaFetch('DELETE','project_integrators',null,null,'project_id=eq.'+projectId);
+    const rows=modalIntegrators.reduce((acc,ig,i)=>{
+      if(ig.company_name.trim())acc.push({project_id:projectId,company_name:ig.company_name.trim(),disciplines:ig.disciplines||[],sort_order:i});
+      return acc;
+    },[]);
+    if(rows.length)await dbInsert('project_integrators',rows);
   }catch(e){console.error('Integrator save error',e);}
 }
 
@@ -2408,6 +2407,13 @@ async function fmSeedFromLibrary(){
     const groups=[...new Set(pe.map(d=>d.system_group).filter(Boolean).map(g=>sysGroupMap[g.toLowerCase()]||g))].sort();
     let existingCats=await dbGet('feature_categories','project_id=eq.'+currentProject.id);
     let existingFeats=await dbGet('features','project_id=eq.'+currentProject.id);
+    // Pre-load all existing device-type links to avoid N individual fetches
+    const existingLinkSet=new Set();
+    if(existingFeats.length){
+      const allLinks=await dbGet('feature_device_types','feature_id=in.('+existingFeats.map(f=>f.id).join(',')+')'  );
+      allLinks.forEach(l=>existingLinkSet.add(l.feature_id+'|'+l.device_type_id));
+    }
+    const newLinks=[];
     let created=0;
     for(let gi=0;gi<groups.length;gi++){
       const groupName=groups[gi];
@@ -2429,14 +2435,15 @@ async function fmSeedFromLibrary(){
           if(res&&res[0]){feat=res[0];existingFeats.push(feat);created++;}
         }
         if(!feat)continue;
-        const existingLinks=await dbGet('feature_device_types','feature_id=eq.'+feat.id);
-        const existingIds=existingLinks.map(l=>l.device_type_id);
         const typeIds=[...new Set(groupPe.filter(d=>d.category_code===code).map(d=>d.device_type_id))];
         for(const tid of typeIds){
-          if(!existingIds.includes(tid)){await dbInsert('feature_device_types',{feature_id:feat.id,device_type_id:tid});}
+          const key=feat.id+'|'+tid;
+          if(!existingLinkSet.has(key)){newLinks.push({feature_id:feat.id,device_type_id:tid});existingLinkSet.add(key);}
         }
       }
     }
+    // Batch insert all new device-type links in one call
+    if(newLinks.length)await dbInsert('feature_device_types',newLinks);
     showToast(created?created+' features created from project library':'Matrix already up to date','success');
     await loadFeatureMatrix();
   }catch(e){showToast('Could not build matrix: '+e.message,'error');}
@@ -2890,7 +2897,6 @@ function fmDeleteFeature(id,name){
 
 // ── IMPORT / EXPORT ──
 const ieState={gd:{opt:'add',data:null},gp:{opt:'add',data:null},pe:{opt:'add',data:null},placed:{opt:'add',data:null},drz:{opt:'add',data:null}};
-let ieActiveTab='global';
 function iePageLoad(){
   ieSetTab('global');
   const hasProject=!!currentProject;
@@ -2898,7 +2904,6 @@ function iePageLoad(){
   document.getElementById('ie-project-content').classList.toggle('hidden',!hasProject);
 }
 function ieSetTab(tab){
-  ieActiveTab=tab;
   document.getElementById('ie-panel-global').classList.toggle('hidden',tab!=='global');
   document.getElementById('ie-panel-project').classList.toggle('hidden',tab!=='project');
   document.getElementById('ie-tab-global').classList.toggle('active',tab==='global');
@@ -5106,11 +5111,12 @@ async function savePlacement(){
     // Load existing instances for this location to generate sequential IDs
     const existing=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+(locType==='room'?'&room_id=eq.'+locId:'&rack_zone_id=eq.'+locId));
     let seqBase=existing.length;
+    const servesRoom=locType==='zone'?(document.getElementById('pl-serves-room')||{}).value||null:null;
+    const payloads=[];
     for(const item of plItems){
       for(let i=0;i<item.quantity;i++){
         seqBase++;
         const deviceId=(roomNum||'0')+'-'+String(seqBase).padStart(4,'0');
-        const servesRoom=locType==='zone'?(document.getElementById('pl-serves-room')||{}).value||null:null;
         const instPayload={
           project_id:currentProject.id,
           project_equipment_id:item.peId,
@@ -5121,9 +5127,10 @@ async function savePlacement(){
           installation_type:item.install
         };
         if(activeCRId){instPayload.change_status='added';instPayload.change_cr_id=activeCRId;instPayload.change_cr_ref=activeCRRef();}
-        await dbInsert('equipment_instances',instPayload);
+        payloads.push(instPayload);
       }
     }
+    if(payloads.length)await dbInsert('equipment_instances',payloads);
     const total=plItems.reduce((s,i)=>s+i.quantity,0);
     const locName=locType==='room'?(currentRooms.find(r=>r.id===locId)||{}).name||locId:(currentZones.find(z=>z.id===locId)||{}).name||locId;
     showToast(total+' device'+(total!==1?'s':'')+' added to schedule','success');
@@ -5302,11 +5309,6 @@ function showCCTab(tab){
 function ccFmtDate(d){
   if(!d)return'—';
   const dt=new Date(d);if(isNaN(dt))return d;
-  return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-}
-function ccFmtDateTime(d){
-  if(!d)return'';
-  const dt=new Date(d);if(isNaN(dt))return'';
   return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 }
 function crStatusLabel(s){return{draft:'Draft',pending_internal:'Pending Internal',pending_owner:'Pending Owner',approved:'Approved',closed:'Closed',rejected:'Rejected'}[s]||s;}
@@ -5621,15 +5623,17 @@ async function saveCRRevisionLinks(){
   const checkboxes=document.querySelectorAll('#link-crs-list input[type="checkbox"]:not([disabled])');
   const btn=document.getElementById('link-crs-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{
+    const toLink=[],toUnlink=[];
     for(const cb of checkboxes){
       const crId=cb.value;
-      const shouldLink=cb.checked;
       const cr=ccCRs.find(c=>c.id===crId);
       if(!cr)continue;
       const currentlyLinked=cr.revision_id===linkingRevisionId;
-      if(shouldLink&&!currentlyLinked)await dbUpdate('change_requests',crId,{revision_id:linkingRevisionId});
-      else if(!shouldLink&&currentlyLinked)await dbUpdate('change_requests',crId,{revision_id:null});
+      if(cb.checked&&!currentlyLinked)toLink.push(crId);
+      else if(!cb.checked&&currentlyLinked)toUnlink.push(crId);
     }
+    if(toLink.length)await supaFetch('PATCH','change_requests',{revision_id:linkingRevisionId},null,'id=in.('+toLink.join(',')+')');
+    if(toUnlink.length)await supaFetch('PATCH','change_requests',{revision_id:null},null,'id=in.('+toUnlink.join(',')+')');
     closeLinkCRsModal();await loadChangeControl();showToast('CR links saved','success');
   }catch(e){showToast('Failed: '+e.message,'error');}
   finally{btn.textContent='Save';btn.disabled=false;}
@@ -5645,7 +5649,7 @@ function renderChangeLog(){
     const cr=ccCRs.find(c=>c.id===l.cr_id);
     const ac=areaColor[l.area]||['var(--surface2)','var(--text-3)'];
     return '<div class="cc-log-item">'
-      +'<span class="cc-log-time">'+ccFmtDateTime(l.created_at)+'</span>'
+      +'<span class="cc-log-time">'+ccFmtDate(l.created_at)+'</span>'
       +'<span class="cc-badge" style="background:'+ac[0]+';color:'+ac[1]+'">'+l.area+'</span>'
       +'<span class="cc-badge cc-badge-'+l.action+'">'+l.action+'</span>'
       +'<span class="cc-log-summary">'+escHtml(l.summary)+'</span>'
