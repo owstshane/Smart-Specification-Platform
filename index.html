@@ -11,7 +11,7 @@
   :root {
     --bg: #f4f4f2; --surface: #ffffff; --surface2: #f0f0ee;
     --border: #e2e2de; --border-strong: #c8c8c4;
-    --text: #1a1a18; --text-2: #5a5a56; --text-3: #9a9a96;
+    --text: #1a1a18; --text-1: #1a1a18; --text-2: #5a5a56; --text-3: #9a9a96;
     --accent: #e8500a; --accent-light: #fdf0ea; --accent-mid: #d04508;
     --green: #2a7a4b; --green-light: #e6f4ec;
     --amber: #b85c00; --amber-light: #fef3e6;
@@ -77,6 +77,8 @@
   .btn-sm { padding: 5px 10px; font-size: 12px; }
   .btn-icon { padding: 6px; border-radius: var(--radius-sm); background: transparent; border: 1px solid var(--border); cursor: pointer; display: inline-flex; align-items: center; transition: all 0.15s; color: var(--text-2); font-family: inherit; }
   .btn-icon:hover { background: var(--surface2); }
+  .modal-close { padding: 6px; border-radius: var(--radius-sm); background: transparent; border: 1px solid var(--border); cursor: pointer; display: inline-flex; align-items: center; transition: all 0.15s; color: var(--text-2); font-size: 18px; line-height: 1; font-family: inherit; }
+  .modal-close:hover { background: var(--surface2); }
 
   /* BADGES */
   .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
@@ -1440,8 +1442,11 @@ function prodUpdateNetworkFields(){
 }
 
 // ── DB ──
+let _tokenRefreshPromise=null;
 async function refreshTokenIfNeeded(){
   if(!currentUser)return;
+  // Prevent concurrent refresh attempts — Supabase refresh tokens are single-use
+  if(_tokenRefreshPromise){await _tokenRefreshPromise;return;}
   try{
     const stored=localStorage.getItem('smart_session');
     if(!stored)return;
@@ -1450,12 +1455,16 @@ async function refreshTokenIfNeeded(){
     if(Date.now()>session.expires_at-300000){
       const refreshToken=session.refresh_token||currentUser.refresh_token;
       if(!refreshToken)return;
-      const res=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});
-      if(res.ok){
-        const data=await res.json();
-        currentUser=data;
-        localStorage.setItem('smart_session',JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token,expires_at:Date.now()+data.expires_in*1000,email:data.user?.email||session.email}));
-      }
+      _tokenRefreshPromise=(async()=>{
+        const res=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});
+        if(res.ok){
+          const data=await res.json();
+          currentUser=data;
+          localStorage.setItem('smart_session',JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token,expires_at:Date.now()+data.expires_in*1000,email:data.user?.email||session.email}));
+        }
+      })();
+      try{await _tokenRefreshPromise;}catch(e){console.warn('Token refresh failed:',e);}
+      finally{_tokenRefreshPromise=null;}
     }
   }catch(e){console.warn('Token refresh failed:',e);}
 }
@@ -1468,20 +1477,8 @@ async function supaFetch(method,table,body,id,params){
   let res=await doFetch();
   // If JWT expired mid-session, force refresh and retry once
   if(res.status===401){
-    try{
-      const stored=localStorage.getItem('smart_session');
-      const session=stored?JSON.parse(stored):{};
-      const refreshToken=session.refresh_token||(currentUser&&currentUser.refresh_token);
-      if(refreshToken){
-        const rr=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});
-        if(rr.ok){
-          const data=await rr.json();
-          currentUser=data;
-          localStorage.setItem('smart_session',JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token,expires_at:Date.now()+data.expires_in*1000,email:data.user?.email||session.email}));
-          res=await doFetch();
-        }
-      }
-    }catch(e){console.warn('Retry refresh failed:',e);}
+    try{await refreshTokenIfNeeded();}catch(e){console.warn('Retry refresh failed:',e);}
+    res=await doFetch();
   }
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.message||'HTTP '+res.status);}
   const t=await res.text();return t?JSON.parse(t):[];
@@ -1809,8 +1806,8 @@ async function loadCCStats(projectId){
         g('pv-cc-rev').innerHTML='<span style="font-size:13px;color:var(--text-3);font-weight:400">None yet</span>';
       }
     }
-    // Open CRs — draft or submitted (not yet approved/rejected/closed)
-    const openCount=crs.filter(c=>['draft','submitted'].includes(c.status)).length;
+    // Open CRs — not yet approved/rejected/closed
+    const openCount=crs.filter(c=>['draft','pending_internal','pending_owner'].includes(c.status)).length;
     if(g('pv-cc-crs')){
       g('pv-cc-crs').textContent=openCount;
       if(openCount>0){
@@ -1951,9 +1948,12 @@ function modalToggleScope(discipline){
 function modalAddDiscipline(){
   const input=document.getElementById('modal-scope-input');
   const val=input.value.trim();if(!val)return;
-  const scope=[...(currentProject.scope||[])];
+  // Read current scope from DOM (safe for both new project and edit)
+  const scope=Array.from(document.querySelectorAll('#modal-scope-list input[type=checkbox]:checked')).map(cb=>cb.closest('label').querySelector('span').textContent.trim());
   if(scope.includes(val)){showToast('Already in scope','error');return;}
-  scope.push(val);currentProject={...currentProject,scope};input.value='';modalRenderScope(scope);
+  scope.push(val);
+  if(currentProject&&editingProjectId)currentProject={...currentProject,scope};
+  input.value='';modalRenderScope(scope);
 }
 function modalRenderTeam(){
   const c=document.getElementById('modal-team-list');if(!c)return;
@@ -2265,6 +2265,12 @@ function renderFeatureMatrix(){
   });
   html+='</tr></thead><tbody>';
   const totalCols=orderedFeatures.length;
+  // Pre-build lookup map for O(1) cell access instead of O(N) find per cell
+  const cellMap=new Map();
+  fmMatrix.forEach(m=>cellMap.set(m.room_id+'|'+m.feature_id,m));
+  // Pre-build instance lookup by room for O(1) room instance access
+  const instByRoom=new Map();
+  fmInstances.forEach(i=>{if(!instByRoom.has(i.room_id))instByRoom.set(i.room_id,[]);instByRoom.get(i.room_id).push(i);});
   // Room rows grouped by deck
   fmDecks.forEach(deck=>{
     const deckRooms=rooms.filter(r=>r.deck_id===deck.id);
@@ -2274,7 +2280,7 @@ function renderFeatureMatrix(){
     html+='<tr>';
     html+='<td style="position:sticky;left:0;z-index:1;background:var(--surface);border:1px solid var(--border);padding:8px 12px;white-space:nowrap;font-weight:600;font-size:12px">'+escHtml(room.name)+'</td>';
     orderedFeatures.forEach(f=>{
-      const cell=fmMatrix.find(m=>m.room_id===room.id&&m.feature_id===f.id);
+      const cell=cellMap.get(room.id+'|'+f.id);
       const ticked=cell&&cell.ticked;
       const qty=cell&&cell.quantity;
       const linkedTypes=fmFeatureDeviceTypes[f.id]||[];
@@ -2290,7 +2296,7 @@ function renderFeatureMatrix(){
           content=qty?'<span style="color:var(--green);font-size:14px;font-weight:700">'+qty+'</span>':'<span style="color:var(--green);font-size:16px">&#x2713;</span>';
           title='Ticked (no device type linked — manually confirmed). Click to remove.';
         }else{
-          const placedQty=fmInstances.filter(i=>i.room_id===room.id&&linkedTypes.includes(i.device_type_id)).reduce((s,i)=>s+(i.quantity||1),0);
+          const placedQty=(instByRoom.get(room.id)||[]).filter(i=>linkedTypes.includes(i.device_type_id)).reduce((s,i)=>s+(i.quantity||1),0);
           const hasDevice=placedQty>0;
           const qtyMatchesPlacement=!qty||qty===placedQty;
           if(hasDevice&&qtyMatchesPlacement){
@@ -2763,17 +2769,6 @@ async function fmSaveCatEdit(id){
   }catch(e){showToast('Could not rename: '+e.message,'error');fmRenderFeatList();}
 }
 function fmCancelCatEdit(){fmEditingCatId=null;fmRenderFeatList();}
-async function fmMoveFeat(id,direction){
-  const idx=fmFeatures.findIndex(f=>f.id===id);
-  const newIdx=idx+direction;
-  if(newIdx<0||newIdx>=fmFeatures.length)return;
-  const[moved]=fmFeatures.splice(idx,1);
-  fmFeatures.splice(newIdx,0,moved);
-  fmFeatures.forEach((f,i)=>f.sort_order=i+1);
-  fmRenderFeatList();
-  try{await Promise.all(fmFeatures.map(f=>dbUpdate('features',f.id,{sort_order:f.sort_order})));}
-  catch(e){showToast('Could not reorder: '+e.message,'error');}
-}
 function fmDragStart(e,id){
   fmDragId=id;
   e.dataTransfer.effectAllowed='move';
@@ -2987,7 +2982,6 @@ async function ieConfirmImport(){
   }catch(e){showToast('Import failed: '+e.message,'error');}
   finally{btn.textContent='Confirm Import';btn.disabled=false;}
 }
-function ieReset(){/* legacy rooms import reset — no-op in new IE page */}
 function ieParseFile(wb,dataset){
   const panelMap={'global-devices':'gd','global-products':'gp','project-equipment':'pe','placed-equipment':'placed','decks-rooms-zones':'drz'};
   const panel=panelMap[dataset];
@@ -3401,7 +3395,6 @@ async function loadSystemGroupOptions(){
     const dcGroup=document.getElementById('dc-group');if(dcGroup){const prev=dcGroup.value;dcGroup.innerHTML=opts;if(prev)dcGroup.value=prev;}
   }catch(e){console.error('Could not load system groups',e);}
 }
-async function seedSystemGroupsOnce(){const e=await dbGet('system_groups','order=created_at.asc&limit=1');if(e.length>0)return;await seedSystemGroups();}
 async function seedSystemGroups(){
   const groups=[{name:'Central Systems',code:'CENT',sort_order:1},{name:'Control Devices',code:'CTRL',sort_order:2},{name:'Displays',code:'DISP',sort_order:3},{name:'Loudspeakers',code:'SPK',sort_order:4},{name:'Crew Cabin AV',code:'CREW',sort_order:5},{name:'Events System',code:'EVT',sort_order:6},{name:'Assignable Sources',code:'SRC',sort_order:7},{name:'Central Shared Sources',code:'CSRC',sort_order:8},{name:'Local Sources',code:'LSRC',sort_order:9},{name:'IT Local Equipment',code:'ITLOC',sort_order:10},{name:'IT Network',code:'ITNET',sort_order:11},{name:'Phone System',code:'TEL',sort_order:12},{name:'DAS System',code:'DAS',sort_order:13},{name:'Radio System',code:'RADIO',sort_order:14},{name:'Communications System',code:'COMMS',sort_order:15},{name:'Camera System',code:'CAM',sort_order:16},{name:'Access Control System',code:'ACS',sort_order:17},{name:'Security System',code:'SEC',sort_order:18},{name:'Drone Detection',code:'DRN',sort_order:19}];
   await Promise.all(groups.map(g=>dbInsert('system_groups',g)));
@@ -3474,7 +3467,6 @@ async function saveDeviceCategory(){
   finally{btn.textContent=editingDcId?'Save Changes':'Save Category';btn.disabled=false;}
 }
 function confirmDeleteDc(id,code){openConfirm('Delete Category','Delete category "'+code+'"?',async()=>{try{await dbDelete('device_categories',id);showToast('Category deleted','success');loadDeviceCategories();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
-async function seedDeviceCategoriesOnce(){const e=await dbGet('device_categories','order=created_at.asc&limit=1');if(e.length>0)return;await seedDeviceCategories();}
 async function seedDeviceCategories(){
   const cats=[{code:'01-TV',name:'Television Displays',system_group_name:'Displays',sort_order:1},{code:'02-BRACKET',name:'Brackets & Lifts',system_group_name:'Displays',sort_order:2},{code:'03-SPK',name:'Loudspeakers',system_group_name:'Loudspeakers',sort_order:3},{code:'04-SUB',name:'Subwoofers',system_group_name:'Loudspeakers',sort_order:4},{code:'05-EVENT',name:'Events Equipment',system_group_name:'Events System',sort_order:5},{code:'06-CONTROL',name:'Control Devices',system_group_name:'Control Devices',sort_order:6},{code:'07-SOURCE',name:'Local Sources',system_group_name:'Local Sources',sort_order:7},{code:'08-IT',name:'IT Equipment',system_group_name:'IT Local Equipment',sort_order:8},{code:'09-TEL',name:'Telephone',system_group_name:'Phone System',sort_order:9},{code:'10-DAS/COMMS',name:'DAS & Communications',system_group_name:'DAS System',sort_order:10},{code:'11-RACK',name:'Rack Infrastructure',system_group_name:'Central Systems',sort_order:11},{code:'12-CENTRAL',name:'Central Sources',system_group_name:'Central Shared Sources',sort_order:12},{code:'13-MAST',name:'Mast & Antenna',system_group_name:'Communications System',sort_order:13},{code:'20-CAM',name:'Cameras',system_group_name:'Camera System',sort_order:14},{code:'21-DOOR',name:'Door & Access',system_group_name:'Access Control System',sort_order:15},{code:'22-SEC',name:'Security',system_group_name:'Security System',sort_order:16}];
   await Promise.all(cats.map(c=>dbInsert('device_categories',c)));
@@ -3629,7 +3621,6 @@ function populateProductDeviceTypeSelect(selectedTypeId){
   const sel=document.getElementById('prod-device-type');
   sel.innerHTML='<option value="">— Select device type —</option>'+globalLibrary.map(d=>'<option value="'+escHtml(d.device_type_id)+'"'+(d.device_type_id===selectedTypeId?' selected':'')+'>'+escHtml(d.device_type_id)+' — '+escHtml(d.description)+'</option>').join('');
 }
-function togglePoESupplyFields(){} // deprecated — PoE supply fields always visible now
 async function openProductModal(){
   productModalMode='global';editingProductId=null;document.getElementById('product-modal-title').textContent='Add Product';document.getElementById('product-save-btn').textContent='Save Product';
   ['prod-part','prod-make','prod-model','prod-notes'].forEach(id=>document.getElementById(id).value='');
@@ -4299,11 +4290,10 @@ async function confirmApplyTemplate(){
             }
             // Skip if already placed in this room
             if(alreadyPlacedPeIds.includes(peEntry.id))continue;
-            // Generate device ID
+            // Generate device ID using in-memory room data (no DB round-trip)
             const existingInRoom=placed.filter(p=>p.room_id===roomId);
             const seq=String(existingInRoom.length+1).padStart(4,'0');
-            const roomData=await dbGet('rooms','id=eq.'+roomId+'&select=room_number&limit=1');
-            const roomNum=roomData.length?roomData[0].room_number||'?':'?';
+            const roomNum=(currentRooms.find(r=>r.id===roomId)||{}).room_number||'?';
             const deviceId=roomNum+'-'+seq;
             await dbInsert('equipment_instances',{project_id:currentProject.id,project_equipment_id:peEntry.id,room_id:roomId,quantity:item.quantity||1,device_id:deviceId});
             placed.push({room_id:roomId,project_equipment_id:peEntry.id});
