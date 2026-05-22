@@ -263,11 +263,11 @@
   .zs-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-top: 3px; }
 
   /* ACTIVE CR BANNER */
-  .active-cr-banner { display: flex; align-items: center; gap: 10px; background: #92400e; color: #fff; border-radius: var(--radius); padding: 9px 14px; margin-bottom: 20px; font-size: 12px; font-weight: 500; }
-  .active-cr-banner svg { flex-shrink: 0; opacity: 0.8; }
+  .active-cr-banner { display: flex; align-items: center; gap: 10px; background: var(--red); color: #fff; border-radius: var(--radius); padding: 9px 14px; margin-bottom: 20px; font-size: 12px; font-weight: 500; }
+  .active-cr-banner svg { flex-shrink: 0; opacity: 0.85; }
   .active-cr-banner strong { font-weight: 700; }
-  .active-cr-banner .acr-stop { margin-left: auto; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 4px; padding: 3px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-  .active-cr-banner .acr-stop:hover { background: rgba(0,0,0,0.4); }
+  .active-cr-banner .acr-stop { margin-left: auto; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.35); color: #fff; border-radius: var(--radius-sm); padding: 4px 12px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; letter-spacing: 0.02em; }
+  .active-cr-banner .acr-stop:hover { background: rgba(255,255,255,0.28); }
 
   /* CHANGE CONTROL */
   .cc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
@@ -5311,7 +5311,7 @@ function renderCRs(){
       detail+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
       const isActive=activeCRId===cr.id;
       if(!['closed','rejected'].includes(cr.status)){
-        if(isActive)detail+='<button class="btn btn-sm" style="background:#92400e;color:#fff;border:none" onclick="clearActiveCR()">&#9632; Stop logging to this CR</button>';
+        if(isActive)detail+='<button class="btn btn-sm" style="background:var(--red);color:#fff;border:none" onclick="clearActiveCR()">&#9632; Stop logging to this CR</button>';
         else detail+='<button class="btn btn-secondary btn-sm" onclick="setActiveCR(\''+cr.id+'\')">&#9654; Work under this CR</button>';
       }
       if(['closed','rejected'].includes(cr.status))detail+='<button class="btn btn-secondary btn-sm" onclick="reopenCR(\''+cr.id+'\')">Re-open</button>';
@@ -5332,9 +5332,9 @@ function renderCRs(){
       detail+='</div>';
     }
     const isActiveCR=activeCRId===cr.id;
-    return '<div class="cc-cr-card" style="'+(isActiveCR?'border-color:#92400e;box-shadow:0 0 0 2px #92400e33':'')+'">'
+    return '<div class="cc-cr-card" style="'+(isActiveCR?'border-color:var(--red);box-shadow:0 0 0 2px rgba(192,57,43,0.2)':'')+'">'
       +'<div class="cc-cr-header" onclick="toggleCRExpand(\''+cr.id+'\')">'
-      +(isActiveCR?'<span style="font-size:10px;font-weight:700;background:#92400e;color:#fff;padding:2px 7px;border-radius:3px;white-space:nowrap">&#9654; ACTIVE</span>':'')
+      +(isActiveCR?'<span style="font-size:10px;font-weight:700;background:var(--red);color:#fff;padding:2px 7px;border-radius:3px;white-space:nowrap">&#9654; ACTIVE</span>':'')
       +'<span class="cc-cr-num">'+escHtml(cr.cr_number)+'</span>'
       +'<span class="cc-cr-title">'+escHtml(cr.title)+'</span>'
       +'<span class="cc-badge cc-badge-'+cr.type+'">'+cr.type+'</span>'
