@@ -5388,9 +5388,19 @@ async function closeCR(id){
   catch(e){showToast('Failed: '+e.message,'error');}
 }
 async function rejectCR(id){
-  if(!confirm('Reject this change request?'))return;
-  try{await dbUpdate('change_requests',id,{status:'rejected'});await loadChangeControl();showToast('CR rejected','success');}
-  catch(e){showToast('Failed: '+e.message,'error');}
+  if(!confirm('Reject this CR? All item statuses (Added/Modified/Removed) logged against it will be cleared back to baseline.'))return;
+  try{
+    await dbUpdate('change_requests',id,{status:'rejected'});
+    // Clear change tracking on all items linked to this CR
+    const clear={change_status:null,change_cr_id:null,change_cr_ref:null};
+    await supaFetch('PATCH','equipment_instances',clear,null,'change_cr_id=eq.'+id);
+    await supaFetch('PATCH','project_equipment',clear,null,'change_cr_id=eq.'+id);
+    await supaFetch('PATCH','rooms',clear,null,'change_cr_id=eq.'+id);
+    // Stop logging to this CR if it was active
+    if(activeCRId===id)clearActiveCR();
+    await loadChangeControl();
+    showToast('CR rejected — item statuses cleared','success');
+  }catch(e){showToast('Failed: '+e.message,'error');}
 }
 async function deleteCR(id){
   if(!confirm('Delete this CR permanently?'))return;
