@@ -5277,7 +5277,7 @@ function renderCRs(){
           detail+='<div style="display:flex;flex-direction:column;gap:5px">';
           detail+='<input type="text" id="cr-ia-name-'+cr.id+'" placeholder="Approved by" style="font-size:12px">';
           detail+='<input type="date" id="cr-ia-date-'+cr.id+'" style="font-size:12px">';
-          detail+='<button class="btn btn-secondary btn-sm" onclick="approveCRInternal(\''+cr.id+'\')">Record Approval</button>';
+          detail+='<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none" onclick="approveCRInternal(\''+cr.id+'\')">Record Approval</button>';
           detail+='</div>';
         }else{detail+='<div style="font-size:12px;color:var(--text-3)">Not yet recorded</div>';}
         detail+='</div>';
@@ -5291,7 +5291,7 @@ function renderCRs(){
           detail+='<div style="display:flex;flex-direction:column;gap:5px">';
           detail+='<input type="text" id="cr-oa-name-'+cr.id+'" placeholder="Approved by" style="font-size:12px">';
           detail+='<input type="date" id="cr-oa-date-'+cr.id+'" style="font-size:12px">';
-          detail+='<button class="btn btn-secondary btn-sm" onclick="approveCROwner(\''+cr.id+'\')">Record Sign-off</button>';
+          detail+='<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none" onclick="approveCROwner(\''+cr.id+'\')">Record Sign-off</button>';
           detail+='</div>';
         }else{detail+='<div style="font-size:12px;color:var(--text-3)">Awaiting internal first</div>';}
         detail+='</div>';
@@ -5301,7 +5301,7 @@ function renderCRs(){
           detail+='<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:14px">';
           detail+='<div style="flex:1"><label style="font-size:11px;color:var(--text-3)">Approved by</label><input type="text" id="cr-ia-name-'+cr.id+'" placeholder="Name" style="font-size:12px;margin-top:3px"></div>';
           detail+='<div><label style="font-size:11px;color:var(--text-3)">Date</label><input type="date" id="cr-ia-date-'+cr.id+'" style="font-size:12px;margin-top:3px"></div>';
-          detail+='<button class="btn btn-secondary btn-sm" onclick="approveCRInternal(\''+cr.id+'\')">Approve</button>';
+          detail+='<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none" onclick="approveCRInternal(\''+cr.id+'\')">Approve</button>';
           detail+='</div>';
         }else if(cr.internal_approved_by){
           detail+='<div style="font-size:12px;color:var(--text-2);margin-bottom:14px">Approved by <strong>'+escHtml(cr.internal_approved_by)+'</strong>'+(cr.internal_approved_date?' · '+ccFmtDate(cr.internal_approved_date):'')+'</div>';
