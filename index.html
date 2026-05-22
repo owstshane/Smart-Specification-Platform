@@ -1355,6 +1355,18 @@
   </div>
 </div>
 
+<!-- LINK CRs TO REVISION MODAL -->
+<div id="link-crs-modal" class="modal-overlay">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><div class="modal-title" id="link-crs-modal-title">Link CRs</div><button class="modal-close" onclick="closeLinkCRsModal()">&times;</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-2);margin-bottom:14px">Select which change requests are included in this revision. CRs already linked to another revision are shown but cannot be moved here.</div>
+      <div id="link-crs-list"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeLinkCRsModal()">Cancel</button><button class="btn btn-primary" id="link-crs-save-btn" onclick="saveCRRevisionLinks()">Save</button></div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div class="login-overlay" id="login-overlay" style="display:none">
   <div class="login-box">
@@ -5350,7 +5362,10 @@ function closeCRModal(){document.getElementById('cr-modal').classList.remove('op
 async function saveCR(){
   const title=document.getElementById('cr-title').value.trim();
   if(!title){showToast('Title is required','error');return;}
-  const num='CR-'+String(ccCRs.length+1).padStart(3,'0');
+  const type=document.getElementById('cr-type').value;
+  const prefix=type==='internal'?'IC':'CR';
+  const sameType=ccCRs.filter(c=>c.type===type).length;
+  const num=prefix+'-'+String(sameType+1).padStart(3,'0');
   try{
     await dbInsert('change_requests',{project_id:currentProject.id,cr_number:num,title,
       type:document.getElementById('cr-type').value,status:'draft',
@@ -5414,20 +5429,47 @@ async function deleteCR(id){
 function renderRevisions(){
   const el=document.getElementById('cc-revision-list');
   if(!ccRevisions.length){el.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#128196;</div><div class="empty-state-title">No revisions yet</div><div class="empty-state-text">Click New Revision to create the first revision for this project.</div></div>';return;}
-  el.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">'
-    +ccRevisions.map(r=>'<div class="cc-rev-row">'
+  el.innerHTML=ccRevisions.map(r=>{
+    const linkedCRs=ccCRs.filter(c=>c.revision_id===r.id);
+    const typeBadge='<span class="cc-badge cc-badge-'+(r.revision_type==='formal'?'closed':'draft')+'">'+r.revision_type+'</span>';
+    const statusBadge='<span class="cc-badge cc-badge-'+(r.status==='issued'?'approved':'draft')+'">'+r.status+'</span>';
+    const crChips=linkedCRs.length
+      ?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+linkedCRs.map(c=>'<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;background:var(--surface2);border:1px solid var(--border)">'+escHtml(c.cr_number)+' <span style="font-weight:400;color:var(--text-3)">'+escHtml(c.title)+'</span></span>').join('')+'</div>'
+      :'<div style="font-size:12px;color:var(--text-3);font-style:italic;margin-top:8px">No CRs linked yet.</div>';
+    return '<div class="cc-cr-card" style="margin-bottom:8px">'
+      +'<div class="cc-cr-header">'
       +'<span class="cc-rev-number">'+escHtml(r.revision_number)+'</span>'
-      +'<span class="cc-badge cc-badge-'+(r.revision_type==='formal'?'closed':'draft')+'">'+r.revision_type+'</span>'
-      +'<span class="cc-badge cc-badge-'+(r.status==='issued'?'approved':'draft')+'" style="margin-left:4px">'+r.status+'</span>'
-      +'<span class="cc-rev-meta">'+(r.issued_by?escHtml(r.issued_by):'')+(r.issued_date?' · '+ccFmtDate(r.issued_date):'')+(r.notes?' — '+escHtml(r.notes):'')+'</span>'
+      +typeBadge+statusBadge
+      +'<span class="cc-rev-meta">'+(r.issued_by?escHtml(r.issued_by):'')+(r.issued_date?' · '+ccFmtDate(r.issued_date):'')+'</span>'
+      +(r.notes?'<span class="cc-rev-meta" style="font-style:italic">'+escHtml(r.notes)+'</span>':'')
+      +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center">'
+      +'<button class="btn btn-secondary btn-sm" onclick="openLinkCRsModal(\''+r.id+'\')">Link CRs'+(linkedCRs.length?' ('+linkedCRs.length+')':'')+'</button>'
       +(r.status==='draft'?'<button class="btn btn-primary btn-sm" onclick="issueRevision(\''+r.id+'\')">Issue</button>':'')
       +'<button class="btn btn-secondary btn-sm" onclick="deleteRevision(\''+r.id+'\')">Delete</button>'
-      +'</div>').join('')
-    +'</div>';
+      +'</span>'
+      +'</div>'
+      +'<div style="padding:10px 16px 14px;border-top:1px solid var(--border);background:var(--surface2)">'
+      +'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3);margin-bottom:4px">Included Changes ('+linkedCRs.length+')</div>'
+      +crChips
+      +'</div>'
+      +'</div>';
+  }).join('');
 }
 
+function suggestNextRevision(){
+  if(!ccRevisions.length)return'R0.1';
+  // Use most recently created revision as the base
+  const last=ccRevisions[0];
+  const n=(last.revision_number||'').trim();
+  const m=n.match(/^R(\d+)(?:\.(\d+))?$/i);
+  if(!m)return'';
+  const major=parseInt(m[1]);
+  const minor=m[2]!==undefined?parseInt(m[2]):null;
+  if(minor===null)return'R'+major+'.1';
+  return'R'+major+'.'+(minor+1);
+}
 function openNewRevisionModal(){
-  document.getElementById('rev-number').value='';
+  document.getElementById('rev-number').value=suggestNextRevision();
   document.getElementById('rev-type').value='preliminary';
   document.getElementById('rev-issued-by').value=currentUser?.user_metadata?.full_name||currentUser?.email||'';
   document.getElementById('rev-issued-date').value=new Date().toISOString().split('T')[0];
@@ -5457,9 +5499,56 @@ async function issueRevision(id){
 async function deleteRevision(id){
   if(!confirm('Delete this revision?'))return;
   try{
+    // Unlink any CRs attached to this revision before deleting
+    await supaFetch('PATCH','change_requests',{revision_id:null},null,'revision_id=eq.'+id);
     await dbDelete('project_revisions',id);
     await loadChangeControl();showToast('Revision deleted','success');
   }catch(e){showToast('Failed: '+e.message,'error');}
+}
+
+let linkingRevisionId=null;
+function openLinkCRsModal(revisionId){
+  linkingRevisionId=revisionId;
+  const rev=ccRevisions.find(r=>r.id===revisionId);
+  document.getElementById('link-crs-modal-title').textContent='Link CRs — '+(rev?rev.revision_number:'');
+  // Show all CRs for this project (approved or closed), checkbox pre-ticked if already linked
+  const list=document.getElementById('link-crs-list');
+  const eligible=ccCRs.filter(c=>!['rejected'].includes(c.status));
+  if(!eligible.length){list.innerHTML='<div style="font-size:13px;color:var(--text-3);padding:8px 0">No CRs available to link.</div>';
+  }else{
+    list.innerHTML=eligible.map(c=>{
+      const checked=c.revision_id===revisionId;
+      const linkedElsewhere=c.revision_id&&c.revision_id!==revisionId;
+      const otherRev=linkedElsewhere?ccRevisions.find(r=>r.id===c.revision_id):null;
+      return '<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:'+(linkedElsewhere?'default':'pointer')+'">'
+        +'<input type="checkbox" value="'+c.id+'"'+(checked?' checked':'')+(linkedElsewhere?' disabled':'')+' style="width:15px;height:15px;flex-shrink:0">'
+        +'<span style="font-size:12px;font-weight:700;font-family:var(--font-mono);white-space:nowrap">'+escHtml(c.cr_number)+'</span>'
+        +'<span style="font-size:12px;flex:1;color:var(--text-2)">'+escHtml(c.title)+'</span>'
+        +'<span class="cc-badge cc-badge-'+c.status+'">'+crStatusLabel(c.status)+'</span>'
+        +(linkedElsewhere?'<span style="font-size:11px;color:var(--text-3)">In '+(otherRev?otherRev.revision_number:'another rev')+'</span>':'')
+        +'</label>';
+    }).join('');
+  }
+  document.getElementById('link-crs-modal').classList.add('open');
+}
+function closeLinkCRsModal(){document.getElementById('link-crs-modal').classList.remove('open');linkingRevisionId=null;}
+async function saveCRRevisionLinks(){
+  if(!linkingRevisionId)return;
+  const checkboxes=document.querySelectorAll('#link-crs-list input[type="checkbox"]:not([disabled])');
+  const btn=document.getElementById('link-crs-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  try{
+    for(const cb of checkboxes){
+      const crId=cb.value;
+      const shouldLink=cb.checked;
+      const cr=ccCRs.find(c=>c.id===crId);
+      if(!cr)continue;
+      const currentlyLinked=cr.revision_id===linkingRevisionId;
+      if(shouldLink&&!currentlyLinked)await dbUpdate('change_requests',crId,{revision_id:linkingRevisionId});
+      else if(!shouldLink&&currentlyLinked)await dbUpdate('change_requests',crId,{revision_id:null});
+    }
+    closeLinkCRsModal();await loadChangeControl();showToast('CR links saved','success');
+  }catch(e){showToast('Failed: '+e.message,'error');}
+  finally{btn.textContent='Save';btn.disabled=false;}
 }
 
 function renderChangeLog(){
