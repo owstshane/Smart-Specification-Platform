@@ -5492,9 +5492,27 @@ async function saveRevision(){
   }catch(e){showToast('Could not create revision: '+e.message,'error');}
 }
 async function issueRevision(id){
-  if(!confirm('Mark this revision as issued? This cannot be undone.'))return;
-  try{await dbUpdate('project_revisions',id,{status:'issued'});await loadChangeControl();showToast('Revision issued','success');}
-  catch(e){showToast('Failed: '+e.message,'error');}
+  const rev=ccRevisions.find(r=>r.id===id);
+  if(!confirm('Mark '+(rev?rev.revision_number:'this revision')+' as issued? This cannot be undone.'))return;
+  try{
+    await dbUpdate('project_revisions',id,{status:'issued'});
+    await loadChangeControl();
+    showToast((rev?rev.revision_number:'Revision')+' issued','success');
+    // Offer to start the next draft revision
+    const nextNum=suggestNextRevision();
+    if(nextNum&&confirm((rev?rev.revision_number:'Revision')+' issued.\n\nStart '+nextNum+' as a new draft revision?')){
+      await dbInsert('project_revisions',{project_id:currentProject.id,revision_number:nextNum,revision_type:'preliminary',status:'draft'});
+      await loadChangeControl();
+      showToast(nextNum+' draft created','success');
+      // If there are approved/closed CRs not yet linked to any revision, open Link CRs straight away
+      const newRev=ccRevisions.find(r=>r.revision_number===nextNum&&r.status==='draft');
+      const unlinked=ccCRs.filter(c=>!c.revision_id&&['approved','closed'].includes(c.status));
+      if(newRev&&unlinked.length){
+        showCCTab('revisions');
+        openLinkCRsModal(newRev.id);
+      }
+    }
+  }catch(e){showToast('Failed: '+e.message,'error');}
 }
 async function deleteRevision(id){
   if(!confirm('Delete this revision?'))return;
