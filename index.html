@@ -263,10 +263,10 @@
   .zs-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-top: 3px; }
 
   /* CHANGE CONTROL */
-  .cc-stats { display: flex; gap: 12px; padding: 16px 20px; background: var(--surface2); border-bottom: 1px solid var(--border); }
-  .cc-stat-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; text-align: center; }
-  .cc-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 4px; }
-  .cc-stat-value { font-size: 20px; font-weight: 700; color: var(--text); }
+  .cc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .cc-stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow-sm); text-align: center; }
+  .cc-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-top: 4px; }
+  .cc-stat-value { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.2; }
   .cc-cr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; }
   .cc-cr-header { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; flex-wrap: wrap; }
   .cc-cr-header:hover { background: var(--surface2); }
@@ -295,7 +295,7 @@
   .cc-rev-row:hover { background: var(--surface2); }
   .cc-rev-number { font-size: 14px; font-weight: 700; min-width: 72px; }
   .cc-rev-meta { flex: 1; font-size: 12px; color: var(--text-2); }
-  .cc-empty { padding: 40px 20px; text-align: center; color: var(--text-3); font-size: 13px; }
+
 
   /* IMPORT/EXPORT */
   .ie-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
@@ -702,10 +702,10 @@
       <!-- CHANGE CONTROL -->
       <div id="page-change-control" class="hidden">
         <div id="cc-stats-bar" class="cc-stats"></div>
-        <div class="tab-bar">
-          <button class="tab-btn active" id="cc-tab-crs" onclick="showCCTab('crs')">Change Requests</button>
-          <button class="tab-btn" id="cc-tab-revisions" onclick="showCCTab('revisions')">Revisions</button>
-          <button class="tab-btn" id="cc-tab-log" onclick="showCCTab('log')">Change Log</button>
+        <div class="section-tabs">
+          <button class="section-tab active" id="cc-tab-crs" onclick="showCCTab('crs')">Change Requests</button>
+          <button class="section-tab" id="cc-tab-revisions" onclick="showCCTab('revisions')">Revisions</button>
+          <button class="section-tab" id="cc-tab-log" onclick="showCCTab('log')">Change Log</button>
         </div>
         <div id="cc-crs-panel">
           <div class="toolbar">
@@ -713,13 +713,13 @@
             <select id="cc-cr-filter-status" onchange="renderCRs()" style="width:auto;padding:8px 11px"><option value="">All statuses</option><option value="draft">Draft</option><option value="pending_internal">Pending Internal</option><option value="pending_owner">Pending Owner</option><option value="approved">Approved</option><option value="closed">Closed</option><option value="rejected">Rejected</option></select>
             <button class="btn btn-primary btn-sm" onclick="openNewCRModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Raise CR</button>
           </div>
-          <div id="cc-cr-list" style="padding:0 20px 20px"></div>
+          <div id="cc-cr-list"></div>
         </div>
         <div id="cc-revisions-panel" class="hidden">
           <div class="toolbar">
             <button class="btn btn-primary btn-sm" onclick="openNewRevisionModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Revision</button>
           </div>
-          <div id="cc-revision-list" style="padding:0 20px 20px"></div>
+          <div id="cc-revision-list"></div>
         </div>
         <div id="cc-log-panel" class="hidden">
           <div class="toolbar">
@@ -5134,7 +5134,7 @@ function renderCRs(){
   const fStatus=document.getElementById('cc-cr-filter-status')?.value||'';
   const list=ccCRs.filter(c=>(!fType||c.type===fType)&&(!fStatus||c.status===fStatus));
   const el=document.getElementById('cc-cr-list');
-  if(!list.length){el.innerHTML='<div class="cc-empty">No change requests yet.<br>Click <strong>Raise CR</strong> to log the first change.</div>';return;}
+  if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#9998;</div><div class="empty-state-title">No change requests yet</div><div class="empty-state-text">Click Raise CR to log the first change against this project.</div></div>';return;}
   el.innerHTML=list.map(cr=>{
     const isOpen=expandedCRId===cr.id;
     const logEntries=ccLog.filter(l=>l.cr_id===cr.id);
@@ -5285,7 +5285,7 @@ async function deleteCR(id){
 
 function renderRevisions(){
   const el=document.getElementById('cc-revision-list');
-  if(!ccRevisions.length){el.innerHTML='<div class="cc-empty">No revisions yet.<br>Click <strong>New Revision</strong> to create the first one.</div>';return;}
+  if(!ccRevisions.length){el.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#128196;</div><div class="empty-state-title">No revisions yet</div><div class="empty-state-text">Click New Revision to create the first revision for this project.</div></div>';return;}
   el.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">'
     +ccRevisions.map(r=>'<div class="cc-rev-row">'
       +'<span class="cc-rev-number">'+escHtml(r.revision_number)+'</span>'
@@ -5338,7 +5338,7 @@ function renderChangeLog(){
   const fArea=document.getElementById('cc-log-filter-area')?.value||'';
   const list=fArea?ccLog.filter(l=>l.area===fArea):ccLog;
   const el=document.getElementById('cc-log-list');
-  if(!list.length){el.innerHTML='<div class="cc-empty">No changes logged yet.</div>';return;}
+  if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#128203;</div><div class="empty-state-title">No changes logged yet</div><div class="empty-state-text">Changes will appear here as equipment, rooms, and features are updated.</div></div>';return;}
   const areaColor={equipment:['#ebf4ff','#2b6cb0'],rooms:['#f0fff4','#276749'],layout:['#fffbeb','#92400e'],features:['#faf5ff','#6b21a8'],zones:['#fff5f5','#c53030'],project:['#f7fafc','#4a5568']};
   el.innerHTML=list.map(l=>{
     const cr=ccCRs.find(c=>c.id===l.cr_id);
