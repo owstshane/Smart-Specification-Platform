@@ -769,6 +769,7 @@
         <div id="equip-placed-tab" class="hidden">
           <div class="toolbar">
             <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pl-search" placeholder="Search placed equipment…" oninput="renderPlacedEquipment()"></div>
+            <button id="pl-show-removed-btn" class="btn btn-secondary btn-sm" onclick="toggleShowRemoved()" style="display:none">Show Removed</button>
             <button class="btn btn-primary btn-sm" onclick="openPlaceModal()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Place Equipment</button>
             <button class="btn btn-secondary btn-sm" onclick="exportEquipmentSchedule()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
           </div>
@@ -1973,7 +1974,7 @@ function renderRoomsTable(){
         +'<div class="room-cell num">'+(r.room_number||'—')+'</div>'
         +'<div class="room-cell mono">'+escHtml(r.room_id||'—')+'</div>'
         +'<div class="room-cell"><span class="deck-id-pill" style="font-size:10px;padding:1px 6px">'+escHtml(deck?deck.deck_id:'?')+'</span></div>'
-        +'<div class="room-cell" style="font-weight:500">'+escHtml(r.name)+'</div>'
+        +'<div class="room-cell" style="font-weight:500">'+escHtml(r.name)+(r.change_status?'<span style="margin-left:6px">'+changeBadge(r.change_status,r.change_cr_ref)+'</span>':'')+'</div>'
         +'<div class="room-cell mono">'+escHtml(r.frame_number||'')+'</div>'
         +'<div class="room-cell">'+(r.position?'<span class="pos-badge">'+r.position+'</span>':'')+'</div>'
         +'<div class="room-cell">'+zoneHtml+'</div>'
@@ -1992,7 +1993,17 @@ async function saveRoom(){
   if(!deckId){showToast('Please select a deck','error');return;}if(!num){showToast('Please enter a room number','error');return;}if(!name){showToast('Please enter a room name','error');return;}
   const payload={deck_id:deckId,room_number:num,room_id:document.getElementById('fr-id').value.trim().toUpperCase()||null,name,position:document.getElementById('fr-position').value||null,frame_number:document.getElementById('fr-frame').value.trim()||null,notes:document.getElementById('fr-notes').value.trim()||null};
   const btn=document.getElementById('room-save-btn');btn.textContent='Saving…';btn.disabled=true;
-  try{if(editingRoomId){await dbUpdate('rooms',editingRoomId,payload);showToast('Room updated','success');logChange('rooms','updated','Updated room: '+name);}else{const deck=currentDecks.find(d=>d.id===deckId);await dbInsert('rooms',payload);showToast('Room added','success');logChange('rooms','added','Added room: '+name+(deck?' on '+deck.name:''));}closeRoomModal();loadRooms();}
+  try{
+    if(activeCRId){payload.change_cr_id=activeCRId;payload.change_cr_ref=activeCRRef();}
+    if(editingRoomId){
+      if(activeCRId)payload.change_status='modified';
+      await dbUpdate('rooms',editingRoomId,payload);showToast('Room updated','success');logChange('rooms','updated','Updated room: '+name);
+    }else{
+      if(activeCRId)payload.change_status='added';
+      const deck=currentDecks.find(d=>d.id===deckId);await dbInsert('rooms',payload);showToast('Room added','success');logChange('rooms','added','Added room: '+name+(deck?' on '+deck.name:''));
+    }
+    closeRoomModal();loadRooms();
+  }
   catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent=editingRoomId?'Save Changes':'Save Room';btn.disabled=false;}
 }
@@ -4518,7 +4529,9 @@ async function quickPullToProject(globalId){
   if(!currentProject){showToast('Please open a project first','error');return;}
   const d=globalLibrary.find(d=>d.id===globalId);if(!d)return;
   try{
-    await dbInsert('project_equipment',{project_id:currentProject.id,global_equipment_id:globalId,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,poe_budget_watts:d.poe_budget_watts||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,power_watts:d.power_watts||null,ups_protected:d.ups_protected||false,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'});
+    const qpPayload={project_id:currentProject.id,global_equipment_id:globalId,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,poe_budget_watts:d.poe_budget_watts||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,power_watts:d.power_watts||null,ups_protected:d.ups_protected||false,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'};
+    if(activeCRId){qpPayload.change_status='added';qpPayload.change_cr_id=activeCRId;qpPayload.change_cr_ref=activeCRRef();}
+    await dbInsert('project_equipment',qpPayload);
     showToast(d.device_type_id+' added to project','success');
     logChange('equipment','added','Pulled '+d.device_type_id+' to Project Library');
     projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
@@ -4592,7 +4605,9 @@ async function confirmPullFromLibrary(){
   try{
     for(const item of pglItems){
       const d=globalLibrary.find(d=>d.id===item.id);if(!d)continue;
-      await dbInsert('project_equipment',{project_id:currentProject.id,global_equipment_id:d.id,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'});
+      const bpPayload={project_id:currentProject.id,global_equipment_id:d.id,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'};
+      if(activeCRId){bpPayload.change_status='added';bpPayload.change_cr_id=activeCRId;bpPayload.change_cr_ref=activeCRRef();}
+      await dbInsert('project_equipment',bpPayload);
     }
     const count=pglItems.length;
     showToast(count+' device type'+(count!==1?'s':'')+' pulled to project','success');
@@ -4631,8 +4646,9 @@ function renderProjectEquipment(){
     +items.map(d=>{
       const w=warnings(d);
       const warnBadge=w.length?'<span title="'+w.join(', ')+'" style="display:inline-flex;align-items:center;gap:3px;background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:6px;cursor:help">⚠ Role</span>':'';
+      const csBadge=changeBadge(d.change_status,d.change_cr_ref);
       return '<tr'+(w.length?' style="background:rgba(255,193,7,0.04)"':'')+'>'
-        +'<td class="td-mono">'+escHtml(d.device_type_id)+warnBadge+'</td>'
+        +'<td class="td-mono">'+escHtml(d.device_type_id)+warnBadge+(csBadge?'<span style="margin-left:6px">'+csBadge+'</span>':'')+'</td>'
         +'<td style="font-weight:500">'+escHtml(d.description)+'</td>'
         +'<td><span class="group-badge">'+escHtml(d.system_group||'—')+'</span></td>'
         +'<td>'+(d.make?escHtml(d.make):'<span style="color:var(--text-3);font-style:italic">Not set</span>')+'</td>'
@@ -4704,12 +4720,13 @@ async function savePeItem(){
       comments:document.getElementById('pe-comments').value.trim()||null
     });
     const typeId=document.getElementById('pe-type-id').value.trim().toUpperCase()||'device';
+    if(activeCRId)await dbUpdate('project_equipment',editingPeId,{change_status:'modified',change_cr_id:activeCRId,change_cr_ref:activeCRRef()});
     showToast('Updated','success');logChange('equipment','updated','Updated '+typeId+' in Project Library');closePeModal();loadProjectEquipment();
   }catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent='Save Changes';btn.disabled=false;}
 }
 function confirmDeletePe(id,name){openConfirm('Remove Equipment','Remove "'+name+'" from this project?',async()=>{try{await dbDelete('project_equipment',id);showToast('Removed','success');logChange('equipment','removed','Removed '+name+' from Project Library');loadProjectEquipment();}catch(e){showToast('Could not remove: '+e.message,'error');}});}
-let activePlacedDeckFilter='all';
+let activePlacedDeckFilter='all', showRemovedItems=false;
 async function loadPlacedEquipment(){
   document.getElementById('placed-equipment-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
   try{
@@ -4734,7 +4751,7 @@ function setPlacedDeckFilter(f){activePlacedDeckFilter=f;renderPlacedDeckTabs();
 function renderPlacedEquipment(){
   const q=(document.getElementById('pl-search')||{}).value?.toLowerCase().trim()||'';
   const c=document.getElementById('placed-equipment-container');
-  let items=placedEquipment.filter(p=>{
+  let allFiltered=placedEquipment.filter(p=>{
     const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
     const matchQ=!q||(p.device_id||'').toLowerCase().includes(q)||(pe&&pe.description.toLowerCase().includes(q));
     if(!matchQ)return false;
@@ -4743,10 +4760,18 @@ function renderPlacedEquipment(){
     const room=currentRooms.find(r=>r.id===p.room_id);
     return room&&room.deck_id===activePlacedDeckFilter;
   });
-  if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No equipment in schedule yet</div><div class="empty-state-text">Use the Add to Schedule button to assign equipment to rooms or rack zones.</div></div>';return;}
-  const colspan=13;
-  const thead='<thead><tr><th>Device ID</th><th>Type</th><th>Description</th><th>Make</th><th>Model</th><th>Location</th><th>Install</th><th>LAN</th><th>PoE</th><th>PoE Type</th><th>Spk Ch</th><th>Spk W</th><th>Pwr W</th><th></th></tr></thead>';
-  const groupRow=label=>'<tr><td colspan="14" style="background:var(--accent-light);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);padding:10px 14px;border-top:2px solid var(--accent)">'+label+'</td></tr>';
+  const removedCount=allFiltered.filter(p=>p.change_status==='removed').length;
+  const items=showRemovedItems?allFiltered:allFiltered.filter(p=>p.change_status!=='removed');
+  // Update show/hide removed toggle button
+  const toggleBtn=document.getElementById('pl-show-removed-btn');
+  if(toggleBtn){
+    toggleBtn.textContent=showRemovedItems?'Hide Removed':'Show Removed'+(removedCount?' ('+removedCount+')':'');
+    toggleBtn.style.display=removedCount||showRemovedItems?'':'none';
+  }
+  if(!items.length&&!removedCount){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No equipment in schedule yet</div><div class="empty-state-text">Use the Add to Schedule button to assign equipment to rooms or rack zones.</div></div>';return;}
+  if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No active items</div><div class="empty-state-text">'+removedCount+' removed item'+(removedCount!==1?'s are':' is')+' hidden. Click Show Removed to view.</div></div>';return;}
+  const thead='<thead><tr><th>Device ID</th><th>Type</th><th>Description</th><th>Make</th><th>Model</th><th>Location</th><th>Install</th><th>LAN</th><th>PoE</th><th>PoE Type</th><th>Spk Ch</th><th>Spk W</th><th>Pwr W</th><th>Status</th><th></th></tr></thead>';
+  const groupRow=label=>'<tr><td colspan="15" style="background:var(--accent-light);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);padding:10px 14px;border-top:2px solid var(--accent)">'+label+'</td></tr>';
   const dash='<span style="color:var(--text-3)">—</span>';
   const itemRow=p=>{
     const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
@@ -4754,7 +4779,13 @@ function renderPlacedEquipment(){
     const zone=currentZones.find(z=>z.id===p.rack_zone_id);
     const loc=room?escHtml(room.name):zone?escHtml(zone.name):dash;
     const install=p.installation_type==='rack-mounted'?'<span class="category-badge">Rack</span>':'<span style="font-size:11px;color:var(--text-3)">Room</span>';
-    return '<tr>'
+    const isRemoved=p.change_status==='removed';
+    const rowStyle=isRemoved?'opacity:0.5;text-decoration:line-through':'';
+    const statusCell=changeBadge(p.change_status,p.change_cr_ref);
+    const deleteBtn=isRemoved
+      ?'<button class="btn-icon btn-sm" title="Hard delete" onclick="hardDeletePlaced(\''+p.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+      :'<button class="btn-icon btn-sm" onclick="confirmDeletePlaced(\''+p.id+'\',\''+escHtml(p.device_id)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>';
+    return '<tr style="'+rowStyle+'">'
       +'<td><span class="device-id-badge">'+escHtml(p.device_id)+'</span></td>'
       +'<td class="td-mono">'+escHtml(pe?pe.device_type_id:'—')+'</td>'
       +'<td style="font-weight:500">'+escHtml(pe?pe.description:'—')+'</td>'
@@ -4768,7 +4799,8 @@ function renderPlacedEquipment(){
       +'<td style="text-align:center">'+(pe&&pe.speaker_channels?pe.speaker_channels:dash)+'</td>'
       +'<td style="text-align:center">'+(pe&&pe.spk_watts?pe.spk_watts+'W':dash)+'</td>'
       +'<td style="text-align:center">'+(pe&&pe.power_watts?pe.power_watts+'W':dash)+'</td>'
-      +'<td class="td-actions"><button class="btn-icon btn-sm" onclick="confirmDeletePlaced(\''+p.id+'\',\''+escHtml(p.device_id)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button></td>'
+      +'<td>'+statusCell+'</td>'
+      +'<td class="td-actions">'+deleteBtn+'</td>'
       +'</tr>';
   };
   let rows='';
@@ -4810,7 +4842,24 @@ function renderPlacedEquipment(){
   }
   c.innerHTML='<div class="equip-table"><table>'+thead+'<tbody>'+rows+'</tbody></table></div>';
 }
-function confirmDeletePlaced(id,name){openConfirm('Remove Placement','Remove device "'+name+'" from its location?',async()=>{try{await dbDelete('equipment_instances',id);showToast('Removed','success');logChange('equipment','removed','Removed device '+name+' from schedule');loadPlacedEquipment();}catch(e){showToast('Could not remove: '+e.message,'error');}});}
+function confirmDeletePlaced(id,name){
+  const msg=activeCRId?'Mark device "'+name+'" as Removed? It will be struck through but kept in the record until the CR is closed.':'Remove device "'+name+'" from its location?';
+  openConfirm('Remove Placement',msg,async()=>{
+    try{
+      if(activeCRId){
+        await dbUpdate('equipment_instances',id,{change_status:'removed',change_cr_id:activeCRId,change_cr_ref:activeCRRef()});
+        showToast(name+' marked as Removed','success');
+      }else{
+        await dbDelete('equipment_instances',id);
+        showToast('Removed','success');
+      }
+      logChange('equipment','removed','Removed device '+name+' from schedule');
+      loadPlacedEquipment();
+    }catch(e){showToast('Could not remove: '+e.message,'error');}
+  });
+}
+function hardDeletePlaced(id){openConfirm('Permanently Delete','Permanently remove this item? This cannot be undone.',async()=>{try{await dbDelete('equipment_instances',id);showToast('Deleted','success');loadPlacedEquipment();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+function toggleShowRemoved(){showRemovedItems=!showRemovedItems;renderPlacedEquipment();}
 let plItems=[], plActiveGroup='all', plAlreadyPlaced=[];
 
 async function openPlaceModal(){
@@ -4955,7 +5004,7 @@ async function savePlacement(){
         seqBase++;
         const deviceId=(roomNum||'0')+'-'+String(seqBase).padStart(4,'0');
         const servesRoom=locType==='zone'?(document.getElementById('pl-serves-room')||{}).value||null:null;
-        await dbInsert('equipment_instances',{
+        const instPayload={
           project_id:currentProject.id,
           project_equipment_id:item.peId,
           device_id:deviceId,
@@ -4963,7 +5012,9 @@ async function savePlacement(){
           room_id:locType==='room'?locId:(servesRoom||null),
           rack_zone_id:locType==='zone'?locId:null,
           installation_type:item.install
-        });
+        };
+        if(activeCRId){instPayload.change_status='added';instPayload.change_cr_id=activeCRId;instPayload.change_cr_ref=activeCRRef();}
+        await dbInsert('equipment_instances',instPayload);
       }
     }
     const total=plItems.reduce((s,i)=>s+i.quantity,0);
@@ -5396,6 +5447,21 @@ async function logChange(area,action,summary,crId=null){
       renderChangeLog();
     }
   }catch(e){console.warn('logChange failed:',e.message);}
+}
+
+// Returns the active CR's number text (e.g. 'CR-001') for stamping
+function activeCRRef(){
+  if(!activeCRId)return null;
+  const cr=ccCRs.find(c=>c.id===activeCRId);
+  return cr?cr.cr_number:null;
+}
+// Returns a small inline badge HTML for change_status + cr_ref
+function changeBadge(status,crRef){
+  if(!status)return'';
+  const cfg={added:['#166534','#dcfce7'],modified:['#92400e','#fef3c7'],removed:['#991b1b','#fee2e2']};
+  const [col,bg]=cfg[status]||['#374151','#f3f4f6'];
+  return'<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;background:'+bg+';color:'+col+';text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap">'
+    +status+(crRef?' · '+crRef:'')+'</span>';
 }
 
 function setActiveCR(id){
