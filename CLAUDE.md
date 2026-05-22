@@ -23,7 +23,7 @@ The app is a **single HTML file** (`index.html`) with all CSS and JavaScript inl
 ### Core
 - `projects` — project_code, name, category (Yacht/Residential), type (New Build/Refit), status, phase, length_metres, start_date, target_completion, builder, build_location, architect, owners_rep, management_team, interior_designer, exterior_designer, scope (jsonb array), notes, flag, year
 - `decks` — project_id, name, deck_id, deck_order
-- `rooms` — deck_id, name, room_id, room_number, position, frame_number, rack_zone_id, notes
+- `rooms` — deck_id, name, room_id, room_number, position, frame_number, rack_zone_id, notes, **change_status, change_cr_id, change_cr_ref**
 - `rack_zones` — project_id, name, zone_id, rack_count, colour, notes
 
 ### Global Library
@@ -35,18 +35,24 @@ The app is a **single HTML file** (`index.html`) with all CSS and JavaScript inl
 - `global_room_template_items` — template_id, device_type_id, quantity, notes, sort_order
 
 ### Project-Specific
-- `project_equipment` — project_id, global_equipment_id, device_type_id, description, category_code, system_group, spec_ref, network_role, avip_role, audio_role, lan_ports, poe_ports, poe_type, power_types, power_watts, heat_btu, ups_protected, speaker_channels, spk_watts, make, model, comments
-- `equipment_instances` — project_id, device_id, device_type_id, description, room_id, rack_zone_id, quantity, installation_type, notes
+- `project_equipment` — project_id, global_equipment_id, device_type_id, description, category_code, system_group, spec_ref, network_role, avip_role, audio_role, lan_ports, poe_ports, poe_type, power_types, power_watts, heat_btu, ups_protected, speaker_channels, spk_watts, make, model, comments, **change_status, change_cr_id, change_cr_ref**
+- `equipment_instances` — project_id, device_id, device_type_id, description, room_id, rack_zone_id, quantity, installation_type, notes, **change_status, change_cr_id, change_cr_ref**
+- `project_products` — project_id, device_type_id, make, model, part_number, and full product spec fields (project-specific product catalogue)
 - `room_templates` — project_id, name, description
 - `room_template_items` — template_id, device_type_id, quantity, notes, sort_order
 - `project_team` — project_id, member_name
 - `project_integrators` — project_id, company_name, disciplines (text array), sort_order
 
-### Feature Matrix (NEW — recently added)
+### Feature Matrix
 - `feature_categories` — project_id, name, sort_order
-- `features` — project_id, category_id, name, sort_order
+- `features` — project_id, category_id, name, sort_order, quantity_tracked (boolean)
 - `feature_device_types` — feature_id, device_type_id (many-to-many link)
 - `project_feature_matrix` — project_id, room_id, feature_id, ticked (boolean), quantity (integer)
+
+### Change Control
+- `change_requests` — project_id, cr_number, title, type (formal/internal), status, description, impact, cost_impact, internal_approved_by, internal_approved_date, owner_approved_by, owner_approved_date, revision_id
+- `project_revisions` — project_id, revision_number, revision_type, status, issued_by, issued_date, notes
+- `change_log` — project_id, area, action, summary, cr_id, changed_by, created_at
 
 ---
 
@@ -54,15 +60,18 @@ The app is a **single HTML file** (`index.html`) with all CSS and JavaScript inl
 
 ### Navigation
 **Sidebar — Workspace:** All Projects
-**Sidebar — Current Project:** Project Info | Layout & Zones | Equipment | Feature Matrix
+**Sidebar — Current Project:** Project Info | Layout & Zones | Equipment | Feature Matrix | Change Control
 **Sidebar — Standalone:** Import / Export
 **Sidebar — Global:** Groups & Categories | Device Types | Product Catalogue | Room Templates
 
 ### Equipment Page Tabs
-Project Library | Equipment Schedule | Zone Summary | Room Templates
+Project Library | Project Catalogue | Equipment Schedule | Equipment Matrix | Zone Summary | Room Templates
 
 ### Layout & Zones Page Tabs
 Decks | Rooms | Rack Zones
+
+### Change Control Page Tabs
+Change Requests | Revisions | Change Log
 
 ---
 
@@ -84,7 +93,7 @@ Audio role drives show/hide of amp channel fields.
 
 ## Key Development Rules
 1. **Plan fully before building** — agree structure before any code
-2. **Validate JS** before delivering — `node -e "new Function(code)"` 
+2. **Validate JS** before delivering — `node -e "new Function(code)"`
 3. File must always have **exactly 1 `<style>` tag**, no duplicate functions
 4. **`<style>` tags inside JS template literals** must use unicode escapes or be avoided
 5. Never patch a broken file — roll back and rebuild cleanly
@@ -93,52 +102,58 @@ Audio role drives show/hide of amp channel fields.
 ---
 
 ## What's Built and Working
+
 - ✅ All Projects dashboard — cards, search, filter by status/type/category
-- ✅ Project Info page — 3-column card layout (Scope, Timeline, Quick Access, Key Contacts, Integrators+Team)
+- ✅ Project Info — 3-column card layout + stats row + Change Control widget (Current Revision, Open CRs, Last Issued)
 - ✅ Layout & Zones — Decks, Rooms, Rack Zones with full CRUD
-- ✅ Equipment — Project Library (pull from global), Equipment Schedule, Zone Summary, Room Templates
+- ✅ Equipment — 6 tabs: Project Library, Project Catalogue, Equipment Schedule, Equipment Matrix, Zone Summary, Room Templates
+- ✅ Equipment Schedule — placed devices with change-status badges (Added/Modified/Removed), soft-delete when CR active, Show Removed toggle
+- ✅ Equipment Matrix — room × device-type visual grid showing what's placed where
+- ✅ Zone Summary — Network (LAN/PoE), Audio (amp channels/power), AV over IP, Power (UPS Load vs Mains Load) — all with demand vs supply and expandable item lists
+- ✅ Feature Matrix — manage features/categories, tick cells, optional quantity, green/amber/empty states, Build from Library, Sync from placement, Excel export
+- ✅ Change Control — full CR and revision workflow (see detail below)
 - ✅ Global — Device Types, Product Catalogue, System Groups & Categories, Room Templates
 - ✅ Import / Export — full coverage of all sections, both global and project
-- ✅ Feature Matrix — page shell, toolbar, Manage Features modal (Stage 1 & 2 complete)
-- ✅ Authentication (login/logout)
+- ✅ Authentication — login/logout, JWT proactive refresh mid-session, retry on 401
 
 ---
 
-## Feature Matrix — Current Build Status
+## Change Control — Detail
 
-**Stage 1 ✅** — Navigation, page shell, toolbar (search, deck filter, Manage Features, Sync, Export buttons), basic grid render
+### CR Workflow
+- **Types:** Formal (CR-001, CR-002…) and Internal (IC-001, IC-002…) — separate numbering sequences
+- **Statuses:** Draft → Submitted → (Internal Approved) → Approved → Closed | Rejected
+- **Approval:** Internal sign-off (name + date) then Owner sign-off (name + date) → sets status to Approved
+- **Rejection:** Clears all change_status / change_cr_id / change_cr_ref on linked equipment and rooms (reverts to baseline)
 
-**Stage 2 ✅** — Manage Features modal with:
-- Categories tab: add, rename, delete categories
-- Features tab: add features with name, category, searchable multi-select device type linker
-- Features list showing linked device types and manual/auto status
+### Active CR Mode
+- "Work under this CR" button on any CR card activates it globally
+- Persistent red banner across all pages: "Logging changes to CR-001 — [title]" + Stop button
+- While active: saves to equipment/rooms auto-stamp change_status + change_cr_id + change_cr_ref
+- Deleting placed equipment while CR is active → soft-delete (change_status='removed') instead of hard-delete
 
-**Stage 3 🔄 IN PROGRESS** — Cell interaction:
-- Click cell to toggle tick on/off
-- Set optional quantity per cell
-- Three visual states: ✅ Green (ticked + device placed), ⚠️ Amber (ticked manually, no device placed), Empty
+### Item Change Tracking
+- `change_status`: null (baseline) / 'added' / 'modified' / 'removed'
+- Badges shown on Equipment Schedule and rooms; historical record stays even after CR approved/closed
+- Show Removed toggle on Equipment Schedule reveals soft-deleted items
 
-**Stage 4 ⬜** — Sync from placement:
-- Button reads placed equipment for project
-- For each feature with linked device types, checks each room
-- Fills empty cells only — never overwrites manual ticks
-- Auto-quantity = count of matching devices placed
+### Revisions
+- Draft → Issued lifecycle; revision numbers follow R0.1 / R0.2 → R1 / R1.1 pattern
+- Auto-suggests next revision number when creating
+- After issuing, prompts to start the next draft + pre-opens Link CRs modal for unlinked approved CRs
+- Link CRs modal: assign approved/closed CRs to a specific revision
 
-**Stage 5 ⬜** — Export:
-- Clean Excel for client (rooms as rows, features as columns)
-- Green ticks show ✓ + quantity
-- Amber ticks flagged differently
+### Change Log
+- All key actions logged to `change_log` with area, action, summary, user email, and CR reference if active
+- Viewable on Change Control → Change Log tab, filterable by area
 
 ---
 
 ## Pending Backlog (Priority Order)
-1. 🔄 Feature Matrix Stage 3 — cell click interaction + quantity + visual states
-2. ⬜ Feature Matrix Stage 4 — sync from placement
-3. ⬜ Feature Matrix Stage 5 — export
-4. ⬜ Zone Summary — add Power section (UPS Load vs Mains Load)
-5. ⬜ Specification section — core document builder (major feature)
-6. ⬜ Change Order Management
-7. ⬜ Export Centre — Word/PDF spec, CSV schedules
+
+1. ⬜ Specification section — core document builder (major feature, not started)
+2. ⬜ Export Centre — Word/PDF spec, formatted CSV/Excel schedules
+3. ⬜ Change Order Management — formal CO document flow (distinct from CR tracking)
 
 ---
 
@@ -147,7 +162,10 @@ Audio role drives show/hide of amp channel fields.
 - Pull from Library → modal (not navigate away); individual quickPullToProject also available
 - Layout & Zones consolidates Decks+Rooms+Rack Zones into one page with 3 tabs
 - Feature matrix: features are per-project, grouped by categories, rooms as rows, features as columns
-- Feature cells: tick + optional quantity; three states (green/amber/empty)
+- Feature cells: tick + optional quantity; three states (green/amber/empty); quantity-tracked features support double-click to edit quantity
 - Feature auto-tick: triggered by device type match in room (many device types per feature via feature_device_types table)
 - Sync fills empty cells only — manual ticks never overwritten
+- Change badges (Added/Modified/Removed) persist after CR approval — intentional historical record
+- Formal CRs = CR-### numbering; Internal changes = IC-### (separate sequences, avoids client confusion with gaps)
+- All confirm dialogs use custom openConfirm() modal — no native browser confirm() anywhere
 - File delivered as index.html for direct GitHub Pages deployment
