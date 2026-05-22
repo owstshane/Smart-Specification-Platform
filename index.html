@@ -1735,6 +1735,18 @@ function renderProjectInfo(){
     +divider
     +T('Integrators')+intHtml;
 
+  // Change Control stats row
+  const tileBase='cursor:pointer;padding:12px 16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;gap:12px;';
+  const tileIcon=(bg,col,svg)=>'<div style="width:32px;height:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:'+bg+';border-radius:var(--radius-sm);color:'+col+'">'+svg+'</div>';
+  const svgDoc='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>';
+  const svgCR='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+  const svgCheck='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>';
+  const ccStats='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">'
+    +'<div style="'+tileBase+'" onclick="showPage(\'change-control\')">'+tileIcon('var(--accent-light)','var(--accent)',svgDoc)+'<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Current Revision</div><div id="pv-cc-rev" style="font-size:15px;font-weight:700;margin-top:3px;color:var(--text-1)">—</div></div></div>'
+    +'<div style="'+tileBase+'" onclick="showPage(\'change-control\')"><div id="pv-cc-crs-icon" style="width:32px;height:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:var(--radius-sm);color:var(--text-2)">'+svgCR+'</div><div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Open Change Requests</div><div id="pv-cc-crs" style="font-size:15px;font-weight:700;margin-top:3px;color:var(--text-1)">—</div></div></div>'
+    +'<div style="'+tileBase+'" onclick="showPage(\'change-control\')">'+tileIcon('var(--surface2)','var(--text-2)',svgCheck)+'<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Last Issued Revision</div><div id="pv-cc-issued" style="font-size:15px;font-weight:700;margin-top:3px;color:var(--text-1)">—</div></div></div>'
+    +'</div>';
+
   // Grid — 3 cols, 2 rows, quick access spans rows
   const layout='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:0">'
     +'<div style="grid-column:1;grid-row:1;'+C+'">'+scopeInner+'</div>'
@@ -1744,7 +1756,7 @@ function renderProjectInfo(){
     +'<div style="grid-column:2;grid-row:2;'+C+'">'+teamIntInner+'</div>'
     +'</div>';
 
-  document.getElementById('project-info-content').innerHTML=banner+stats+layout;
+  document.getElementById('project-info-content').innerHTML=banner+stats+ccStats+layout;
   setTimeout(()=>{
     const g=id=>document.getElementById(id);
     if(g('sc-dr'))g('sc-dr').onclick=()=>showPage('decks-rooms');
@@ -1757,6 +1769,7 @@ function renderProjectInfo(){
     if(g('ps-zones'))g('ps-zones').onclick=()=>{showPage('decks-rooms');switchDeckRoomTab('zones');};
     if(g('ps-placed'))g('ps-placed').onclick=()=>{showPage('equipment');switchEquipTab('placed');};
     loadProjectStats(p.id);
+    loadCCStats(p.id);
     loadTeamMembers(p.id);
   },50);
 }
@@ -1775,6 +1788,47 @@ async function loadProjectStats(projectId){
     if(g('pv-types'))g('pv-types').textContent=peTypes.length;
     if(g('pv-placed'))g('pv-placed').textContent=placed.length;
   }catch(e){console.error('Stats error',e);}
+}
+
+async function loadCCStats(projectId){
+  try{
+    const g=id=>document.getElementById(id);
+    const [revs,crs]=await Promise.all([
+      dbGet('project_revisions','project_id=eq.'+projectId+'&order=created_at.desc'),
+      dbGet('change_requests','project_id=eq.'+projectId+'&select=id,status')
+    ]);
+    // Current revision — most recent draft, falling back to latest overall
+    const curRev=revs.find(r=>r.status==='draft')||revs[0];
+    if(g('pv-cc-rev')){
+      if(curRev){
+        const badge=curRev.status==='issued'
+          ?'<span style="margin-left:6px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;background:#dcfce7;color:#166534;text-transform:uppercase">Issued</span>'
+          :'<span style="margin-left:6px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;background:var(--surface2);color:var(--text-3);border:1px solid var(--border);text-transform:uppercase">Draft</span>';
+        g('pv-cc-rev').innerHTML=escHtml(curRev.revision_number)+badge;
+      }else{
+        g('pv-cc-rev').innerHTML='<span style="font-size:13px;color:var(--text-3);font-weight:400">None yet</span>';
+      }
+    }
+    // Open CRs — draft or submitted (not yet approved/rejected/closed)
+    const openCount=crs.filter(c=>['draft','submitted'].includes(c.status)).length;
+    if(g('pv-cc-crs')){
+      g('pv-cc-crs').textContent=openCount;
+      if(openCount>0){
+        g('pv-cc-crs').style.color='var(--red)';
+        if(g('pv-cc-crs-icon')){g('pv-cc-crs-icon').style.background='#fee2e2';g('pv-cc-crs-icon').style.color='var(--red)';}
+      }
+    }
+    // Last issued revision
+    const lastIssued=revs.find(r=>r.status==='issued');
+    if(g('pv-cc-issued')){
+      if(lastIssued){
+        const dateStr=lastIssued.issued_date?formatDate(lastIssued.issued_date):'';
+        g('pv-cc-issued').innerHTML='<span style="color:var(--green,#2a7a4b)">'+escHtml(lastIssued.revision_number)+'</span>'+(dateStr?'<span style="font-size:11px;font-weight:400;color:var(--text-3);margin-left:8px">'+dateStr+'</span>':'');
+      }else{
+        g('pv-cc-issued').innerHTML='<span style="font-size:13px;color:var(--text-3);font-weight:400">None yet</span>';
+      }
+    }
+  }catch(e){console.error('CC stats error',e);}
 }
 
 // ── SCOPE OF WORK ──
