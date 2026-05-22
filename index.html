@@ -262,6 +262,13 @@
   .zs-stat-value { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.2; }
   .zs-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-top: 3px; }
 
+  /* ACTIVE CR BANNER */
+  .active-cr-banner { display: flex; align-items: center; gap: 10px; background: #92400e; color: #fff; border-radius: var(--radius); padding: 9px 14px; margin-bottom: 20px; font-size: 12px; font-weight: 500; }
+  .active-cr-banner svg { flex-shrink: 0; opacity: 0.8; }
+  .active-cr-banner strong { font-weight: 700; }
+  .active-cr-banner .acr-stop { margin-left: auto; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 4px; padding: 3px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .active-cr-banner .acr-stop:hover { background: rgba(0,0,0,0.4); }
+
   /* CHANGE CONTROL */
   .cc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
   .cc-stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow-sm); text-align: center; }
@@ -492,6 +499,9 @@
       </div>
     </header>
     <div class="content">
+
+      <!-- ACTIVE CR BANNER -->
+      <div id="active-cr-banner" class="active-cr-banner" style="display:none"></div>
 
       <!-- DASHBOARD -->
       <div id="page-dashboard">
@@ -1377,7 +1387,7 @@ let projectProducts=[], productModalMode='global'; // 'global' or 'project'
 let pgpItems=[], pgpPulledIds=new Set(), pgpActiveType='all';
 let selectingProductForPeId=null, editingSgId=null, editingDcId=null;
 let currentUser=null, ieImportData=null, ieImportOption='add';
-let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null;
+let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null, activeCRId=null;
 
 // ── UTILS ──
 function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1504,6 +1514,8 @@ function showPage(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+page).classList.remove('hidden');
   if(navIds[page])document.getElementById(navIds[page]).classList.add('active');
+  // Re-show active CR banner on every page (it's above all pages in the DOM)
+  if(activeCRId&&ccCRs.length)showActiveCRBanner();
   document.querySelector('.main')?.scrollTo(0,0);
   window.scrollTo(0,0);
   const[title,sub]=titles[page]||[page,''];
@@ -1915,11 +1927,11 @@ async function saveDeck(){
   const order=parseInt(document.getElementById('fd-order').value),deckId=document.getElementById('fd-id').value.trim().toUpperCase(),name=document.getElementById('fd-name').value.trim();
   if(!order){showToast('Please enter a deck number','error');return;}if(!deckId){showToast('Please enter a deck ID','error');return;}if(!name){showToast('Please enter a deck name','error');return;}
   const btn=document.getElementById('deck-save-btn');btn.textContent='Saving…';btn.disabled=true;
-  try{if(editingDeckId){await dbUpdate('decks',editingDeckId,{deck_order:order,deck_id:deckId,name});showToast('Deck updated','success');}else{await dbInsert('decks',{deck_order:order,deck_id:deckId,name,project_id:currentProject.id});showToast('Deck added','success');}closeDeckModal();loadDecks();}
+  try{if(editingDeckId){await dbUpdate('decks',editingDeckId,{deck_order:order,deck_id:deckId,name});showToast('Deck updated','success');logChange('layout','updated','Updated deck: '+name+' ('+deckId+')');}else{await dbInsert('decks',{deck_order:order,deck_id:deckId,name,project_id:currentProject.id});showToast('Deck added','success');logChange('layout','added','Added deck: '+name+' ('+deckId+')');}closeDeckModal();loadDecks();}
   catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent=editingDeckId?'Save Changes':'Save Deck';btn.disabled=false;}
 }
-function confirmDeleteDeck(id,name){openConfirm('Delete Deck','Delete "'+name+'"? All rooms on this deck will also be removed.',async()=>{try{await dbDelete('decks',id);showToast('Deck deleted','success');loadDecks();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+function confirmDeleteDeck(id,name){openConfirm('Delete Deck','Delete "'+name+'"? All rooms on this deck will also be removed.',async()=>{try{await dbDelete('decks',id);showToast('Deck deleted','success');logChange('layout','removed','Removed deck: '+name);loadDecks();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
 
 // ── ROOMS ──
 async function loadRooms(){
@@ -1980,11 +1992,11 @@ async function saveRoom(){
   if(!deckId){showToast('Please select a deck','error');return;}if(!num){showToast('Please enter a room number','error');return;}if(!name){showToast('Please enter a room name','error');return;}
   const payload={deck_id:deckId,room_number:num,room_id:document.getElementById('fr-id').value.trim().toUpperCase()||null,name,position:document.getElementById('fr-position').value||null,frame_number:document.getElementById('fr-frame').value.trim()||null,notes:document.getElementById('fr-notes').value.trim()||null};
   const btn=document.getElementById('room-save-btn');btn.textContent='Saving…';btn.disabled=true;
-  try{if(editingRoomId){await dbUpdate('rooms',editingRoomId,payload);showToast('Room updated','success');}else{await dbInsert('rooms',payload);showToast('Room added','success');}closeRoomModal();loadRooms();}
+  try{if(editingRoomId){await dbUpdate('rooms',editingRoomId,payload);showToast('Room updated','success');logChange('rooms','updated','Updated room: '+name);}else{const deck=currentDecks.find(d=>d.id===deckId);await dbInsert('rooms',payload);showToast('Room added','success');logChange('rooms','added','Added room: '+name+(deck?' on '+deck.name:''));}closeRoomModal();loadRooms();}
   catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent=editingRoomId?'Save Changes':'Save Room';btn.disabled=false;}
 }
-function confirmDeleteRoom(id,name){openConfirm('Delete Room','Delete "'+name+'"? This cannot be undone.',async()=>{try{await dbDelete('rooms',id);showToast('Room deleted','success');loadRooms();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+function confirmDeleteRoom(id,name){openConfirm('Delete Room','Delete "'+name+'"? This cannot be undone.',async()=>{try{await dbDelete('rooms',id);showToast('Room deleted','success');logChange('rooms','removed','Removed room: '+name);loadRooms();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
 
 // ── RACK ZONES ──
 async function loadRackZones(){
@@ -2028,11 +2040,11 @@ async function saveZone(){
   if(!zoneId){showToast('Please enter a zone ID','error');return;}if(!name){showToast('Please enter a zone name','error');return;}
   const payload={zone_id:zoneId,name,colour:document.getElementById('fz-colour').value,rack_count:parseInt(document.getElementById('fz-rack-count').value)||1,rack_room_id:document.getElementById('fz-rack-room').value||null,notes:document.getElementById('fz-notes').value.trim()||null,project_id:currentProject.id};
   const btn=document.getElementById('zone-save-btn');btn.textContent='Saving…';btn.disabled=true;
-  try{if(editingZoneId){await dbUpdate('rack_zones',editingZoneId,payload);showToast('Zone updated','success');}else{await dbInsert('rack_zones',payload);showToast('Zone added','success');}closeZoneModal();loadRackZones();}
+  try{if(editingZoneId){await dbUpdate('rack_zones',editingZoneId,payload);showToast('Zone updated','success');logChange('zones','updated','Updated rack zone: '+name+' ('+zoneId+')');}else{await dbInsert('rack_zones',payload);showToast('Zone added','success');logChange('zones','added','Added rack zone: '+name+' ('+zoneId+')');}closeZoneModal();loadRackZones();}
   catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent=editingZoneId?'Save Changes':'Save Zone';btn.disabled=false;}
 }
-function confirmDeleteZone(id,name){openConfirm('Delete Zone','Delete zone "'+name+'"? Rooms will be unassigned but not deleted.',async()=>{try{await dbDelete('rack_zones',id);showToast('Zone deleted','success');loadRackZones();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+function confirmDeleteZone(id,name){openConfirm('Delete Zone','Delete zone "'+name+'"? Rooms will be unassigned but not deleted.',async()=>{try{await dbDelete('rack_zones',id);showToast('Zone deleted','success');logChange('zones','removed','Removed rack zone: '+name);loadRackZones();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
 function openAssignModal(zoneId){
   assigningZoneId=zoneId;const z=currentZones.find(z=>z.id===zoneId);if(!z)return;
   document.getElementById('assign-modal-title').textContent='Assign Rooms — '+z.name;
@@ -4508,6 +4520,7 @@ async function quickPullToProject(globalId){
   try{
     await dbInsert('project_equipment',{project_id:currentProject.id,global_equipment_id:globalId,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,poe_budget_watts:d.poe_budget_watts||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,power_watts:d.power_watts||null,ups_protected:d.ups_protected||false,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'});
     showToast(d.device_type_id+' added to project','success');
+    logChange('equipment','added','Pulled '+d.device_type_id+' to Project Library');
     projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
     renderGlobalLibrary();
   }catch(e){showToast('Could not pull: '+e.message,'error');}
@@ -4583,6 +4596,7 @@ async function confirmPullFromLibrary(){
     }
     const count=pglItems.length;
     showToast(count+' device type'+(count!==1?'s':'')+' pulled to project','success');
+    logChange('equipment','added','Pulled '+count+' device type'+(count!==1?'s':'')+' to Project Library: '+pglItems.map(i=>i.typeId).join(', '));
     closePullLibraryModal();
     projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
     renderProjectEquipment();
@@ -4689,11 +4703,12 @@ async function savePeItem(){
       spk_watts:parseFloat(document.getElementById('pe-spk-watts').value)||null,
       comments:document.getElementById('pe-comments').value.trim()||null
     });
-    showToast('Updated','success');closePeModal();loadProjectEquipment();
+    const typeId=document.getElementById('pe-type-id').value.trim().toUpperCase()||'device';
+    showToast('Updated','success');logChange('equipment','updated','Updated '+typeId+' in Project Library');closePeModal();loadProjectEquipment();
   }catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent='Save Changes';btn.disabled=false;}
 }
-function confirmDeletePe(id,name){openConfirm('Remove Equipment','Remove "'+name+'" from this project?',async()=>{try{await dbDelete('project_equipment',id);showToast('Removed','success');loadProjectEquipment();}catch(e){showToast('Could not remove: '+e.message,'error');}});}
+function confirmDeletePe(id,name){openConfirm('Remove Equipment','Remove "'+name+'" from this project?',async()=>{try{await dbDelete('project_equipment',id);showToast('Removed','success');logChange('equipment','removed','Removed '+name+' from Project Library');loadProjectEquipment();}catch(e){showToast('Could not remove: '+e.message,'error');}});}
 let activePlacedDeckFilter='all';
 async function loadPlacedEquipment(){
   document.getElementById('placed-equipment-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
@@ -4795,7 +4810,7 @@ function renderPlacedEquipment(){
   }
   c.innerHTML='<div class="equip-table"><table>'+thead+'<tbody>'+rows+'</tbody></table></div>';
 }
-function confirmDeletePlaced(id,name){openConfirm('Remove Placement','Remove device "'+name+'" from its location?',async()=>{try{await dbDelete('equipment_instances',id);showToast('Removed','success');loadPlacedEquipment();}catch(e){showToast('Could not remove: '+e.message,'error');}});}
+function confirmDeletePlaced(id,name){openConfirm('Remove Placement','Remove device "'+name+'" from its location?',async()=>{try{await dbDelete('equipment_instances',id);showToast('Removed','success');logChange('equipment','removed','Removed device '+name+' from schedule');loadPlacedEquipment();}catch(e){showToast('Could not remove: '+e.message,'error');}});}
 let plItems=[], plActiveGroup='all', plAlreadyPlaced=[];
 
 async function openPlaceModal(){
@@ -4952,7 +4967,9 @@ async function savePlacement(){
       }
     }
     const total=plItems.reduce((s,i)=>s+i.quantity,0);
+    const locName=locType==='room'?(currentRooms.find(r=>r.id===locId)||{}).name||locId:(currentZones.find(z=>z.id===locId)||{}).name||locId;
     showToast(total+' device'+(total!==1?'s':'')+' added to schedule','success');
+    logChange('equipment','added','Placed '+total+' device'+(total!==1?'s':'')+' in '+(locType==='room'?'room':'rack zone')+': '+locName+' ('+plItems.map(i=>i.typeId||i.peId).join(', ')+')');
     closePlaceModal();
     loadPlacedEquipment();
   }catch(e){showToast('Could not save: '+e.message,'error');}
@@ -5068,6 +5085,9 @@ async function onLoginSuccess(){
   showPage('dashboard');
 }
 async function init(){
+  // Restore active CR from session (survives page refresh, cleared on tab close)
+  const savedCRId=sessionStorage.getItem('activeCRId');
+  if(savedCRId)activeCRId=savedCRId;
   document.getElementById('login-overlay').style.display='flex';
   setConn('checking');
   const email=await tryRestoreSession();
@@ -5089,6 +5109,7 @@ async function loadChangeControl(){
     ccRevisions=await dbGet('project_revisions','project_id=eq.'+currentProject.id+'&order=created_at.desc');
     ccLog=await dbGet('change_log','project_id=eq.'+currentProject.id+'&order=created_at.desc&limit=200');
     renderCCStats();
+    if(activeCRId)showActiveCRBanner();
     if(activeCCTab==='crs')renderCRs();
     else if(activeCCTab==='revisions')renderRevisions();
     else renderChangeLog();
@@ -5186,7 +5207,13 @@ function renderCRs(){
         }
       }
       // Action buttons
-      detail+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+      detail+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+      const isActive=activeCRId===cr.id;
+      if(!['closed','rejected'].includes(cr.status)){
+        if(isActive)detail+='<button class="btn btn-sm" style="background:#92400e;color:#fff;border:none" onclick="clearActiveCR()">&#9632; Stop logging to this CR</button>';
+        else detail+='<button class="btn btn-secondary btn-sm" onclick="setActiveCR(\''+cr.id+'\')">&#9654; Work under this CR</button>';
+      }
+      if(['closed','rejected'].includes(cr.status))detail+='<button class="btn btn-secondary btn-sm" onclick="reopenCR(\''+cr.id+'\')">Re-open</button>';
       if(cr.status==='approved')detail+='<button class="btn btn-primary btn-sm" onclick="closeCR(\''+cr.id+'\')">Close CR</button>';
       if(!['closed','rejected'].includes(cr.status))detail+='<button class="btn btn-secondary btn-sm" onclick="rejectCR(\''+cr.id+'\')">Reject</button>';
       detail+='<button class="btn btn-secondary btn-sm" onclick="deleteCR(\''+cr.id+'\')">Delete</button>';
@@ -5203,8 +5230,10 @@ function renderCRs(){
       }
       detail+='</div>';
     }
-    return '<div class="cc-cr-card">'
+    const isActiveCR=activeCRId===cr.id;
+    return '<div class="cc-cr-card" style="'+(isActiveCR?'border-color:#92400e;box-shadow:0 0 0 2px #92400e33':'')+'">'
       +'<div class="cc-cr-header" onclick="toggleCRExpand(\''+cr.id+'\')">'
+      +(isActiveCR?'<span style="font-size:10px;font-weight:700;background:#92400e;color:#fff;padding:2px 7px;border-radius:3px;white-space:nowrap">&#9654; ACTIVE</span>':'')
       +'<span class="cc-cr-num">'+escHtml(cr.cr_number)+'</span>'
       +'<span class="cc-cr-title">'+escHtml(cr.title)+'</span>'
       +'<span class="cc-badge cc-badge-'+cr.type+'">'+cr.type+'</span>'
@@ -5356,9 +5385,10 @@ function renderChangeLog(){
 
 async function logChange(area,action,summary,crId=null){
   if(!currentProject)return;
+  const useCrId=crId||activeCRId||null;
   try{
     const entry={project_id:currentProject.id,area,action,summary};
-    if(crId)entry.cr_id=crId;
+    if(useCrId)entry.cr_id=useCrId;
     if(currentUser?.email)entry.changed_by=currentUser.email;
     await dbInsert('change_log',entry);
     if(currentPage==='change-control'&&activeCCTab==='log'){
@@ -5366,6 +5396,38 @@ async function logChange(area,action,summary,crId=null){
       renderChangeLog();
     }
   }catch(e){console.warn('logChange failed:',e.message);}
+}
+
+function setActiveCR(id){
+  activeCRId=id;
+  sessionStorage.setItem('activeCRId',id);
+  showActiveCRBanner();
+  renderCRs();
+}
+function clearActiveCR(){
+  activeCRId=null;
+  sessionStorage.removeItem('activeCRId');
+  const b=document.getElementById('active-cr-banner');
+  if(b)b.style.display='none';
+  if(currentPage==='change-control')renderCRs();
+}
+function showActiveCRBanner(){
+  const b=document.getElementById('active-cr-banner');
+  if(!b)return;
+  const cr=ccCRs.find(c=>c.id===activeCRId);
+  if(!cr){b.style.display='none';return;}
+  b.style.display='flex';
+  b.innerHTML='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
+    +'<span>Logging changes to <strong>'+escHtml(cr.cr_number)+'</strong> — '+escHtml(cr.title)+'</span>'
+    +'<button class="acr-stop" onclick="clearActiveCR()">Stop logging</button>';
+}
+async function reopenCR(id){
+  if(!confirm('Re-open this CR? It will return to Draft status.'))return;
+  try{
+    await dbUpdate('change_requests',id,{status:'draft'});
+    await loadChangeControl();
+    showToast('CR re-opened','success');
+  }catch(e){showToast('Failed: '+e.message,'error');}
 }
 
 // ── EVENT LISTENERS ──
