@@ -4872,8 +4872,7 @@ function renderPlacedEquipment(){
   if(!items.length&&!removedCount){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No equipment in schedule yet</div><div class="empty-state-text">Use the Add to Schedule button to assign equipment to rooms or rack zones.</div></div>';return;}
   if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No active items</div><div class="empty-state-text">'+removedCount+' removed item'+(removedCount!==1?'s are':' is')+' hidden. Click Show Removed to view.</div></div>';return;}
   const thead='<thead><tr><th>Device ID</th><th>Type</th><th>Description</th><th>Make</th><th>Model</th><th>Location</th><th>Install</th><th>LAN</th><th>PoE</th><th>PoE Type</th><th>Spk Ch</th><th>Spk W</th><th>Pwr W</th><th>Status</th><th></th></tr></thead>';
-  const gapRow='<tr><td colspan="15" style="height:16px;background:var(--bg);padding:0;border:none"></td></tr>';
-  const groupRow=label=>'<tr><td colspan="15" style="background:var(--surface2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2);padding:8px 14px;border-top:1px solid var(--border-strong)">'+label+'</td></tr>';
+  const groupRow=label=>'<tr><td colspan="15" style="background:#e4e6eb;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2);padding:8px 14px;border-top:1px solid var(--border-strong)">'+label+'</td></tr>';
   const dash='<span style="color:var(--text-3)">—</span>';
   const itemRow=p=>{
     const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
@@ -4912,7 +4911,6 @@ function renderPlacedEquipment(){
       if(!zItems.length)return;
       rows+=groupRow(escHtml(z.name));
       rows+=zItems.map(itemRow).join('');
-      rows+=gapRow;
     });
   } else if(activePlacedDeckFilter==='all'){
     // Zone items first
@@ -4931,8 +4929,7 @@ function renderPlacedEquipment(){
         if(!rItems.length)return;
         rows+=groupRow(escHtml(d.name)+' — '+escHtml(room.name)+(room.room_number?' #'+room.room_number:''));
         rows+=rItems.map(itemRow).join('');
-        rows+=gapRow;
-      });
+        });
     });
   } else {
     // Single deck — group by room
@@ -4942,7 +4939,6 @@ function renderPlacedEquipment(){
       if(!rItems.length)return;
       rows+=groupRow(escHtml(room.name)+(room.room_number?' #'+room.room_number:''));
       rows+=rItems.map(itemRow).join('');
-      rows+=gapRow;
     });
   }
   c.innerHTML='<div class="equip-table"><table>'+thead+'<tbody>'+rows+'</tbody></table></div>';
