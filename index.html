@@ -212,7 +212,7 @@
   /* EQUIPMENT TABLES */
   .equip-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; box-shadow: var(--shadow-sm); -webkit-overflow-scrolling: touch; }
   .equip-table table { min-width: 500px; width: 100%; border-collapse: collapse; font-size: 12px; }
-  .equip-table th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-2); background: var(--surface2); border-bottom: 2px solid var(--accent); white-space: nowrap; cursor: pointer; user-select: none; }
+  .equip-table th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-2); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
   .equip-table th:hover { color: var(--accent); }
   .equip-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
   .equip-table tr:last-child td { border-bottom: none; }
@@ -2238,13 +2238,13 @@ function renderFeatureMatrix(){
   // Build grid
   let html='<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:100%;font-size:12px">';
   // Category header row
-  html+='<thead><tr><th style="position:sticky;left:0;z-index:2;background:var(--surface2);border:1px solid var(--border);padding:8px 12px;text-align:left;min-width:160px;color:var(--text-2)">Room</th>';
+  html+='<thead><tr><th style="position:sticky;left:0;z-index:2;background:#e4e6eb;border:1px solid var(--border);padding:8px 12px;text-align:left;min-width:160px;color:var(--text-2)">Room</th>';
   fmCategories.forEach(cat=>{
     const catFeatures=fmFeatures.filter(f=>f.category_id===cat.id);
     if(!catFeatures.length)return;
-    html+='<th colspan="'+catFeatures.length+'" style="background:#eef0f3;color:var(--text-2);border:1px solid var(--border);padding:6px 10px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid var(--accent)">'+escHtml(cat.name)+'</th>';
+    html+='<th colspan="'+catFeatures.length+'" style="background:#e4e6eb;color:var(--text-2);border:1px solid var(--border);padding:6px 10px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em">'+escHtml(cat.name)+'</th>';
   });
-  if(uncatFeatures.length)html+='<th colspan="'+uncatFeatures.length+'" style="background:var(--surface2);border:1px solid var(--border);padding:6px 10px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">Other</th>';
+  if(uncatFeatures.length)html+='<th colspan="'+uncatFeatures.length+'" style="background:#e4e6eb;border:1px solid var(--border);padding:6px 10px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">Other</th>';
   html+='</tr>';
   // Feature name row — use orderedFeatures to match colspan grouping above
   html+='<tr><th style="position:sticky;left:0;z-index:2;background:var(--surface2);border:1px solid var(--border);padding:6px 12px"></th>';
@@ -4022,9 +4022,9 @@ function renderRoomMatrix(){
   let html='<div style="overflow:auto;max-height:calc(100vh - 220px);width:100%;-webkit-overflow-scrolling:touch"><table class="rm-matrix-table"><thead>';
   // Row 1 — system group headers (sticky top:0)
   html+='<tr>';
-  html+='<th style="position:sticky;top:0;left:0;z-index:5;background:var(--surface2);padding:5px 12px;min-width:170px;text-align:left;font-size:11px;font-weight:700;color:var(--text-2)">Room</th>';
+  html+='<th style="position:sticky;top:0;left:0;z-index:5;background:#e4e6eb;padding:5px 12px;min-width:170px;text-align:left;font-size:11px;font-weight:700;color:var(--text-2)">Room</th>';
   groupSpans.forEach(g=>{
-    html+='<th colspan="'+g.count+'" style="position:sticky;top:0;z-index:4;background:#eef0f3;color:var(--text-2);padding:5px 8px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid var(--accent)">'+escHtml(g.name)+'</th>';
+    html+='<th colspan="'+g.count+'" style="position:sticky;top:0;z-index:4;background:#e4e6eb;color:var(--text-2);padding:5px 8px;text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.08em">'+escHtml(g.name)+'</th>';
   });
   html+='</tr>';
   // Row 2 — device type headers (sticky top:r2top, draggable)
@@ -4032,7 +4032,7 @@ function renderRoomMatrix(){
   html+='<th style="position:sticky;top:'+r2top+'px;left:0;z-index:5;background:var(--surface2);padding:4px 12px;font-size:10px;color:var(--text-3)">drag cols ↔</th>';
   types.forEach(t=>{
     const tid=t.device_type_id;
-    html+='<th draggable="true" ondragstart="rmDragColStart(event,\''+escHtml(tid)+'\')" ondragover="rmDragColOver(event,\''+escHtml(tid)+'\')" ondragleave="rmDragColLeave(event)" ondrop="rmDropCol(event,\''+escHtml(tid)+'\')" ondragend="rmDragColEnd()" style="position:sticky;top:'+r2top+'px;z-index:4;cursor:grab;padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2);border-bottom:2px solid var(--accent)" title="'+escHtml(tid)+' — '+escHtml(t.description)+' (drag to reorder)">'+escHtml(tid)+'</th>';
+    html+='<th draggable="true" ondragstart="rmDragColStart(event,\''+escHtml(tid)+'\')" ondragover="rmDragColOver(event,\''+escHtml(tid)+'\')" ondragleave="rmDragColLeave(event)" ondrop="rmDropCol(event,\''+escHtml(tid)+'\')" ondragend="rmDragColEnd()" style="position:sticky;top:'+r2top+'px;z-index:4;cursor:grab;padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)" title="'+escHtml(tid)+' — '+escHtml(t.description)+' (drag to reorder)">'+escHtml(tid)+'</th>';
   });
   html+='</tr></thead><tbody>';
   // Room rows, grouped by deck (only decks that have visible rooms after filtering)
@@ -4872,7 +4872,8 @@ function renderPlacedEquipment(){
   if(!items.length&&!removedCount){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No equipment in schedule yet</div><div class="empty-state-text">Use the Add to Schedule button to assign equipment to rooms or rack zones.</div></div>';return;}
   if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No active items</div><div class="empty-state-text">'+removedCount+' removed item'+(removedCount!==1?'s are':' is')+' hidden. Click Show Removed to view.</div></div>';return;}
   const thead='<thead><tr><th>Device ID</th><th>Type</th><th>Description</th><th>Make</th><th>Model</th><th>Location</th><th>Install</th><th>LAN</th><th>PoE</th><th>PoE Type</th><th>Spk Ch</th><th>Spk W</th><th>Pwr W</th><th>Status</th><th></th></tr></thead>';
-  const groupRow=label=>'<tr><td colspan="15" style="background:#eef0f3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2);padding:8px 14px;border-left:3px solid var(--accent);border-top:1px solid var(--border)">'+label+'</td></tr>';
+  const gapRow='<tr><td colspan="15" style="height:8px;background:var(--bg);padding:0;border:none"></td></tr>';
+  const groupRow=label=>'<tr><td colspan="15" style="background:var(--surface2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2);padding:8px 14px;border-top:1px solid var(--border-strong)">'+label+'</td></tr>';
   const dash='<span style="color:var(--text-3)">—</span>';
   const itemRow=p=>{
     const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
@@ -4911,6 +4912,7 @@ function renderPlacedEquipment(){
       if(!zItems.length)return;
       rows+=groupRow(escHtml(z.name));
       rows+=zItems.map(itemRow).join('');
+      rows+=gapRow;
     });
   } else if(activePlacedDeckFilter==='all'){
     // Zone items first
@@ -4918,7 +4920,7 @@ function renderPlacedEquipment(){
     if(zoneItems.length){
       currentZones.forEach(z=>{
         const zItems=zoneItems.filter(p=>p.rack_zone_id===z.id);
-        if(zItems.length){rows+=groupRow('Zone: '+escHtml(z.name));rows+=zItems.map(itemRow).join('');}
+        if(zItems.length){rows+=groupRow('Zone: '+escHtml(z.name));rows+=zItems.map(itemRow).join('');rows+=gapRow;}
       });
     }
     // Then by deck → room
@@ -4929,6 +4931,7 @@ function renderPlacedEquipment(){
         if(!rItems.length)return;
         rows+=groupRow(escHtml(d.name)+' — '+escHtml(room.name)+(room.room_number?' #'+room.room_number:''));
         rows+=rItems.map(itemRow).join('');
+        rows+=gapRow;
       });
     });
   } else {
@@ -4939,6 +4942,7 @@ function renderPlacedEquipment(){
       if(!rItems.length)return;
       rows+=groupRow(escHtml(room.name)+(room.room_number?' #'+room.room_number:''));
       rows+=rItems.map(itemRow).join('');
+      rows+=gapRow;
     });
   }
   c.innerHTML='<div class="equip-table"><table>'+thead+'<tbody>'+rows+'</tbody></table></div>';
