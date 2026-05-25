@@ -752,7 +752,7 @@
           <button class="section-tab" id="tab-btn-proj-catalogue" onclick="switchEquipTab('proj-catalogue')">Product Catalogue</button>
           <button class="section-tab" id="tab-btn-templates" onclick="switchEquipTab('templates')">Room Templates</button>
         </div>
-        <div id="equip-project-tab">
+        <div id="equip-project-tab" class="hidden">
           <div class="toolbar">
             <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pe-search" placeholder="Search project equipment…" oninput="renderProjectEquipment()"></div>
             <select id="pe-filter-group" onchange="renderProjectEquipment()" style="width:auto;padding:8px 11px"><option value="">All systems</option></select>
@@ -769,7 +769,7 @@
           </div>
           <div id="proj-catalogue-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
         </div>
-        <div id="equip-placed-tab" class="hidden">
+        <div id="equip-placed-tab">
           <div class="toolbar">
             <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="pl-search" placeholder="Search placed equipment…" oninput="renderPlacedEquipment()"></div>
             <button id="pl-show-removed-btn" class="btn btn-secondary btn-sm" onclick="toggleShowRemoved()" style="display:none">Show Removed</button>
@@ -3712,7 +3712,7 @@ async function selectProduct(productId){
 }
 
 // ── PROJECT EQUIPMENT ──
-async function loadEquipmentPage(){updateEquipBtn();if(activeEquipTab==='project')await loadProjectEquipment();else if(activeEquipTab==='placed')await loadPlacedEquipment();else if(activeEquipTab==='zone-summary')await loadZoneSummary();else await loadRoomTemplates();}
+function loadEquipmentPage(){switchEquipTab(activeEquipTab);}
 function switchEquipTab(tab){
   activeEquipTab=tab;
   document.getElementById('equip-project-tab').classList.toggle('hidden',tab!=='project');
