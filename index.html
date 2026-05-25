@@ -744,11 +744,11 @@
       <!-- EQUIPMENT -->
       <div id="page-equipment" class="hidden">
         <div class="section-tabs">
-          <button class="section-tab active" id="tab-btn-proj-eq" onclick="switchEquipTab('project')">Project Library</button>
-          <button class="section-tab" id="tab-btn-proj-catalogue" onclick="switchEquipTab('proj-catalogue')">Project Catalogue</button>
-          <button class="section-tab" id="tab-btn-placed" onclick="switchEquipTab('placed')">Equipment Schedule</button>
+          <button class="section-tab active" id="tab-btn-placed" onclick="switchEquipTab('placed')">Equipment Schedule</button>
           <button class="section-tab" id="tab-btn-room-matrix" onclick="switchEquipTab('room-matrix')">Equipment Matrix</button>
           <button class="section-tab" id="tab-btn-zone-summary" onclick="switchEquipTab('zone-summary')">Zone Summary</button>
+          <button class="section-tab" id="tab-btn-proj-eq" onclick="switchEquipTab('project')">Project Library</button>
+          <button class="section-tab" id="tab-btn-proj-catalogue" onclick="switchEquipTab('proj-catalogue')">Project Catalogue</button>
           <button class="section-tab" id="tab-btn-templates" onclick="switchEquipTab('templates')">Room Templates</button>
         </div>
         <div id="equip-project-tab">
@@ -1394,7 +1394,7 @@ let allProjects=[], currentProject=null, editingProjectId=null;
 let currentDecks=[], currentRooms=[], editingDeckId=null, editingRoomId=null;
 let currentZones=[], editingZoneId=null, assigningZoneId=null;
 let activeRoomFilter='all', roomSortCol='room_number', roomSortDir='asc';
-let activeDeckRoomTab='decks', activeEquipTab='project', activeSgTab='groups', currentPage='dashboard';
+let activeDeckRoomTab='decks', activeEquipTab='placed', activeSgTab='groups', currentPage='dashboard';
 let globalLibrary=[], projectEquipment=[], placedEquipment=[], globalProducts=[];
 let systemGroups=[], deviceCategories=[];
 let editingGlobalId=null, editingPeId=null, editingProductId=null, editingPlaceId=null;
