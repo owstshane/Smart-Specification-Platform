@@ -792,9 +792,10 @@
           <div class="toolbar">
             <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="rm-search" placeholder="Search rooms…" oninput="renderRoomMatrix()"></div>
             <div class="search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="rm-search-type" placeholder="Search device types…" oninput="renderRoomMatrix()"></div>
-            <select id="rm-filter-deck" onchange="renderRoomMatrix()" style="width:auto;padding:8px 11px"><option value="">All decks</option></select>
+            <select id="rm-filter-deck" onchange="rmShowAllCols=false;renderRoomMatrix()" style="width:auto;padding:8px 11px"><option value="">All decks</option></select>
             <select id="rm-filter-group" onchange="renderRoomMatrix()" style="width:auto;padding:8px 11px"><option value="">All systems</option></select>
             <span style="font-size:11px;color:var(--text-3)" id="rm-summary"></span>
+            <button class="btn btn-secondary btn-sm" id="rm-cols-toggle" onclick="rmShowAllCols=!rmShowAllCols;renderRoomMatrix()">Show all columns</button>
             <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="exportEquipmentMatrix()"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
           </div>
           <div id="room-matrix-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
@@ -3942,7 +3943,7 @@ async function pullSelectedGlobalProducts(){
 }
 
 // ── ROOM MATRIX ──
-let rmInstances=[], rmTypeDetails=[], rmDragTypeId=null;
+let rmInstances=[], rmTypeDetails=[], rmDragTypeId=null, rmShowAllCols=false;
 
 async function loadRoomMatrix(){
   const c=document.getElementById('room-matrix-container');
@@ -3990,14 +3991,6 @@ function renderRoomMatrix(){
   let types=filterGroup?rmTypeDetails.filter(t=>t.system_group===filterGroup):rmTypeDetails;
   if(rmTypeQ)types=types.filter(t=>(t.device_type_id||'').toLowerCase().includes(rmTypeQ)||(t.description||'').toLowerCase().includes(rmTypeQ));
   if(!types.length){c.innerHTML='<div class="empty-state"><div class="empty-state-title">No device types match</div><div class="empty-state-text">Try adjusting the system group or device type search.</div></div>';return;}
-  // Build group header spans
-  const groupSpans=[];let lastGroup=null,spanCount=0;
-  types.forEach((t,i)=>{
-    const g=t.system_group||'Other';
-    if(g!==lastGroup){if(lastGroup!==null)groupSpans.push({name:lastGroup,count:spanCount});lastGroup=g;spanCount=1;}
-    else spanCount++;
-    if(i===types.length-1)groupSpans.push({name:lastGroup,count:spanCount});
-  });
   // Build instance lookup: room_id|device_type_id → total qty
   const instMap={};
   rmInstances.forEach(i=>{
@@ -4012,10 +4005,24 @@ function renderRoomMatrix(){
     (!filterDeck||r.deck_id===filterDeck)&&
     (!rmQ||r.name.toLowerCase().includes(rmQ))
   );
-  const totalCols=types.length;
-  const sumEl=document.getElementById('rm-summary');
-  if(sumEl)sumEl.textContent=rooms.length+' room'+(rooms.length!==1?'s':'')+' \xb7 '+totalCols+' device type'+(totalCols!==1?'s':'');
   if(!rooms.length){c.innerHTML='<div class="empty-state"><div class="empty-state-title">No rooms match</div><div class="empty-state-text">Try adjusting the search or deck filter.</div></div>';return;}
+  // Filter columns to only those with placements in visible rooms (unless showing all)
+  const displayTypes=rmShowAllCols?types:types.filter(t=>rooms.some(r=>(instMap[r.id+'|'+t.device_type_id]||0)>0));
+  const hiddenCount=types.length-displayTypes.length;
+  // Update summary and toggle button
+  const sumEl=document.getElementById('rm-summary');
+  if(sumEl)sumEl.textContent=rooms.length+' room'+(rooms.length!==1?'s':'')+' \xb7 '+displayTypes.length+' device type'+(displayTypes.length!==1?'s':'')+(hiddenCount?' \xb7 '+hiddenCount+' empty hidden':'');
+  const toggleBtn=document.getElementById('rm-cols-toggle');
+  if(toggleBtn)toggleBtn.textContent=rmShowAllCols?'Active columns only':'Show all columns';
+  if(!displayTypes.length){c.innerHTML='<div class="empty-state"><div class="empty-state-title">No placements in this view</div><div class="empty-state-text">No device types are placed in the selected rooms. Click "Show all columns" to see all types.</div></div>';return;}
+  // Build group header spans from displayTypes
+  const groupSpans=[];let lastGroup=null,spanCount=0;
+  displayTypes.forEach((t,i)=>{
+    const g=t.system_group||'Other';
+    if(g!==lastGroup){if(lastGroup!==null)groupSpans.push({name:lastGroup,count:spanCount});lastGroup=g;spanCount=1;}
+    else spanCount++;
+    if(i===displayTypes.length-1)groupSpans.push({name:lastGroup,count:spanCount});
+  });
   // Sticky row heights — row1 ≈ 29px (5px pad top/bottom + ~19px line), row2 ≈ 27px
   const r1h=29,r2top=r1h;
   // Render table — overflow:auto + max-height enables both sticky axes simultaneously
@@ -4030,7 +4037,7 @@ function renderRoomMatrix(){
   // Row 2 — device type headers (sticky top:r2top, draggable)
   html+='<tr>';
   html+='<th style="position:sticky;top:'+r2top+'px;left:0;z-index:5;background:var(--surface2);padding:4px 12px;font-size:10px;color:var(--text-3)">drag cols ↔</th>';
-  types.forEach(t=>{
+  displayTypes.forEach(t=>{
     const tid=t.device_type_id;
     html+='<th draggable="true" ondragstart="rmDragColStart(event,\''+escHtml(tid)+'\')" ondragover="rmDragColOver(event,\''+escHtml(tid)+'\')" ondragleave="rmDragColLeave(event)" ondrop="rmDropCol(event,\''+escHtml(tid)+'\')" ondragend="rmDragColEnd()" style="position:sticky;top:'+r2top+'px;z-index:4;cursor:grab;padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)" title="'+escHtml(tid)+' — '+escHtml(t.description)+' (drag to reorder)">'+escHtml(tid)+'</th>';
   });
@@ -4039,11 +4046,11 @@ function renderRoomMatrix(){
   currentDecks.forEach(deck=>{
     const deckRooms=rooms.filter(r=>r.deck_id===deck.id);
     if(!deckRooms.length)return;
-    html+='<tr><td colspan="'+(totalCols+1)+'" style="background:var(--surface2);padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">'+escHtml(deck.name)+'</td></tr>';
+    html+='<tr><td colspan="'+(displayTypes.length+1)+'" style="background:var(--surface2);padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3)">'+escHtml(deck.name)+'</td></tr>';
     deckRooms.forEach(room=>{
       html+='<tr>';
       html+='<td style="position:sticky;left:0;z-index:2;background:var(--surface);padding:7px 12px;white-space:nowrap;font-weight:500">'+escHtml(room.name)+'</td>';
-      types.forEach(t=>{
+      displayTypes.forEach(t=>{
         const qty=instMap[room.id+'|'+t.device_type_id]||0;
         html+=qty
           ?'<td style="padding:4px 6px;text-align:center;background:var(--green-light);font-weight:700;color:var(--green)">'+qty+'</td>'
