@@ -748,8 +748,8 @@
           <button class="section-tab active" id="tab-btn-placed" onclick="switchEquipTab('placed')">Equipment Schedule</button>
           <button class="section-tab" id="tab-btn-room-matrix" onclick="switchEquipTab('room-matrix')">Equipment Matrix</button>
           <button class="section-tab" id="tab-btn-zone-summary" onclick="switchEquipTab('zone-summary')">Zone Summary</button>
-          <button class="section-tab" id="tab-btn-proj-eq" onclick="switchEquipTab('project')">Project Library</button>
-          <button class="section-tab" id="tab-btn-proj-catalogue" onclick="switchEquipTab('proj-catalogue')">Project Catalogue</button>
+          <button class="section-tab" id="tab-btn-proj-eq" onclick="switchEquipTab('project')">Device Types</button>
+          <button class="section-tab" id="tab-btn-proj-catalogue" onclick="switchEquipTab('proj-catalogue')">Product Catalogue</button>
           <button class="section-tab" id="tab-btn-templates" onclick="switchEquipTab('templates')">Room Templates</button>
         </div>
         <div id="equip-project-tab">
@@ -1141,7 +1141,7 @@
       </div>
       <div class="tmpl-builder" style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
         <div class="tmpl-browser">
-          <div class="tmpl-panel-header">Project Library</div>
+          <div class="tmpl-panel-header">Device Types</div>
           <div class="tmpl-search-bar"><input type="text" id="pl-search-input" placeholder="Search equipment…" style="width:100%;padding:7px 10px;font-size:13px" oninput="plRenderBrowser()"></div>
           <div class="tmpl-group-pills" id="pl-group-pills"></div>
           <div class="tmpl-device-list" id="pl-device-list"></div>
@@ -3804,7 +3804,7 @@ function renderProjectCatalogue(){
 }
 async function openAddProjProductModal(){
   productModalMode='project';editingProductId=null;
-  document.getElementById('product-modal-title').textContent='Add Product — Project Catalogue';
+  document.getElementById('product-modal-title').textContent='Add Product — Product Catalogue';
   document.getElementById('product-save-btn').textContent='Save Product';
   ['prod-part','prod-make','prod-model','prod-notes'].forEach(id=>document.getElementById(id).value='');
   ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height'].forEach(id=>document.getElementById(id).value='');
@@ -3819,7 +3819,7 @@ async function openAddProjProductModal(){
 async function openEditProjProductModal(id){
   const p=projectProducts.find(p=>p.id===id);if(!p)return;
   productModalMode='project';editingProductId=id;
-  document.getElementById('product-modal-title').textContent='Edit Product — Project Catalogue';
+  document.getElementById('product-modal-title').textContent='Edit Product — Product Catalogue';
   document.getElementById('product-save-btn').textContent='Save Changes';
   const d=globalLibrary.find(d=>d.device_type_id===p.device_type_id);
   document.getElementById('prod-part').value=p.part_number||'';document.getElementById('prod-make').value=p.make||'';document.getElementById('prod-model').value=p.model||'';
@@ -4634,7 +4634,7 @@ async function quickPullToProject(globalId){
     if(activeCRId){qpPayload.change_status='added';qpPayload.change_cr_id=activeCRId;qpPayload.change_cr_ref=activeCRRef();}
     await dbInsert('project_equipment',qpPayload);
     showToast(d.device_type_id+' added to project','success');
-    logChange('equipment','added','Pulled '+d.device_type_id+' to Project Library');
+    logChange('equipment','added','Pulled '+d.device_type_id+' to Device Types');
     projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
     renderGlobalLibrary();
   }catch(e){showToast('Could not pull: '+e.message,'error');}
@@ -4712,7 +4712,7 @@ async function confirmPullFromLibrary(){
     }
     const count=pglItems.length;
     showToast(count+' device type'+(count!==1?'s':'')+' pulled to project','success');
-    logChange('equipment','added','Pulled '+count+' device type'+(count!==1?'s':'')+' to Project Library: '+pglItems.map(i=>i.typeId).join(', '));
+    logChange('equipment','added','Pulled '+count+' device type'+(count!==1?'s':'')+' to Device Types: '+pglItems.map(i=>i.typeId).join(', '));
     closePullLibraryModal();
     projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
     renderProjectEquipment();
@@ -4822,11 +4822,11 @@ async function savePeItem(){
     });
     const typeId=document.getElementById('pe-type-id').value.trim().toUpperCase()||'device';
     if(activeCRId)await dbUpdate('project_equipment',editingPeId,{change_status:'modified',change_cr_id:activeCRId,change_cr_ref:activeCRRef()});
-    showToast('Updated','success');logChange('equipment','updated','Updated '+typeId+' in Project Library');closePeModal();loadProjectEquipment();
+    showToast('Updated','success');logChange('equipment','updated','Updated '+typeId+' in Device Types');closePeModal();loadProjectEquipment();
   }catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent='Save Changes';btn.disabled=false;}
 }
-function confirmDeletePe(id,name){openConfirm('Remove Equipment','Remove "'+name+'" from this project?',async()=>{try{await dbDelete('project_equipment',id);showToast('Removed','success');logChange('equipment','removed','Removed '+name+' from Project Library');loadProjectEquipment();}catch(e){showToast('Could not remove: '+e.message,'error');}});}
+function confirmDeletePe(id,name){openConfirm('Remove Equipment','Remove "'+name+'" from this project?',async()=>{try{await dbDelete('project_equipment',id);showToast('Removed','success');logChange('equipment','removed','Removed '+name+' from Device Types');loadProjectEquipment();}catch(e){showToast('Could not remove: '+e.message,'error');}});}
 let activePlacedDeckFilter='all', showRemovedItems=false;
 async function loadPlacedEquipment(){
   document.getElementById('placed-equipment-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
