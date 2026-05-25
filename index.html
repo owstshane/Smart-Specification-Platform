@@ -4918,7 +4918,7 @@ function renderPlacedEquipment(){
     if(zoneItems.length){
       currentZones.forEach(z=>{
         const zItems=zoneItems.filter(p=>p.rack_zone_id===z.id);
-        if(zItems.length){rows+=groupRow('Zone: '+escHtml(z.name));rows+=zItems.map(itemRow).join('');rows+=gapRow;}
+        if(zItems.length){rows+=groupRow('Zone: '+escHtml(z.name));rows+=zItems.map(itemRow).join('');}
       });
     }
     // Then by deck → room
