@@ -1676,7 +1676,7 @@ function renderProjectInfo(){
     +'<div id="ps-decks" style="cursor:pointer;padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-decks" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Decks</div></div>'
     +'<div id="ps-rooms" style="cursor:pointer;padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-rooms" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Rooms</div></div>'
     +'<div id="ps-zones" style="cursor:pointer;padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-zones" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Rack Zones</div></div>'
-    +'<div id="ps-types" style="padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-types" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Device Types</div></div>'
+    +'<div id="ps-types" style="cursor:pointer;padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-types" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Device Types</div></div>'
     +'<div id="ps-placed" style="cursor:pointer;padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-placed" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Devices Placed</div></div>'
     +'</div>';
 
@@ -1752,6 +1752,7 @@ function renderProjectInfo(){
     if(g('ps-decks'))g('ps-decks').onclick=()=>{showPage('decks-rooms');switchDeckRoomTab('decks');};
     if(g('ps-rooms'))g('ps-rooms').onclick=()=>{showPage('decks-rooms');switchDeckRoomTab('rooms');};
     if(g('ps-zones'))g('ps-zones').onclick=()=>{showPage('decks-rooms');switchDeckRoomTab('zones');};
+    if(g('ps-types'))g('ps-types').onclick=()=>{showPage('equipment');switchEquipTab('project');};
     if(g('ps-placed'))g('ps-placed').onclick=()=>{showPage('equipment');switchEquipTab('placed');};
     loadProjectStats(p.id);
     loadCCStats(p.id);
