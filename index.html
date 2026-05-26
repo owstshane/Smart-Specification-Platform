@@ -290,6 +290,7 @@
   .cc-badge-pending_internal { background: #fffbeb; color: #92400e; }
   .cc-badge-pending_owner { background: #fff7ed; color: #9a3412; }
   .cc-badge-approved { background: #f0fff4; color: #276749; }
+  .cc-badge-priced { background: #fef3c7; color: #b45309; }
   .cc-badge-closed { background: #ebf4ff; color: #2b6cb0; }
   .cc-badge-rejected { background: #fff5f5; color: #c53030; }
   .cc-badge-preliminary { background: var(--surface2); color: var(--text-3); }
@@ -1382,6 +1383,25 @@
   </div>
 </div>
 
+<div id="award-contract-modal" class="modal-overlay">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title" id="ac-modal-title">Award Contract</div><button class="modal-close" onclick="closeAwardContractModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Awarded Contractor</label><select id="ac-integrator" style="width:100%"><option value="">&#8212; Select integrator &#8212;</option></select></div>
+      <div class="form-row form-row-3">
+        <div style="grid-column:span 2"><label>Contract Value *</label><input type="number" id="ac-value" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label>Currency</label><select id="ac-currency"><option value="EUR">EUR (&euro;)</option><option value="GBP">GBP (&pound;)</option><option value="USD">USD ($)</option></select></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div><label>Award Date</label><input type="date" id="ac-date"></div>
+        <div><label>Discipline</label><input type="text" id="ac-discipline" placeholder="e.g. AV / IT / Security"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="ac-notes" rows="2" placeholder="Contract reference, scope notes..."></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeAwardContractModal()">Cancel</button><button class="btn btn-primary" onclick="saveAwardContract()">Save</button></div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div class="login-overlay" id="login-overlay" style="display:none">
   <div class="login-box">
@@ -1561,7 +1581,7 @@ function refreshCurrentPage(){
   if(btn){btn.style.animation='spin 0.6s linear';setTimeout(()=>btn.style.animation='',650);}
   const p=currentPage||'dashboard';
   if(p==='dashboard')loadProjects();
-  else if(p==='project-info'){loadProjectIntegrators(currentProject.id).then(()=>renderProjectInfo());}
+  else if(p==='project-info'){Promise.all([loadProjectIntegrators(currentProject.id),loadContractAward(currentProject.id)]).then(()=>renderProjectInfo());}
   else if(p==='decks-rooms'){if(activeDeckRoomTab==='rooms')loadRooms();else if(activeDeckRoomTab==='zones')loadRackZones();else loadDecks();}
   else if(p==='equipment'){if(activeEquipTab==='project')loadProjectEquipment();else if(activeEquipTab==='placed')loadPlacedEquipment();else if(activeEquipTab==='zone-summary')loadZoneSummary();else loadRoomTemplates();}
   else if(p==='feature-matrix'){loadFeatureMatrix();}
@@ -1594,7 +1614,7 @@ function showPage(page){
   else if(page==='system-groups'){updateSgTabBtn();btn.style.display='';}
   else btn.style.display='none';
   if(page==='dashboard')loadProjects();
-  else if(page==='project-info'){loadProjectIntegrators(currentProject.id).then(()=>renderProjectInfo());}
+  else if(page==='project-info'){Promise.all([loadProjectIntegrators(currentProject.id),loadContractAward(currentProject.id)]).then(()=>renderProjectInfo());}
   else if(page==='decks-rooms'){if(activeDeckRoomTab==='rooms')loadRooms();else if(activeDeckRoomTab==='zones')loadRackZones();else loadDecks();}
   else if(page==='import-export')iePageLoad();
   else if(page==='equipment')loadEquipmentPage();
@@ -1745,7 +1765,9 @@ function renderProjectInfo(){
   const svgDoc='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>';
   const svgCR='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
   const svgCheck='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>';
+  const svgMoney='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 13a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M6 9v8M18 9v8"/></svg>';
   const ccCol='<div style="display:flex;flex-direction:column;gap:12px">'
+    +'<div style="'+tileBase+'" onclick="openAwardContractModal(projectAward)">'+tileIcon('var(--surface2)','var(--text-2)',svgMoney)+'<div id="pv-contract-tile" style="flex:1"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Contract Value</div><div style="font-size:13px;color:var(--text-3);margin-top:3px">Loading…</div></div></div>'
     +'<div style="'+tileBase+'" onclick="showPage(\'change-control\')">'+tileIcon('var(--accent-light)','var(--accent)',svgDoc)+'<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Current Revision</div><div id="pv-cc-rev" style="font-size:15px;font-weight:700;margin-top:3px;color:var(--text-1)">—</div></div></div>'
     +'<div style="'+tileBase+'" onclick="showPage(\'change-control\')"><div id="pv-cc-crs-icon" style="width:32px;height:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:var(--radius-sm);color:var(--text-2)">'+svgCR+'</div><div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Open Change Requests</div><div id="pv-cc-crs" style="font-size:15px;font-weight:700;margin-top:3px;color:var(--text-1)">—</div></div></div>'
     +'<div style="'+tileBase+'" onclick="showPage(\'change-control\')">'+tileIcon('var(--surface2)','var(--text-2)',svgCheck)+'<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Last Issued Revision</div><div id="pv-cc-issued" style="font-size:15px;font-weight:700;margin-top:3px;color:var(--text-1)">—</div></div></div>'
@@ -1828,17 +1850,131 @@ async function loadCCStats(projectId){
         g('pv-cc-issued').innerHTML='<span style="font-size:13px;color:var(--text-3);font-weight:400">None yet</span>';
       }
     }
+    // Contract value tile
+    const ct=g('pv-contract-tile');
+    if(ct){
+      if(projectAward){
+        const intName=projectIntegrators.find(i=>i.id===projectAward.integrator_id)?.company_name||'—';
+        const valueStr=fmtPrice(projectAward.contract_value,projectAward.currency)||'No value set';
+        ct.innerHTML='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Contract Value</div>'
+          +'<div style="font-size:15px;font-weight:700;margin-top:3px;color:var(--text-1)">'+escHtml(valueStr)+'</div>'
+          +'<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+escHtml(intName)+(projectAward.award_date?' \xb7 '+formatDate(projectAward.award_date):'')+'</div>';
+      }else{
+        ct.innerHTML='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Contract Value</div>'
+          +'<div style="font-size:13px;color:var(--text-3);margin-top:3px;font-style:italic">Not yet awarded — click to record</div>';
+      }
+    }
   }catch(e){console.error('CC stats error',e);}
 }
 
 // ── SCOPE OF WORK ──
 
 // ── PROJECT TEAM ──
-let projectTeam=[], projectIntegrators=[];
+let projectTeam=[], projectIntegrators=[], projectAward=null;
+let crCostItems={};
 
 async function loadProjectIntegrators(projectId){
   try{projectIntegrators=await dbGet('project_integrators','project_id=eq.'+projectId+'&order=sort_order.asc,created_at.asc');}
   catch(e){projectIntegrators=[];}
+}
+async function loadContractAward(projectId){
+  try{
+    const rows=await dbGet('contract_awards','project_id=eq.'+projectId+'&order=created_at.desc&limit=1');
+    projectAward=rows.length?rows[0]:null;
+  }catch(e){projectAward=null;}
+}
+function openAwardContractModal(award){
+  const m=document.getElementById('award-contract-modal');
+  if(!m)return;
+  document.getElementById('ac-modal-title').textContent=award?'Edit Contract Award':'Award Contract';
+  const sel=document.getElementById('ac-integrator');
+  sel.innerHTML='<option value="">— Select integrator —</option>'
+    +projectIntegrators.map(i=>'<option value="'+i.id+'">'+escHtml(i.company_name)+'</option>').join('');
+  sel.value=award?.integrator_id||'';
+  document.getElementById('ac-value').value=award?.contract_value!=null?award.contract_value:'';
+  document.getElementById('ac-currency').value=award?.currency||'EUR';
+  document.getElementById('ac-date').value=award?.award_date||'';
+  document.getElementById('ac-discipline').value=award?.discipline||'';
+  document.getElementById('ac-notes').value=award?.notes||'';
+  m.classList.add('open');
+}
+function closeAwardContractModal(){document.getElementById('award-contract-modal').classList.remove('open');}
+async function saveAwardContract(){
+  const rawVal=document.getElementById('ac-value').value;
+  const value=parseFloat(rawVal);
+  if(rawVal===''||isNaN(value)||value<0){alert('Please enter a valid contract value.');return;}
+  const payload={
+    project_id:currentProject.id,
+    integrator_id:document.getElementById('ac-integrator').value||null,
+    discipline:document.getElementById('ac-discipline').value.trim()||null,
+    contract_value:value,
+    currency:document.getElementById('ac-currency').value,
+    award_date:document.getElementById('ac-date').value||null,
+    notes:document.getElementById('ac-notes').value.trim()||null
+  };
+  try{
+    if(projectAward){
+      const rows=await dbUpdate('contract_awards',projectAward.id,payload);
+      projectAward=rows[0]||{...projectAward,...payload};
+    }else{
+      const rows=await dbInsert('contract_awards',payload);
+      projectAward=rows[0];
+    }
+    closeAwardContractModal();
+    loadCCStats(currentProject.id);
+    logChange('project','update','Contract award saved – '+fmtPrice(value,payload.currency));
+  }catch(e){console.error('saveAwardContract error',e);alert('Error saving contract award: '+(e.message||e));}
+}
+// ── CR COST ITEMS ──
+async function loadCRCostItems(crId){
+  try{
+    const items=await dbGet('cr_cost_items','cr_id=eq.'+crId+'&order=sort_order.asc,created_at.asc');
+    crCostItems[crId]=items;
+  }catch(e){crCostItems[crId]=[];}
+}
+function openAddCostItem(crId){
+  const form=document.getElementById('cost-item-form-'+crId);
+  if(form)form.style.display='block';
+}
+function cancelAddCostItem(crId){
+  const form=document.getElementById('cost-item-form-'+crId);
+  if(form)form.style.display='none';
+}
+async function saveCostItem(crId){
+  const desc=document.getElementById('ci-desc-'+crId)?.value.trim();
+  if(!desc){alert('Description is required.');return;}
+  const qty=parseFloat(document.getElementById('ci-qty-'+crId)?.value||'1');
+  const price=parseFloat(document.getElementById('ci-price-'+crId)?.value||'0');
+  const itemType=document.getElementById('ci-type-'+crId)?.value||'equipment';
+  const notes=document.getElementById('ci-notes-'+crId)?.value.trim()||null;
+  if(isNaN(qty)||qty<0){alert('Invalid quantity.');return;}
+  if(isNaN(price)||price<0){alert('Invalid unit price.');return;}
+  const payload={cr_id:crId,item_type:itemType,description:desc,quantity:qty,unit_price:price,notes,sort_order:(crCostItems[crId]||[]).length};
+  try{
+    const rows=await dbInsert('cr_cost_items',payload);
+    if(!crCostItems[crId])crCostItems[crId]=[];
+    crCostItems[crId].push(rows[0]);
+    const cr=ccCRs.find(c=>c.id===crId);
+    const currency=projectAward?.currency||cr?.co_currency||'EUR';
+    const total=crCostItems[crId].reduce((s,i)=>s+(parseFloat(i.line_value!=null?i.line_value:parseFloat(i.quantity||1)*parseFloat(i.unit_price||0))||0),0);
+    await dbUpdate('change_requests',crId,{co_total_value:total,co_currency:currency,priced_at:new Date().toISOString()});
+    if(cr){cr.co_total_value=total;cr.co_currency=currency;cr.priced_at=new Date().toISOString();}
+    renderCRs();
+  }catch(e){console.error('saveCostItem error',e);alert('Error saving cost item: '+(e.message||e));}
+}
+async function deleteCostItem(itemId,crId){
+  openConfirm('Remove Cost Item','Remove this line from the cost schedule? This cannot be undone.',async()=>{
+    try{
+      await dbDelete('cr_cost_items',itemId);
+      if(crCostItems[crId])crCostItems[crId]=crCostItems[crId].filter(i=>i.id!==itemId);
+      const currency=projectAward?.currency||'EUR';
+      const total=crCostItems[crId].reduce((s,i)=>s+(parseFloat(i.line_value!=null?i.line_value:parseFloat(i.quantity||1)*parseFloat(i.unit_price||0))||0),0);
+      await dbUpdate('change_requests',crId,{co_total_value:total||null,co_currency:total?currency:null,priced_at:total?new Date().toISOString():null});
+      const cr=ccCRs.find(c=>c.id===crId);
+      if(cr){cr.co_total_value=total||null;cr.co_currency=total?currency:null;}
+      renderCRs();
+    }catch(e){console.error('deleteCostItem error',e);alert('Error removing cost item: '+(e.message||e));}
+  });
 }
 async function loadTeamMembers(projectId){
   try{
@@ -5425,6 +5561,68 @@ function renderCRs(){
         }else{detail+='<div style="font-size:12px;color:var(--text-3)">Awaiting internal first</div>';}
         detail+='</div>';
         detail+='</div>';
+        // ── Cost Schedule ──
+        const costItems=crCostItems[cr.id]||[];
+        const coCurrency=projectAward?.currency||cr.co_currency||'EUR';
+        detail+='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">';
+        detail+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+        detail+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Cost Schedule</div>';
+        detail+='<button class="btn btn-sm" onclick="openAddCostItem(\''+cr.id+'\')">+ Add Item</button>';
+        detail+='</div>';
+        if(costItems.length){
+          detail+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+          detail+='<thead><tr style="background:var(--surface2)">'
+            +'<th style="padding:4px 8px;text-align:left;border:1px solid var(--border);font-weight:600;color:var(--text-3);white-space:nowrap">Type</th>'
+            +'<th style="padding:4px 8px;text-align:left;border:1px solid var(--border);font-weight:600;color:var(--text-3)">Description</th>'
+            +'<th style="padding:4px 8px;text-align:right;border:1px solid var(--border);font-weight:600;color:var(--text-3)">Qty</th>'
+            +'<th style="padding:4px 8px;text-align:right;border:1px solid var(--border);font-weight:600;color:var(--text-3);white-space:nowrap">Unit ('+coCurrency+')</th>'
+            +'<th style="padding:4px 8px;text-align:right;border:1px solid var(--border);font-weight:600;color:var(--text-3);white-space:nowrap">Total ('+coCurrency+')</th>'
+            +'<th style="padding:4px 8px;border:1px solid var(--border);width:28px"></th>'
+            +'</tr></thead><tbody>';
+          let coTotal=0;
+          costItems.forEach(it=>{
+            const lv=parseFloat(it.line_value!=null?it.line_value:parseFloat(it.quantity||1)*parseFloat(it.unit_price||0))||0;
+            coTotal+=lv;
+            const unitStr=fmtPrice(it.unit_price,coCurrency)||'—';
+            const totStr=fmtPrice(lv,coCurrency)||'—';
+            detail+='<tr>'
+              +'<td style="padding:4px 8px;border:1px solid var(--border);color:var(--text-3);white-space:nowrap;text-transform:capitalize">'+escHtml(it.item_type||'equipment')+'</td>'
+              +'<td style="padding:4px 8px;border:1px solid var(--border)">'+escHtml(it.description)+(it.notes?'<br><span style="font-size:11px;color:var(--text-3)">'+escHtml(it.notes)+'</span>':'')+'</td>'
+              +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:right">'+parseFloat(it.quantity||1).toLocaleString()+'</td>'
+              +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:right">'+escHtml(unitStr)+'</td>'
+              +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:right;font-weight:600">'+escHtml(totStr)+'</td>'
+              +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:center"><button onclick="deleteCostItem(\''+it.id+'\',\''+cr.id+'\')" title="Remove" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;line-height:1;padding:0">×</button></td>'
+              +'</tr>';
+          });
+          detail+='</tbody><tfoot><tr style="background:var(--surface2)">'
+            +'<td colspan="4" style="padding:6px 8px;border:1px solid var(--border);font-weight:700;text-align:right">CO Total</td>'
+            +'<td style="padding:6px 8px;border:1px solid var(--border);font-weight:700;text-align:right">'+escHtml(fmtPrice(coTotal,coCurrency)||'—')+'</td>'
+            +'<td style="border:1px solid var(--border)"></td>'
+            +'</tr></tfoot></table>';
+        }else{
+          detail+='<div style="font-size:12px;color:var(--text-3);font-style:italic;padding:4px 0">No cost items yet — click + Add Item to build the schedule.</div>';
+        }
+        // Inline add-item form
+        detail+='<div id="cost-item-form-'+cr.id+'" style="display:none;margin-top:10px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">';
+        detail+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3);margin-bottom:8px">New Cost Item</div>';
+        detail+='<div style="display:grid;grid-template-columns:130px 1fr;gap:8px;margin-bottom:8px">';
+        detail+='<div><label style="font-size:11px;color:var(--text-3)">Type</label><select id="ci-type-'+cr.id+'" style="width:100%;font-size:12px">'
+          +'<option value="equipment">Equipment</option>'
+          +'<option value="labour">Labour</option>'
+          +'<option value="installation">Installation</option>'
+          +'<option value="drawing">Drawing</option>'
+          +'<option value="other">Other</option>'
+          +'</select></div>';
+        detail+='<div><label style="font-size:11px;color:var(--text-3)">Description *</label><input type="text" id="ci-desc-'+cr.id+'" placeholder="Line item description" style="font-size:12px;margin-top:3px"></div>';
+        detail+='</div>';
+        detail+='<div style="display:grid;grid-template-columns:80px 130px 1fr;gap:8px;margin-bottom:8px">';
+        detail+='<div><label style="font-size:11px;color:var(--text-3)">Quantity</label><input type="number" id="ci-qty-'+cr.id+'" value="1" min="0" step="0.01" style="font-size:12px;margin-top:3px"></div>';
+        detail+='<div><label style="font-size:11px;color:var(--text-3)">Unit Price ('+coCurrency+')</label><input type="number" id="ci-price-'+cr.id+'" value="0" min="0" step="0.01" style="font-size:12px;margin-top:3px"></div>';
+        detail+='<div><label style="font-size:11px;color:var(--text-3)">Notes (optional)</label><input type="text" id="ci-notes-'+cr.id+'" placeholder="e.g. day rate, scope ref" style="font-size:12px;margin-top:3px"></div>';
+        detail+='</div>';
+        detail+='<div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" onclick="saveCostItem(\''+cr.id+'\')">Add</button><button class="btn btn-secondary btn-sm" onclick="cancelAddCostItem(\''+cr.id+'\')">Cancel</button></div>';
+        detail+='</div>';
+        detail+='</div>';
       }else{
         if(!cr.internal_approved_by&&cr.status==='draft'){
           detail+='<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:14px">';
@@ -5468,6 +5666,7 @@ function renderCRs(){
       +'<span class="cc-cr-title">'+escHtml(cr.title)+'</span>'
       +'<span class="cc-badge cc-badge-'+cr.type+'">'+cr.type+'</span>'
       +'<span class="cc-badge cc-badge-'+cr.status+'">'+crStatusLabel(cr.status)+'</span>'
+      +(cr.type==='formal'&&cr.co_total_value!=null?'<span class="cc-badge cc-badge-priced">'+escHtml(fmtPrice(cr.co_total_value,cr.co_currency||'EUR')||'')+'</span>':'')
       +(cr.raised_by?'<span class="cc-cr-meta">'+escHtml(cr.raised_by)+'</span>':'')
       +(cr.raised_date?'<span class="cc-cr-meta">'+ccFmtDate(cr.raised_date)+'</span>':'')
       +'<span style="color:var(--text-3);font-size:11px">'+(isOpen?'▾':'▸')+'</span>'
@@ -5475,7 +5674,16 @@ function renderCRs(){
   }).join('');
 }
 
-function toggleCRExpand(id){expandedCRId=expandedCRId===id?null:id;renderCRs();}
+function toggleCRExpand(id){
+  if(expandedCRId===id){expandedCRId=null;renderCRs();return;}
+  expandedCRId=id;
+  const cr=ccCRs.find(c=>c.id===id);
+  if(cr&&cr.type==='formal'&&!crCostItems[id]){
+    loadCRCostItems(id).then(()=>renderCRs());
+  }else{
+    renderCRs();
+  }
+}
 
 function openNewCRModal(){
   document.getElementById('cr-title').value='';
