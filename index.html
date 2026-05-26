@@ -961,6 +961,9 @@
         <div class="form-row form-row-2" style="margin-bottom:10px"><div><label>Audio Role</label><select id="gd-audio-role" onchange="gdUpdateAudioFields()"><option value="none">None</option><option value="requires">Requires amp channels</option><option value="provides">Provides amp channels</option></select></div><div></div></div>
         <div id="gd-audio-fields" style="display:none"><div class="form-row form-row-2"><div><label>Amp Channels</label><input type="number" id="gd-spk" placeholder="0" min="0"></div><div><label>Power per Channel (W)</label><input type="number" id="gd-spk-watts" placeholder="0" min="0"></div></div></div>
       </div>
+      <div class="form-section"><div class="form-section-title">Pricing</div>
+        <div class="form-row form-row-2"><div><label>Budget Price</label><input type="number" id="gd-budget-price" placeholder="0.00" min="0" step="0.01"></div><div><label>Currency</label><select id="gd-currency"><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option><option value="AED">AED</option><option value="CHF">CHF</option><option value="NOK">NOK</option></select></div></div>
+      </div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGlobalDeviceModal()">Cancel</button><button class="btn btn-primary" onclick="saveGlobalDevice()" id="gd-save-btn">Save Device Type</button></div>
   </div>
@@ -1022,6 +1025,9 @@
       <div class="form-section"><div class="form-section-title">Physical</div>
         <div class="form-row form-row-3"><div><label>Width (mm)</label><input type="number" id="prod-width" placeholder="0" min="0"></div><div><label>Depth (mm)</label><input type="number" id="prod-depth" placeholder="0" min="0"></div><div><label>Height (mm)</label><input type="number" id="prod-height" placeholder="0" min="0"></div></div>
         <div class="form-row form-row-2" style="margin-top:10px"><div><label>Weight (kg)</label><input type="number" id="prod-weight" placeholder="0" min="0" step="0.1"></div><div></div></div>
+      </div>
+      <div class="form-section"><div class="form-section-title">Pricing</div>
+        <div class="form-row form-row-2"><div><label>List Price</label><input type="number" id="prod-list-price" placeholder="0.00" min="0" step="0.01"></div><div><label>Currency</label><select id="prod-currency"><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option><option value="AED">AED</option><option value="CHF">CHF</option><option value="NOK">NOK</option></select></div></div>
       </div>
       <div class="form-group"><label>Notes</label><textarea id="prod-notes" rows="2"></textarea></div>
     </div>
@@ -1116,6 +1122,10 @@
       <div class="form-section"><div class="form-section-title">Audio</div>
         <div class="form-row form-row-2" style="margin-bottom:10px"><div><label>Audio Role</label><select id="pe-audio-role" onchange="peUpdateAudioFields()"><option value="none">None</option><option value="requires">Requires amp channels</option><option value="provides">Provides amp channels</option></select></div><div></div></div>
         <div id="pe-audio-fields" style="display:none"><div class="form-row form-row-2"><div><label>Amp Channels</label><input type="number" id="pe-spk" placeholder="0" min="0"></div><div><label>Power per Channel (W)</label><input type="number" id="pe-spk-watts" placeholder="0" min="0"></div></div></div>
+      </div>
+      <div class="form-section"><div class="form-section-title">Pricing</div>
+        <div class="form-row form-row-2"><div><label>Budget Price</label><input type="number" id="pe-budget-price" placeholder="0.00" min="0" step="0.01"></div><div><label>Currency</label><select id="pe-currency"><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option><option value="AED">AED</option><option value="CHF">CHF</option><option value="NOK">NOK</option></select></div></div>
+        <div style="margin-top:6px;font-size:11px;color:var(--text-3)">Budget price used for cost estimates when no product is selected. Overridden by product list price.</div>
       </div>
       <div class="form-group"><label>Comments</label><textarea id="pe-comments" rows="2"></textarea></div>
     </div>
@@ -1408,6 +1418,7 @@ let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null, ac
 
 // ── UTILS ──
 function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtPrice(price,currency){if(price==null||price===''||isNaN(parseFloat(price)))return null;const n=parseFloat(price);const sym={USD:'$',EUR:'€',GBP:'£'}[currency]||(currency?currency+' ':'');return sym+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
 function formatDate(d){if(!d)return'';const[y,m,day]=d.split('-');return day+'/'+m+'/'+y;}
 function setConn(s){const el=document.getElementById('conn-status');if(!el)return;el.className='conn-status '+s;el.innerHTML='<div class="dot"></div>'+(s==='connected'?'Connected':s==='disconnected'?'Disconnected':'Connecting…');}
 function showToast(msg,type){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.className='toast'+(type?' '+type:'');setTimeout(()=>t.classList.add('show'),10);setTimeout(()=>t.classList.remove('show'),3000);}
@@ -3523,8 +3534,9 @@ async function openGlobalDeviceModal(){
   editingGlobalId=null;document.getElementById('gd-modal-title').textContent='Add Device Type';document.getElementById('gd-save-btn').textContent='Save Device Type';
   ['gd-type-id','gd-desc','gd-spec'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('gd-group').value='';document.getElementById('gd-cat').value='';
-  ['gd-lan','gd-poe-ports','gd-spk','gd-spk-watts','gd-power-watts','gd-heat-btu','gd-poe-budget'].forEach(id=>document.getElementById(id).value='');
+  ['gd-lan','gd-poe-ports','gd-spk','gd-spk-watts','gd-power-watts','gd-heat-btu','gd-poe-budget','gd-budget-price'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('gd-poe').value='';
+  document.getElementById('gd-currency').value='USD';
   document.getElementById('gd-network-role').value='none';
   document.getElementById('gd-avip-role').value='none';
   document.getElementById('gd-audio-role').value='none';
@@ -3551,6 +3563,8 @@ async function openEditGlobalDevice(id){
   document.getElementById('gd-heat-btu').value=d.heat_btu||'';
   document.getElementById('gd-ups-protected').checked=d.ups_protected||false;
   document.getElementById('gd-spk').value=d.speaker_channels||'';document.getElementById('gd-spk-watts').value=d.spk_watts||'';
+  document.getElementById('gd-budget-price').value=d.budget_price||'';
+  document.getElementById('gd-currency').value=d.currency||'USD';
   gdUpdateNetworkFields();
   gdUpdateAudioFields();
   document.getElementById('gd-group').value=d.system_group||'';
@@ -3563,7 +3577,7 @@ async function saveGlobalDevice(){
   if(!typeId){showToast('Please enter a device type ID','error');return;}if(!desc){showToast('Please enter a description','error');return;}
   const poePorts=parseInt(document.getElementById('gd-poe-ports').value)||0;
   const pwrType=document.getElementById('gd-pwr-type').value||null;
-  const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value||null,system_group:document.getElementById('gd-group').value||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('gd-poe').value||null:null,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,spk_watts:parseFloat(document.getElementById('gd-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('gd-power-watts').value)||null,heat_btu:parseFloat(document.getElementById('gd-heat-btu').value)||null,ups_protected:document.getElementById('gd-ups-protected').checked,network_role:document.getElementById('gd-network-role').value||'none',avip_role:document.getElementById('gd-avip-role').value||'none',audio_role:document.getElementById('gd-audio-role').value||'none'};
+  const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value||null,system_group:document.getElementById('gd-group').value||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('gd-poe').value||null:null,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,spk_watts:parseFloat(document.getElementById('gd-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('gd-power-watts').value)||null,heat_btu:parseFloat(document.getElementById('gd-heat-btu').value)||null,ups_protected:document.getElementById('gd-ups-protected').checked,network_role:document.getElementById('gd-network-role').value||'none',avip_role:document.getElementById('gd-avip-role').value||'none',audio_role:document.getElementById('gd-audio-role').value||'none',budget_price:parseFloat(document.getElementById('gd-budget-price').value)||null,currency:document.getElementById('gd-currency').value||'USD'};
   const btn=document.getElementById('gd-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{if(editingGlobalId){await dbUpdate('global_equipment',editingGlobalId,payload);showToast('Device type updated','success');}else{await dbInsert('global_equipment',payload);showToast('Device type added','success');}closeGlobalDeviceModal();loadGlobalLibrary();}
   catch(e){showToast('Could not save: '+e.message,'error');}
@@ -3590,8 +3604,8 @@ function renderProductCatalogue(){
   document.getElementById('pc-count').textContent=items.length+' products';
   const c=document.getElementById('product-catalogue-container');
   if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No products yet</div><div class="empty-state-text">Add products using the button above.</div></div>';return;}
-  c.innerHTML='<div class="equip-table"><table><thead><tr><th>Device Type</th><th>Make</th><th>Model</th><th>Part No.</th><th>LAN</th><th>POE Ports</th><th>POE Type</th><th>Spk</th><th>Power</th><th>Watts</th><th>Weight</th><th></th></tr></thead><tbody>'
-    +items.map(p=>'<tr>'
+  c.innerHTML='<div class="equip-table"><table><thead><tr><th>Device Type</th><th>Make</th><th>Model</th><th>Part No.</th><th>LAN</th><th>POE Ports</th><th>POE Type</th><th>Spk</th><th>Power</th><th>Watts</th><th>Weight</th><th>Price</th><th></th></tr></thead><tbody>'
+    +items.map(p=>{const priceStr=fmtPrice(p.list_price,p.currency);return'<tr>'
       +'<td class="td-mono">'+escHtml(p.device_type_id)+'</td>'
       +'<td style="font-weight:500">'+escHtml(p.make)+'</td>'
       +'<td>'+escHtml(p.model)+'</td>'
@@ -3603,8 +3617,9 @@ function renderProductCatalogue(){
       +'<td style="font-size:11px">'+(p.power_types&&p.power_types.length?p.power_types.join(', '):'—')+'</td>'
       +'<td style="text-align:center">'+(p.power_watts?p.power_watts+'W':'—')+'</td>'
       +'<td style="text-align:center">'+(p.weight_kg?p.weight_kg+'kg':'—')+'</td>'
+      +'<td style="text-align:right;font-weight:600;white-space:nowrap">'+(priceStr?escHtml(priceStr):'<span style="color:var(--text-3)">—</span>')+'</td>'
       +'<td class="td-actions"><button class="btn-icon btn-sm" onclick="openEditProduct(\''+p.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-sm" onclick="confirmDeleteProduct(\''+p.id+'\',\''+escHtml(p.make+' '+p.model)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button></td>'
-      +'</tr>').join('')+'</tbody></table></div>';
+      +'</tr>';}).join('')+'</tbody></table></div>';
 }
 function filterProductDeviceTypes(){
   const sg=document.getElementById('prod-sg-filter').value;
@@ -3619,13 +3634,14 @@ function populateProductDeviceTypeSelect(selectedTypeId){
 async function openProductModal(){
   productModalMode='global';editingProductId=null;document.getElementById('product-modal-title').textContent='Add Product';document.getElementById('product-save-btn').textContent='Save Product';
   ['prod-part','prod-make','prod-model','prod-notes'].forEach(id=>document.getElementById(id).value='');
-  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height'].forEach(id=>document.getElementById(id).value='');
+  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height','prod-list-price'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prod-poe').value='';
   document.getElementById('prod-ups-protected').checked=false;
   document.getElementById('prod-pwr-type').value='';
   document.getElementById('prod-network-role').value='none';
   document.getElementById('prod-avip-role').value='none';
   document.getElementById('prod-audio-role').value='none';
+  document.getElementById('prod-currency').value='USD';
   prodUpdateNetworkFields();
   prodUpdateAudioFields();
   document.getElementById('prod-sg-filter').value='';
@@ -3650,6 +3666,8 @@ async function openEditProduct(id){
   document.getElementById('prod-pwr-type').value=(p.power_types&&p.power_types[0])||'';
   document.getElementById('prod-ups-protected').checked=p.ups_protected||false;
   document.getElementById('prod-notes').value=p.notes||'';
+  document.getElementById('prod-list-price').value=p.list_price||'';
+  document.getElementById('prod-currency').value=p.currency||'USD';
   prodUpdateNetworkFields();
   prodUpdateAudioFields();
   if(d){document.getElementById('prod-sg-filter').value=d.system_group||'';filterProductDeviceTypes();}
@@ -3663,7 +3681,9 @@ async function saveProduct(){
   const poePorts=parseInt(document.getElementById('prod-poe-ports').value)||0;
   const pwrType=document.getElementById('prod-pwr-type').value||null;
   const poeBudgetWatts=parseFloat(document.getElementById('prod-poe-budget').value)||null;
-  const payload={device_type_id:deviceTypeId,make,model,part_number:document.getElementById('prod-part').value.trim()||null,lan_ports:parseInt(document.getElementById('prod-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('prod-poe').value||null:null,poe_budget_watts:poeBudgetWatts,network_role:document.getElementById('prod-network-role').value||'none',avip_role:document.getElementById('prod-avip-role').value||'none',audio_role:document.getElementById('prod-audio-role').value||'none',speaker_channels:parseInt(document.getElementById('prod-spk').value)||0,spk_watts:parseFloat(document.getElementById('prod-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('prod-power').value)||null,heat_btu:parseFloat(document.getElementById('prod-heat').value)||null,ups_protected:document.getElementById('prod-ups-protected').checked,weight_kg:parseFloat(document.getElementById('prod-weight').value)||null,width_mm:parseFloat(document.getElementById('prod-width').value)||null,depth_mm:parseFloat(document.getElementById('prod-depth').value)||null,height_mm:parseFloat(document.getElementById('prod-height').value)||null,notes:document.getElementById('prod-notes').value.trim()||null};
+  const listPrice=parseFloat(document.getElementById('prod-list-price').value)||null;
+  const currency=document.getElementById('prod-currency').value||'USD';
+  const payload={device_type_id:deviceTypeId,make,model,part_number:document.getElementById('prod-part').value.trim()||null,lan_ports:parseInt(document.getElementById('prod-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('prod-poe').value||null:null,poe_budget_watts:poeBudgetWatts,network_role:document.getElementById('prod-network-role').value||'none',avip_role:document.getElementById('prod-avip-role').value||'none',audio_role:document.getElementById('prod-audio-role').value||'none',speaker_channels:parseInt(document.getElementById('prod-spk').value)||0,spk_watts:parseFloat(document.getElementById('prod-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('prod-power').value)||null,heat_btu:parseFloat(document.getElementById('prod-heat').value)||null,ups_protected:document.getElementById('prod-ups-protected').checked,weight_kg:parseFloat(document.getElementById('prod-weight').value)||null,width_mm:parseFloat(document.getElementById('prod-width').value)||null,depth_mm:parseFloat(document.getElementById('prod-depth').value)||null,height_mm:parseFloat(document.getElementById('prod-height').value)||null,notes:document.getElementById('prod-notes').value.trim()||null,list_price:listPrice,currency:currency};
   const btn=document.getElementById('product-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{
     if(productModalMode==='project'){
@@ -3775,10 +3795,11 @@ function renderProjectCatalogue(){
   c.innerHTML='<div class="equip-table"><table><thead><tr>'
     +'<th>Device Type</th><th>Make</th><th>Model</th><th>Part No.</th>'
     +'<th>LAN</th><th>PoE Ports</th><th>PoE Type</th><th>Spk</th><th>Power</th><th>Watts</th><th>Weight</th>'
-    +'<th>Source</th><th style="text-align:right">Actions</th>'
+    +'<th>Price</th><th>Source</th><th style="text-align:right">Actions</th>'
     +'</tr></thead><tbody>'
     +items.map(p=>{
       const isGlobal=!!p.global_product_id;
+      const priceStr=fmtPrice(p.list_price,p.currency);
       const srcBadge=isGlobal
         ?'<span class="category-badge" style="background:var(--accent-light);color:var(--accent)">Global</span>'
         :'<span class="category-badge" style="background:var(--surface2);color:var(--text-3)">Custom</span>';
@@ -3794,9 +3815,10 @@ function renderProjectCatalogue(){
         +'<td style="font-size:11px">'+(p.power_types&&p.power_types.length?p.power_types.join(', '):'—')+'</td>'
         +'<td style="text-align:center">'+(p.power_watts?p.power_watts+'W':'—')+'</td>'
         +'<td style="text-align:center">'+(p.weight_kg?p.weight_kg+'kg':'—')+'</td>'
+        +'<td style="text-align:right;font-weight:600;white-space:nowrap">'+(priceStr?escHtml(priceStr):'<span style="color:var(--text-3)">—</span>')+'</td>'
         +'<td>'+srcBadge+'</td>'
         +'<td class="td-actions" style="text-align:right"><div style="display:flex;gap:4px;justify-content:flex-end">'
-        +(isGlobal?'<button class="btn-icon btn-sm" title="Refresh specs from global" onclick="refreshProjProductSpecs(\''+p.id+'\')">'+svgRefresh+'</button>':'')
+        +(isGlobal?'<button class="btn-icon btn-sm" title="Refresh specs &amp; price from global" onclick="refreshProjProductSpecs(\''+p.id+'\')">'+svgRefresh+'</button>':'')
         +'<button class="btn-icon btn-sm" title="Edit" onclick="openEditProjProductModal(\''+p.id+'\')">'+svgEdit+'</button>'
         +'<button class="btn-icon btn-sm" title="Delete" onclick="confirmDeleteProjProduct(\''+p.id+'\',\''+escHtml(p.make+' '+p.model)+'\')">'+svgDel+'</button>'
         +'</div></td>'
@@ -3808,10 +3830,11 @@ async function openAddProjProductModal(){
   document.getElementById('product-modal-title').textContent='Add Product — Product Catalogue';
   document.getElementById('product-save-btn').textContent='Save Product';
   ['prod-part','prod-make','prod-model','prod-notes'].forEach(id=>document.getElementById(id).value='');
-  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height'].forEach(id=>document.getElementById(id).value='');
+  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height','prod-list-price'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prod-poe').value='';document.getElementById('prod-ups-protected').checked=false;
   document.getElementById('prod-pwr-type').value='';document.getElementById('prod-network-role').value='none';
   document.getElementById('prod-avip-role').value='none';document.getElementById('prod-audio-role').value='none';
+  document.getElementById('prod-currency').value='USD';
   prodUpdateNetworkFields();prodUpdateAudioFields();
   document.getElementById('prod-sg-filter').value='';
   await loadSystemGroupOptions();populateProductDeviceTypeSelect(null);
@@ -3833,6 +3856,8 @@ async function openEditProjProductModal(id){
   document.getElementById('prod-width').value=p.width_mm||'';document.getElementById('prod-depth').value=p.depth_mm||'';document.getElementById('prod-height').value=p.height_mm||'';
   document.getElementById('prod-pwr-type').value=(p.power_types&&p.power_types[0])||'';document.getElementById('prod-ups-protected').checked=p.ups_protected||false;
   document.getElementById('prod-notes').value=p.notes||'';
+  document.getElementById('prod-list-price').value=p.list_price||'';
+  document.getElementById('prod-currency').value=p.currency||'USD';
   prodUpdateNetworkFields();prodUpdateAudioFields();
   if(d){document.getElementById('prod-sg-filter').value=d.system_group||'';filterProductDeviceTypes();}
   populateProductDeviceTypeSelect(p.device_type_id);
@@ -3846,7 +3871,7 @@ function confirmDeleteProjProduct(id,name){
 }
 function refreshProjProductSpecs(id){
   const p=projectProducts.find(p=>p.id===id);if(!p||!p.global_product_id)return;
-  openConfirm('Refresh Specs','Update technical specs for '+p.make+' '+p.model+' from the global catalogue?\n\nPrice will not be changed (not yet in use).',async()=>{
+  openConfirm('Refresh from Global','Update specs and price for '+p.make+' '+p.model+' from the global catalogue?',async()=>{
     try{
       const gp=await dbGet('global_products','id=eq.'+p.global_product_id);
       if(!gp||!gp[0]){showToast('Global product not found','error');return;}
@@ -3858,11 +3883,12 @@ function refreshProjProductSpecs(id){
         power_types:g.power_types,power_watts:g.power_watts,heat_btu:g.heat_btu,ups_protected:g.ups_protected,
         speaker_channels:g.speaker_channels,spk_watts:g.spk_watts,
         weight_kg:g.weight_kg,width_mm:g.width_mm,depth_mm:g.depth_mm,height_mm:g.height_mm,
-        notes:g.notes
-        // unit_price intentionally excluded — price is locked at pull time
+        notes:g.notes,
+        list_price:g.list_price||null,
+        currency:g.currency||'USD'
       };
       await dbUpdate('project_products',id,specUpdate);
-      showToast('Specs refreshed from global','success');
+      showToast('Specs and price refreshed from global','success');
       loadProjectCatalogue();
     }catch(e){showToast('Could not refresh: '+e.message,'error');}
   });
@@ -3931,7 +3957,7 @@ async function pullSelectedGlobalProducts(){
         power_types:g.power_types||null,power_watts:g.power_watts||null,heat_btu:g.heat_btu||null,
         ups_protected:g.ups_protected||false,speaker_channels:g.speaker_channels||0,spk_watts:g.spk_watts||null,
         weight_kg:g.weight_kg||null,width_mm:g.width_mm||null,depth_mm:g.depth_mm||null,height_mm:g.height_mm||null,
-        unit_price:null,notes:g.notes||null
+        list_price:g.list_price||null,currency:g.currency||'USD',notes:g.notes||null
       });
       added++;
     }
@@ -4792,6 +4818,8 @@ async function openPeModal(id){
   document.getElementById('pe-ups-protected').checked=d.ups_protected||false;
   document.getElementById('pe-spk').value=d.speaker_channels||'';
   document.getElementById('pe-spk-watts').value=d.spk_watts||'';
+  document.getElementById('pe-budget-price').value=d.budget_price||'';
+  document.getElementById('pe-currency').value=d.currency||'USD';
   document.getElementById('pe-comments').value=d.comments||'';
   peUpdateNetworkFields();
   peUpdateAudioFields();
@@ -4825,6 +4853,8 @@ async function savePeItem(){
       ups_protected:document.getElementById('pe-ups-protected').checked,
       speaker_channels:parseInt(document.getElementById('pe-spk').value)||0,
       spk_watts:parseFloat(document.getElementById('pe-spk-watts').value)||null,
+      budget_price:parseFloat(document.getElementById('pe-budget-price').value)||null,
+      currency:document.getElementById('pe-currency').value||'USD',
       comments:document.getElementById('pe-comments').value.trim()||null
     });
     const typeId=document.getElementById('pe-type-id').value.trim().toUpperCase()||'device';
@@ -4841,6 +4871,7 @@ async function loadPlacedEquipment(){
     // Always refresh both datasets so newly placed items show correctly
     placedEquipment=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&order=created_at.asc');
     projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
+    if(!projectProducts.length)projectProducts=await dbGet('project_products','project_id=eq.'+currentProject.id+'&order=device_type_id.asc,make.asc,model.asc');
     if(!currentDecks.length)currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
     if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
     if(!currentZones.length)currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
@@ -4878,9 +4909,17 @@ function renderPlacedEquipment(){
   }
   if(!items.length&&!removedCount){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No equipment in schedule yet</div><div class="empty-state-text">Use the Add to Schedule button to assign equipment to rooms or rack zones.</div></div>';return;}
   if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No active items</div><div class="empty-state-text">'+removedCount+' removed item'+(removedCount!==1?'s are':' is')+' hidden. Click Show Removed to view.</div></div>';return;}
-  const thead='<thead><tr><th>Device ID</th><th>Type</th><th>Description</th><th>Make</th><th>Model</th><th>Location</th><th>Install</th><th>LAN</th><th>PoE</th><th>PoE Type</th><th>Spk Ch</th><th>Spk W</th><th>Pwr W</th><th>Status</th><th></th></tr></thead>';
-  const groupRow=label=>'<tr><td colspan="15" style="background:#e4e6eb;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2);padding:8px 14px;border-top:1px solid var(--border-strong)">'+label+'</td></tr>';
+  // Build price lookup from project catalogue: key = device_type_id|make|model
+  const priceMap={};
+  projectProducts.forEach(pp=>{
+    const k=(pp.device_type_id||'')+'|'+(pp.make||'').toLowerCase()+'|'+(pp.model||'').toLowerCase();
+    if(!priceMap[k])priceMap[k]={price:pp.list_price,currency:pp.currency||'USD'};
+  });
+  const thead='<thead><tr><th>Device ID</th><th>Type</th><th>Description</th><th>Make</th><th>Model</th><th>Location</th><th>Install</th><th>LAN</th><th>PoE</th><th>PoE Type</th><th>Spk Ch</th><th>Spk W</th><th>Pwr W</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th><th>Status</th><th></th></tr></thead>';
+  const groupRow=label=>'<tr><td colspan="18" style="background:#e4e6eb;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2);padding:8px 14px;border-top:1px solid var(--border-strong)">'+label+'</td></tr>';
   const dash='<span style="color:var(--text-3)">—</span>';
+  // Accumulate totals per currency
+  const totals={};
   const itemRow=p=>{
     const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
     const room=currentRooms.find(r=>r.id===p.room_id);
@@ -4893,6 +4932,17 @@ function renderPlacedEquipment(){
     const deleteBtn=isRemoved
       ?'<button class="btn-icon btn-sm" title="Hard delete" onclick="hardDeletePlaced(\''+p.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
       :'<button class="btn-icon btn-sm" onclick="confirmDeletePlaced(\''+p.id+'\',\''+escHtml(p.device_id)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>';
+    // Price lookup: product catalogue first, then device type budget price
+    const qty=p.quantity||1;
+    let unitPrice=null,priceCurrency='USD';
+    if(pe){
+      const k=(pe.device_type_id||'')+'|'+(pe.make||'').toLowerCase()+'|'+(pe.model||'').toLowerCase();
+      if(priceMap[k]&&priceMap[k].price){unitPrice=priceMap[k].price;priceCurrency=priceMap[k].currency||'USD';}
+      else if(pe.budget_price){unitPrice=pe.budget_price;priceCurrency=pe.currency||'USD';}
+    }
+    const unitStr=unitPrice?fmtPrice(unitPrice,priceCurrency):null;
+    const totalStr=unitPrice?fmtPrice(unitPrice*qty,priceCurrency):null;
+    if(unitPrice&&!isRemoved){totals[priceCurrency]=(totals[priceCurrency]||0)+unitPrice*qty;}
     return '<tr style="'+rowStyle+'">'
       +'<td><span class="device-id-badge">'+escHtml(p.device_id)+'</span></td>'
       +'<td class="td-mono">'+escHtml(pe?pe.device_type_id:'—')+'</td>'
@@ -4907,6 +4957,9 @@ function renderPlacedEquipment(){
       +'<td style="text-align:center">'+(pe&&pe.speaker_channels?pe.speaker_channels:dash)+'</td>'
       +'<td style="text-align:center">'+(pe&&pe.spk_watts?pe.spk_watts+'W':dash)+'</td>'
       +'<td style="text-align:center">'+(pe&&pe.power_watts?pe.power_watts+'W':dash)+'</td>'
+      +'<td style="text-align:center;font-weight:600">'+qty+'</td>'
+      +'<td style="text-align:right;white-space:nowrap">'+(unitStr?escHtml(unitStr):dash)+'</td>'
+      +'<td style="text-align:right;white-space:nowrap;font-weight:600">'+(totalStr?escHtml(totalStr):dash)+'</td>'
       +'<td>'+statusCell+'</td>'
       +'<td class="td-actions">'+deleteBtn+'</td>'
       +'</tr>';
@@ -4948,7 +5001,13 @@ function renderPlacedEquipment(){
       rows+=rItems.map(itemRow).join('');
     });
   }
-  c.innerHTML='<div class="equip-table"><table>'+thead+'<tbody>'+rows+'</tbody></table></div>';
+  const totalEntries=Object.entries(totals);
+  const tfoot=totalEntries.length
+    ?'<tfoot><tr><td colspan="14" style="border-top:2px solid var(--border-strong);padding:10px 14px;font-size:11px;color:var(--text-3)">Equipment Budget Total</td>'
+      +'<td colspan="4" style="text-align:right;border-top:2px solid var(--border-strong);padding:10px 12px;font-size:13px;font-weight:700;color:var(--text-1);white-space:nowrap">'
+      +totalEntries.map(([cur,amt])=>escHtml(fmtPrice(amt,cur))).join(' &nbsp;·&nbsp; ')+'</td></tr></tfoot>'
+    :'';
+  c.innerHTML='<div class="equip-table"><table>'+thead+'<tbody>'+rows+'</tbody>'+tfoot+'</table></div>';
 }
 function confirmDeletePlaced(id,name){
   const msg=activeCRId?'Mark device "'+name+'" as Removed? It will be struck through but kept in the record until the CR is closed.':'Remove device "'+name+'" from its location?';
