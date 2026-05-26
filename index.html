@@ -2055,11 +2055,11 @@ async function deleteCostItem(itemId,crId){
 }
 // ── COST PROMPT (placement cost linking) ──
 let costPromptData=null;
-function openCostPrompt(crId,description,qty,unitPrice,currency,isRemoval){
+function openCostPrompt(crId,description,qty,unitPrice,currency,isRemoval,bodyText){
   costPromptData={crId,isRemoval};
-  const crRef=ccCRs.find(c=>c.id===crId)?.cr_number||'CR';
+  const crRef=ccCRs.find(c=>c.id===crId)?.cr_number||activeCRRef()||'CR';
   document.getElementById('cp-title').textContent=isRemoval?'Add Credit to Cost Schedule?':'Add to Cost Schedule?';
-  document.getElementById('cp-text').textContent=(isRemoval
+  document.getElementById('cp-text').textContent=bodyText||(isRemoval
     ?'Device marked as removed under '+crRef+'. Add a credit line to the cost schedule?'
     :'Device placed under '+crRef+'. Add it to the cost schedule?');
   document.getElementById('cp-desc').value=description||'';
@@ -3997,9 +3997,31 @@ function renderSelectProducts(filterTypeId){
 }
 async function selectProduct(productId){
   const p=globalProducts.find(p=>p.id===productId);if(!p||!selectingProductForPeId)return;
+  const pe=projectEquipment.find(e=>e.id===selectingProductForPeId);
+  const oldPrice=lookupEquipmentPrice(pe);
   try{
-    await dbUpdate('project_equipment',selectingProductForPeId,{global_product_id:productId,make:p.make,model:p.model,lan_ports:p.lan_ports,speaker_channels:p.speaker_channels,poe_type:p.poe_type,power_types:p.power_types,poe_ports:p.poe_ports,poe_budget_watts:p.poe_budget_watts||null,power_watts:p.power_watts||null,spk_watts:p.spk_watts||null});
-    showToast(p.make+' '+p.model+' selected','success');closeSelectProductModal();await loadProjectEquipment();
+    const update={global_product_id:productId,make:p.make,model:p.model,lan_ports:p.lan_ports,speaker_channels:p.speaker_channels,poe_type:p.poe_type,power_types:p.power_types,poe_ports:p.poe_ports,poe_budget_watts:p.poe_budget_watts||null,power_watts:p.power_watts||null,spk_watts:p.spk_watts||null};
+    if(activeCRId){update.change_status='modified';update.change_cr_id=activeCRId;update.change_cr_ref=activeCRRef();}
+    await dbUpdate('project_equipment',selectingProductForPeId,update);
+    showToast(p.make+' '+p.model+' selected','success');
+    closeSelectProductModal();
+    await loadProjectEquipment();
+    // Cost delta prompt when under a formal CR
+    if(activeCRId&&activeCRType==='formal'){
+      const lo=parseFloat(p.price_min)||0,hi=parseFloat(p.price_max)||0;
+      const newPrice=lo&&hi?(lo+hi)/2:lo||hi||null;
+      const delta=newPrice!=null&&oldPrice!=null?newPrice-oldPrice:null;
+      const placedCount=placedEquipment.filter(i=>i.project_equipment_id===selectingProductForPeId&&i.change_status!=='removed').length||1;
+      const currency=projectAward?.currency||'EUR';
+      const crRef=activeCRRef()||'CR';
+      const oldLabel=pe?.make&&pe?.model?pe.make+' '+pe.model:'previous product';
+      const desc='Price adjustment: '+oldLabel+' → '+p.make+' '+p.model+(pe?.description?' ('+pe.description+')':'');
+      const fromStr=oldPrice!=null?fmtPrice(oldPrice,currency)||String(oldPrice):'unknown';
+      const toStr=newPrice!=null?fmtPrice(newPrice,currency)||String(newPrice):'unknown';
+      const dirWord=delta==null?'changed':delta>=0?'increased':'decreased';
+      const bodyText='Product changed under '+crRef+'. Unit price '+dirWord+' from '+fromStr+' to '+toStr+' \xd7 '+placedCount+' placed. Add adjustment to cost schedule?';
+      openCostPrompt(activeCRId,desc,placedCount,Math.abs(delta!=null?delta:0),currency,delta!=null&&delta<0,bodyText);
+    }
   }catch(e){showToast('Could not select: '+e.message,'error');}
 }
 
@@ -5107,6 +5129,9 @@ async function savePeItem(){
   const btn=document.getElementById('pe-save-btn');btn.textContent='Saving…';btn.disabled=true;
   const poePorts=parseInt(document.getElementById('pe-poe-ports').value)||0;
   const pwrType=document.getElementById('pe-pwr-type').value||null;
+  // Capture old price before saving
+  const oldPe=projectEquipment.find(e=>e.id===editingPeId);
+  const oldBudgetPrice=parseFloat(oldPe?.budget_price)||null;
   try{
     await dbUpdate('project_equipment',editingPeId,{
       device_type_id:document.getElementById('pe-type-id').value.trim().toUpperCase()||null,
@@ -5132,7 +5157,25 @@ async function savePeItem(){
     });
     const typeId=document.getElementById('pe-type-id').value.trim().toUpperCase()||'device';
     if(activeCRId)await dbUpdate('project_equipment',editingPeId,{change_status:'modified',change_cr_id:activeCRId,change_cr_ref:activeCRRef()});
-    showToast('Updated','success');logChange('equipment','updated','Updated '+typeId+' in Device Types');closePeModal();loadProjectEquipment();
+    showToast('Updated','success');logChange('equipment','updated','Updated '+typeId+' in Device Types');
+    closePeModal();loadProjectEquipment();
+    // Prompt for cost delta if budget price changed under a formal CR
+    if(activeCRId&&activeCRType==='formal'){
+      const newBudgetPrice=parseFloat(document.getElementById('pe-budget-price').value)||null;
+      const priceChanged=newBudgetPrice!==oldBudgetPrice&&(newBudgetPrice!=null||oldBudgetPrice!=null);
+      if(priceChanged){
+        const delta=newBudgetPrice!=null&&oldBudgetPrice!=null?newBudgetPrice-oldBudgetPrice:null;
+        const placedCount=placedEquipment.filter(i=>i.project_equipment_id===editingPeId&&i.change_status!=='removed').length||1;
+        const currency=projectAward?.currency||document.getElementById('pe-currency').value||'EUR';
+        const crRef=activeCRRef()||'CR';
+        const fromStr=oldBudgetPrice!=null?fmtPrice(oldBudgetPrice,currency)||String(oldBudgetPrice):'not set';
+        const toStr=newBudgetPrice!=null?fmtPrice(newBudgetPrice,currency)||String(newBudgetPrice):'not set';
+        const dirWord=delta==null?'changed':delta>=0?'increased':'decreased';
+        const desc='Price adjustment: '+typeId+(oldPe?.description?' ('+oldPe.description+')':'');
+        const bodyText='Budget price '+dirWord+' from '+fromStr+' to '+toStr+' under '+crRef+' \xd7 '+placedCount+' placed. Add adjustment to cost schedule?';
+        openCostPrompt(activeCRId,desc,placedCount,Math.abs(delta!=null?delta:newBudgetPrice||0),currency,delta!=null&&delta<0,bodyText);
+      }
+    }
   }catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent='Save Changes';btn.disabled=false;}
 }
