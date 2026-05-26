@@ -1027,7 +1027,8 @@
         <div class="form-row form-row-2" style="margin-top:10px"><div><label>Weight (kg)</label><input type="number" id="prod-weight" placeholder="0" min="0" step="0.1"></div><div></div></div>
       </div>
       <div class="form-section"><div class="form-section-title">Pricing</div>
-        <div class="form-row form-row-2"><div><label>List Price</label><input type="number" id="prod-list-price" placeholder="0.00" min="0" step="0.01"></div><div><label>Currency</label><select id="prod-currency"><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option></select></div></div>
+        <div class="form-row form-row-3"><div><label>Price Min</label><input type="number" id="prod-price-min" placeholder="0.00" min="0" step="0.01"></div><div><label>Price Max</label><input type="number" id="prod-price-max" placeholder="0.00" min="0" step="0.01"></div><div><label>Currency</label><select id="prod-currency"><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option></select></div></div>
+        <div style="margin-top:6px;font-size:11px;color:var(--text-3)">Enter min and max if prices vary across suppliers. Single price — enter in Min only.</div>
       </div>
       <div class="form-group"><label>Notes</label><textarea id="prod-notes" rows="2"></textarea></div>
     </div>
@@ -1419,6 +1420,7 @@ let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null, ac
 // ── UTILS ──
 function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function fmtPrice(price,currency){if(price==null||price===''||isNaN(parseFloat(price)))return null;const n=parseFloat(price);const sym={USD:'$',EUR:'€',GBP:'£'}[currency]||(currency?currency+' ':'');return sym+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtPriceRange(pMin,pMax,currency){const lo=fmtPrice(pMin,currency),hi=fmtPrice(pMax,currency);if(!lo&&!hi)return null;if(lo&&hi&&parseFloat(pMin)!==parseFloat(pMax))return lo+' – '+hi;return lo||hi;}
 function formatDate(d){if(!d)return'';const[y,m,day]=d.split('-');return day+'/'+m+'/'+y;}
 function setConn(s){const el=document.getElementById('conn-status');if(!el)return;el.className='conn-status '+s;el.innerHTML='<div class="dot"></div>'+(s==='connected'?'Connected':s==='disconnected'?'Disconnected':'Connecting…');}
 function showToast(msg,type){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.className='toast'+(type?' '+type:'');setTimeout(()=>t.classList.add('show'),10);setTimeout(()=>t.classList.remove('show'),3000);}
@@ -3605,7 +3607,7 @@ function renderProductCatalogue(){
   const c=document.getElementById('product-catalogue-container');
   if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No products yet</div><div class="empty-state-text">Add products using the button above.</div></div>';return;}
   c.innerHTML='<div class="equip-table"><table><thead><tr><th>Device Type</th><th>Make</th><th>Model</th><th>Part No.</th><th>LAN</th><th>POE Ports</th><th>POE Type</th><th>Spk</th><th>Power</th><th>Watts</th><th>Weight</th><th>Price</th><th></th></tr></thead><tbody>'
-    +items.map(p=>{const priceStr=fmtPrice(p.list_price,p.currency);return'<tr>'
+    +items.map(p=>{const priceStr=fmtPriceRange(p.price_min,p.price_max,p.currency);return'<tr>'
       +'<td class="td-mono">'+escHtml(p.device_type_id)+'</td>'
       +'<td style="font-weight:500">'+escHtml(p.make)+'</td>'
       +'<td>'+escHtml(p.model)+'</td>'
@@ -3634,7 +3636,7 @@ function populateProductDeviceTypeSelect(selectedTypeId){
 async function openProductModal(){
   productModalMode='global';editingProductId=null;document.getElementById('product-modal-title').textContent='Add Product';document.getElementById('product-save-btn').textContent='Save Product';
   ['prod-part','prod-make','prod-model','prod-notes'].forEach(id=>document.getElementById(id).value='');
-  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height','prod-list-price'].forEach(id=>document.getElementById(id).value='');
+  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height','prod-price-min','prod-price-max'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prod-poe').value='';
   document.getElementById('prod-ups-protected').checked=false;
   document.getElementById('prod-pwr-type').value='';
@@ -3666,7 +3668,8 @@ async function openEditProduct(id){
   document.getElementById('prod-pwr-type').value=(p.power_types&&p.power_types[0])||'';
   document.getElementById('prod-ups-protected').checked=p.ups_protected||false;
   document.getElementById('prod-notes').value=p.notes||'';
-  document.getElementById('prod-list-price').value=p.list_price||'';
+  document.getElementById('prod-price-min').value=p.price_min||'';
+  document.getElementById('prod-price-max').value=p.price_max||'';
   document.getElementById('prod-currency').value=p.currency||'USD';
   prodUpdateNetworkFields();
   prodUpdateAudioFields();
@@ -3681,9 +3684,10 @@ async function saveProduct(){
   const poePorts=parseInt(document.getElementById('prod-poe-ports').value)||0;
   const pwrType=document.getElementById('prod-pwr-type').value||null;
   const poeBudgetWatts=parseFloat(document.getElementById('prod-poe-budget').value)||null;
-  const listPrice=parseFloat(document.getElementById('prod-list-price').value)||null;
+  const priceMin=parseFloat(document.getElementById('prod-price-min').value)||null;
+  const priceMax=parseFloat(document.getElementById('prod-price-max').value)||null;
   const currency=document.getElementById('prod-currency').value||'USD';
-  const payload={device_type_id:deviceTypeId,make,model,part_number:document.getElementById('prod-part').value.trim()||null,lan_ports:parseInt(document.getElementById('prod-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('prod-poe').value||null:null,poe_budget_watts:poeBudgetWatts,network_role:document.getElementById('prod-network-role').value||'none',avip_role:document.getElementById('prod-avip-role').value||'none',audio_role:document.getElementById('prod-audio-role').value||'none',speaker_channels:parseInt(document.getElementById('prod-spk').value)||0,spk_watts:parseFloat(document.getElementById('prod-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('prod-power').value)||null,heat_btu:parseFloat(document.getElementById('prod-heat').value)||null,ups_protected:document.getElementById('prod-ups-protected').checked,weight_kg:parseFloat(document.getElementById('prod-weight').value)||null,width_mm:parseFloat(document.getElementById('prod-width').value)||null,depth_mm:parseFloat(document.getElementById('prod-depth').value)||null,height_mm:parseFloat(document.getElementById('prod-height').value)||null,notes:document.getElementById('prod-notes').value.trim()||null,list_price:listPrice,currency:currency};
+  const payload={device_type_id:deviceTypeId,make,model,part_number:document.getElementById('prod-part').value.trim()||null,lan_ports:parseInt(document.getElementById('prod-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('prod-poe').value||null:null,poe_budget_watts:poeBudgetWatts,network_role:document.getElementById('prod-network-role').value||'none',avip_role:document.getElementById('prod-avip-role').value||'none',audio_role:document.getElementById('prod-audio-role').value||'none',speaker_channels:parseInt(document.getElementById('prod-spk').value)||0,spk_watts:parseFloat(document.getElementById('prod-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('prod-power').value)||null,heat_btu:parseFloat(document.getElementById('prod-heat').value)||null,ups_protected:document.getElementById('prod-ups-protected').checked,weight_kg:parseFloat(document.getElementById('prod-weight').value)||null,width_mm:parseFloat(document.getElementById('prod-width').value)||null,depth_mm:parseFloat(document.getElementById('prod-depth').value)||null,height_mm:parseFloat(document.getElementById('prod-height').value)||null,notes:document.getElementById('prod-notes').value.trim()||null,price_min:priceMin,price_max:priceMax,currency:currency};
   const btn=document.getElementById('product-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{
     if(productModalMode==='project'){
@@ -3799,7 +3803,7 @@ function renderProjectCatalogue(){
     +'</tr></thead><tbody>'
     +items.map(p=>{
       const isGlobal=!!p.global_product_id;
-      const priceStr=fmtPrice(p.list_price,p.currency);
+      const priceStr=fmtPriceRange(p.price_min,p.price_max,p.currency);
       const srcBadge=isGlobal
         ?'<span class="category-badge" style="background:var(--accent-light);color:var(--accent)">Global</span>'
         :'<span class="category-badge" style="background:var(--surface2);color:var(--text-3)">Custom</span>';
@@ -3830,7 +3834,7 @@ async function openAddProjProductModal(){
   document.getElementById('product-modal-title').textContent='Add Product — Product Catalogue';
   document.getElementById('product-save-btn').textContent='Save Product';
   ['prod-part','prod-make','prod-model','prod-notes'].forEach(id=>document.getElementById(id).value='');
-  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height','prod-list-price'].forEach(id=>document.getElementById(id).value='');
+  ['prod-lan','prod-poe-ports','prod-spk','prod-spk-watts','prod-power','prod-weight','prod-heat','prod-poe-budget','prod-width','prod-depth','prod-height','prod-price-min','prod-price-max'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prod-poe').value='';document.getElementById('prod-ups-protected').checked=false;
   document.getElementById('prod-pwr-type').value='';document.getElementById('prod-network-role').value='none';
   document.getElementById('prod-avip-role').value='none';document.getElementById('prod-audio-role').value='none';
@@ -3856,7 +3860,8 @@ async function openEditProjProductModal(id){
   document.getElementById('prod-width').value=p.width_mm||'';document.getElementById('prod-depth').value=p.depth_mm||'';document.getElementById('prod-height').value=p.height_mm||'';
   document.getElementById('prod-pwr-type').value=(p.power_types&&p.power_types[0])||'';document.getElementById('prod-ups-protected').checked=p.ups_protected||false;
   document.getElementById('prod-notes').value=p.notes||'';
-  document.getElementById('prod-list-price').value=p.list_price||'';
+  document.getElementById('prod-price-min').value=p.price_min||'';
+  document.getElementById('prod-price-max').value=p.price_max||'';
   document.getElementById('prod-currency').value=p.currency||'USD';
   prodUpdateNetworkFields();prodUpdateAudioFields();
   if(d){document.getElementById('prod-sg-filter').value=d.system_group||'';filterProductDeviceTypes();}
@@ -3884,7 +3889,8 @@ function refreshProjProductSpecs(id){
         speaker_channels:g.speaker_channels,spk_watts:g.spk_watts,
         weight_kg:g.weight_kg,width_mm:g.width_mm,depth_mm:g.depth_mm,height_mm:g.height_mm,
         notes:g.notes,
-        list_price:g.list_price||null,
+        price_min:g.price_min||null,
+        price_max:g.price_max||null,
         currency:g.currency||'USD'
       };
       await dbUpdate('project_products',id,specUpdate);
@@ -3957,7 +3963,7 @@ async function pullSelectedGlobalProducts(){
         power_types:g.power_types||null,power_watts:g.power_watts||null,heat_btu:g.heat_btu||null,
         ups_protected:g.ups_protected||false,speaker_channels:g.speaker_channels||0,spk_watts:g.spk_watts||null,
         weight_kg:g.weight_kg||null,width_mm:g.width_mm||null,depth_mm:g.depth_mm||null,height_mm:g.height_mm||null,
-        list_price:g.list_price||null,currency:g.currency||'USD',notes:g.notes||null
+        price_min:g.price_min||null,price_max:g.price_max||null,currency:g.currency||'USD',notes:g.notes||null
       });
       added++;
     }
@@ -4913,7 +4919,7 @@ function renderPlacedEquipment(){
   const priceMap={};
   projectProducts.forEach(pp=>{
     const k=(pp.device_type_id||'')+'|'+(pp.make||'').toLowerCase()+'|'+(pp.model||'').toLowerCase();
-    if(!priceMap[k])priceMap[k]={price:pp.list_price,currency:pp.currency||'USD'};
+    if(!priceMap[k])priceMap[k]={pMin:pp.price_min,pMax:pp.price_max,currency:pp.currency||'USD'};
   });
   const thead='<thead><tr><th>Device ID</th><th>Type</th><th>Description</th><th>Make</th><th>Model</th><th>Location</th><th>Install</th><th>LAN</th><th>PoE</th><th>PoE Type</th><th>Spk Ch</th><th>Spk W</th><th>Pwr W</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th><th>Status</th><th></th></tr></thead>';
   const groupRow=label=>'<tr><td colspan="18" style="background:#e4e6eb;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2);padding:8px 14px;border-top:1px solid var(--border-strong)">'+label+'</td></tr>';
@@ -4934,15 +4940,21 @@ function renderPlacedEquipment(){
       :'<button class="btn-icon btn-sm" onclick="confirmDeletePlaced(\''+p.id+'\',\''+escHtml(p.device_id)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>';
     // Price lookup: product catalogue first, then device type budget price
     const qty=p.quantity||1;
-    let unitPrice=null,priceCurrency='USD';
+    let unitPrice=null,unitPriceMin=null,unitPriceMax=null,priceCurrency='USD';
     if(pe){
       const k=(pe.device_type_id||'')+'|'+(pe.make||'').toLowerCase()+'|'+(pe.model||'').toLowerCase();
-      if(priceMap[k]&&priceMap[k].price){unitPrice=priceMap[k].price;priceCurrency=priceMap[k].currency||'USD';}
-      else if(pe.budget_price){unitPrice=pe.budget_price;priceCurrency=pe.currency||'USD';}
+      if(priceMap[k]&&(priceMap[k].pMin||priceMap[k].pMax)){
+        const pm=priceMap[k];priceCurrency=pm.currency||'USD';
+        // midpoint for totals; display as range
+        const lo=parseFloat(pm.pMin)||0,hi=parseFloat(pm.pMax)||0;
+        unitPrice=lo&&hi?(lo+hi)/2:lo||hi;
+        unitPriceMin=pm.pMin;unitPriceMax=pm.pMax;
+      }else if(pe.budget_price){unitPrice=pe.budget_price;priceCurrency=pe.currency||'USD';unitPriceMin=pe.budget_price;unitPriceMax=null;}
     }
-    const unitStr=unitPrice?fmtPrice(unitPrice,priceCurrency):null;
-    const totalStr=unitPrice?fmtPrice(unitPrice*qty,priceCurrency):null;
-    if(unitPrice&&!isRemoved){totals[priceCurrency]=(totals[priceCurrency]||0)+unitPrice*qty;}
+    const unitStr=fmtPriceRange(unitPriceMin,unitPriceMax,priceCurrency);
+    const midpoint=unitPrice||null;
+    const totalStr=midpoint?fmtPriceRange(midpoint*qty,null,priceCurrency):null;
+    if(midpoint&&!isRemoved){totals[priceCurrency]=(totals[priceCurrency]||0)+midpoint*qty;}
     return '<tr style="'+rowStyle+'">'
       +'<td><span class="device-id-badge">'+escHtml(p.device_id)+'</span></td>'
       +'<td class="td-mono">'+escHtml(pe?pe.device_type_id:'—')+'</td>'
