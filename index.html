@@ -1402,6 +1402,44 @@
   </div>
 </div>
 
+<!-- AWARD CONFIRM -->
+<div id="award-confirm-modal" class="modal-overlay">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title">Confirm Contract Award</div></div>
+    <div class="modal-body">
+      <div id="ac-confirm-summary" style="background:var(--accent-light,#eff6ff);border:1px solid var(--accent,#3b82f6);border-radius:var(--radius);padding:14px;margin-bottom:16px;font-size:13px"></div>
+      <p style="font-size:13px;color:var(--text-2);margin:0 0 16px;line-height:1.6">This establishes the <strong>baseline contract value</strong> for this project. All formal Change Requests will be treated as Change Orders — their priced totals accumulate as a delta against this figure. The contract value is your reference point for the life of the project.</p>
+      <div id="ac-confirm-phase-row" style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">
+        <input type="checkbox" id="ac-confirm-phase" checked style="width:16px;height:16px;cursor:pointer">
+        <label for="ac-confirm-phase" style="font-size:13px;cursor:pointer">Advance project phase to <strong>Engineering</strong></label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAwardConfirmModal()">Go back</button>
+      <button class="btn btn-primary" onclick="confirmAwardSave()">Confirm Award</button>
+    </div>
+  </div>
+</div>
+
+<!-- COST PROMPT -->
+<div id="cost-prompt-modal" class="modal-overlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><div class="modal-title" id="cp-title">Add to Cost Schedule?</div><button class="modal-close" onclick="closeCostPrompt()">&times;</button></div>
+    <div class="modal-body">
+      <p id="cp-text" style="font-size:13px;color:var(--text-2);margin:0 0 16px;line-height:1.6"></p>
+      <div style="display:grid;grid-template-columns:80px 1fr;gap:10px">
+        <div><label style="font-size:11px;color:var(--text-3)">Quantity</label><input type="number" id="cp-qty" value="1" min="0.01" step="0.01" style="font-size:13px;margin-top:3px"></div>
+        <div><label style="font-size:11px;color:var(--text-3)" id="cp-price-label">Unit Price</label><input type="number" id="cp-price" value="0" min="0" step="0.01" style="font-size:13px;margin-top:3px"></div>
+      </div>
+      <div style="margin-top:10px"><label style="font-size:11px;color:var(--text-3)">Description</label><input type="text" id="cp-desc" style="font-size:13px;margin-top:3px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeCostPrompt()">Skip</button>
+      <button class="btn btn-primary" onclick="confirmCostPrompt()">Add to Schedule</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div class="login-overlay" id="login-overlay" style="display:none">
   <div class="login-box">
@@ -1435,7 +1473,7 @@ let projectProducts=[], productModalMode='global'; // 'global' or 'project'
 let pgpItems=[], pgpPulledIds=new Set(), pgpActiveType='all';
 let selectingProductForPeId=null, editingSgId=null, editingDcId=null;
 let currentUser=null, ieImportData=null, ieImportOption='add';
-let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null, activeCRId=null;
+let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null, activeCRId=null, activeCRType=null;
 
 // ── UTILS ──
 function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1899,11 +1937,12 @@ function openAwardContractModal(award){
   m.classList.add('open');
 }
 function closeAwardContractModal(){document.getElementById('award-contract-modal').classList.remove('open');}
+let pendingAwardPayload=null;
 async function saveAwardContract(){
   const rawVal=document.getElementById('ac-value').value;
   const value=parseFloat(rawVal);
   if(rawVal===''||isNaN(value)||value<0){alert('Please enter a valid contract value.');return;}
-  const payload={
+  pendingAwardPayload={
     project_id:currentProject.id,
     integrator_id:document.getElementById('ac-integrator').value||null,
     discipline:document.getElementById('ac-discipline').value.trim()||null,
@@ -1912,6 +1951,38 @@ async function saveAwardContract(){
     award_date:document.getElementById('ac-date').value||null,
     notes:document.getElementById('ac-notes').value.trim()||null
   };
+  if(!projectAward){
+    // New award — show confirmation ceremony first
+    openAwardConfirmModal(pendingAwardPayload);
+  }else{
+    // Editing existing — save quietly (no phase ceremony)
+    closeAwardContractModal();
+    await doSaveAward(pendingAwardPayload,false);
+  }
+}
+function openAwardConfirmModal(payload){
+  const intName=projectIntegrators.find(i=>i.id===payload.integrator_id)?.company_name||'(no contractor selected)';
+  const valueStr=fmtPrice(payload.contract_value,payload.currency)||String(payload.contract_value);
+  const dateStr=payload.award_date?formatDate(payload.award_date):'(no date set)';
+  document.getElementById('ac-confirm-summary').innerHTML=
+    '<div style="font-size:18px;font-weight:700;color:var(--text-1);margin-bottom:8px">'+escHtml(valueStr)+'</div>'
+    +'<div style="color:var(--text-2)">Awarded to: <strong>'+escHtml(intName)+'</strong></div>'
+    +'<div style="color:var(--text-2);margin-top:3px">Award date: '+escHtml(dateStr)+'</div>'
+    +(payload.discipline?'<div style="color:var(--text-2);margin-top:3px">Discipline: '+escHtml(payload.discipline)+'</div>':'');
+  // Only offer phase advancement if project isn't already in or past Engineering
+  const latePhases=['Engineering','Install','Testing','Delivered'];
+  const phaseRow=document.getElementById('ac-confirm-phase-row');
+  if(phaseRow)phaseRow.style.display=latePhases.includes(currentProject?.phase||'')?'none':'flex';
+  document.getElementById('award-confirm-modal').classList.add('open');
+}
+function closeAwardConfirmModal(){document.getElementById('award-confirm-modal').classList.remove('open');}
+async function confirmAwardSave(){
+  const advancePhase=document.getElementById('ac-confirm-phase')?.checked;
+  closeAwardConfirmModal();
+  closeAwardContractModal();
+  await doSaveAward(pendingAwardPayload,advancePhase);
+}
+async function doSaveAward(payload,advancePhase){
   try{
     if(projectAward){
       const rows=await dbUpdate('contract_awards',projectAward.id,payload);
@@ -1920,10 +1991,16 @@ async function saveAwardContract(){
       const rows=await dbInsert('contract_awards',payload);
       projectAward=rows[0];
     }
-    closeAwardContractModal();
+    if(advancePhase&&currentProject){
+      await dbUpdate('projects',currentProject.id,{phase:'Engineering'});
+      currentProject={...currentProject,phase:'Engineering'};
+      updateSidebarProject();
+    }
     loadCCStats(currentProject.id);
-    logChange('project','update','Contract award saved – '+fmtPrice(value,payload.currency));
-  }catch(e){console.error('saveAwardContract error',e);alert('Error saving contract award: '+(e.message||e));}
+    const intName=projectIntegrators.find(i=>i.id===payload.integrator_id)?.company_name||'contractor';
+    logChange('project','update','Contract awarded to '+intName+' – '+fmtPrice(payload.contract_value,payload.currency));
+    showToast('Contract award recorded','success');
+  }catch(e){console.error('doSaveAward error',e);alert('Error saving contract award: '+(e.message||e));}
 }
 // ── CR COST ITEMS ──
 async function loadCRCostItems(crId){
@@ -1975,6 +2052,60 @@ async function deleteCostItem(itemId,crId){
       renderCRs();
     }catch(e){console.error('deleteCostItem error',e);alert('Error removing cost item: '+(e.message||e));}
   });
+}
+// ── COST PROMPT (placement cost linking) ──
+let costPromptData=null;
+function openCostPrompt(crId,description,qty,unitPrice,currency,isRemoval){
+  costPromptData={crId,isRemoval};
+  const crRef=ccCRs.find(c=>c.id===crId)?.cr_number||'CR';
+  document.getElementById('cp-title').textContent=isRemoval?'Add Credit to Cost Schedule?':'Add to Cost Schedule?';
+  document.getElementById('cp-text').textContent=(isRemoval
+    ?'Device marked as removed under '+crRef+'. Add a credit line to the cost schedule?'
+    :'Device placed under '+crRef+'. Add it to the cost schedule?');
+  document.getElementById('cp-desc').value=description||'';
+  document.getElementById('cp-qty').value=Math.abs(qty||1);
+  document.getElementById('cp-price').value=unitPrice!=null?Math.abs(unitPrice):0;
+  document.getElementById('cp-price-label').textContent='Unit Price ('+(currency||'EUR')+')';
+  document.getElementById('cost-prompt-modal').classList.add('open');
+}
+function closeCostPrompt(){document.getElementById('cost-prompt-modal').classList.remove('open');costPromptData=null;}
+async function confirmCostPrompt(){
+  if(!costPromptData)return;
+  const {crId,isRemoval}=costPromptData;
+  const desc=document.getElementById('cp-desc').value.trim();
+  if(!desc){alert('Please enter a description.');return;}
+  const absQty=parseFloat(document.getElementById('cp-qty').value||'1');
+  const absPrice=parseFloat(document.getElementById('cp-price').value||'0');
+  if(isNaN(absQty)||absQty<=0||isNaN(absPrice)||absPrice<0){alert('Please enter valid quantity and price.');return;}
+  // Credits use negative quantity so line_value comes out negative
+  const qty=isRemoval?-absQty:absQty;
+  const payload={
+    cr_id:crId,item_type:'equipment',description:desc,
+    quantity:qty,unit_price:absPrice,
+    notes:isRemoval?'Credit — item removed from schedule':null,
+    sort_order:(crCostItems[crId]||[]).length
+  };
+  closeCostPrompt();
+  try{
+    const rows=await dbInsert('cr_cost_items',payload);
+    if(!crCostItems[crId])crCostItems[crId]=[];
+    crCostItems[crId].push(rows[0]);
+    const cr=ccCRs.find(c=>c.id===crId);
+    const currency=projectAward?.currency||cr?.co_currency||'EUR';
+    const total=crCostItems[crId].reduce((s,i)=>s+(parseFloat(i.line_value!=null?i.line_value:parseFloat(i.quantity||1)*parseFloat(i.unit_price||0))||0),0);
+    await dbUpdate('change_requests',crId,{co_total_value:total,co_currency:currency,priced_at:new Date().toISOString()});
+    if(cr){cr.co_total_value=total;cr.co_currency=currency;}
+    showToast((isRemoval?'Credit':'Cost item')+' added to '+((ccCRs.find(c=>c.id===crId))?.cr_number||'CR'),'success');
+  }catch(e){console.error('confirmCostPrompt error',e);alert('Error adding cost item: '+(e.message||e));}
+}
+// Helper: look up catalogue unit price for a project_equipment record
+function lookupEquipmentPrice(pe){
+  if(!pe)return null;
+  const k=(pe.device_type_id||'')+'|'+(pe.make||'').toLowerCase()+'|'+(pe.model||'').toLowerCase();
+  const pp=projectProducts.find(p=>(p.device_type_id||'')+'|'+(p.make||'').toLowerCase()+'|'+(p.model||'').toLowerCase()===k);
+  if(pp){const lo=parseFloat(pp.price_min)||0,hi=parseFloat(pp.price_max)||0;return lo&&hi?(lo+hi)/2:lo||hi||null;}
+  if(pe.budget_price)return parseFloat(pe.budget_price);
+  return null;
 }
 async function loadTeamMembers(projectId){
   try{
@@ -5164,6 +5295,15 @@ function confirmDeletePlaced(id,name){
       if(activeCRId){
         await dbUpdate('equipment_instances',id,{change_status:'removed',change_cr_id:activeCRId,change_cr_ref:activeCRRef()});
         showToast(name+' marked as Removed','success');
+        // Prompt for credit line if under a formal CR
+        if(activeCRType==='formal'){
+          const inst=placedEquipment.find(p=>p.id===id);
+          const pe=inst?projectEquipment.find(e=>e.id===inst.project_equipment_id):null;
+          const activeCR=ccCRs.find(c=>c.id===activeCRId);
+          const currency=projectAward?.currency||activeCR?.co_currency||'EUR';
+          const unitPrice=lookupEquipmentPrice(pe);
+          openCostPrompt(activeCRId,pe?.description||name,1,unitPrice,currency,true);
+        }
       }else{
         await dbDelete('equipment_instances',id);
         showToast('Removed','success');
@@ -5340,6 +5480,17 @@ async function savePlacement(){
     logChange('equipment','added','Placed '+total+' device'+(total!==1?'s':'')+' in '+(locType==='room'?'room':'rack zone')+': '+locName+' ('+plItems.map(i=>i.typeId||i.peId).join(', ')+')');
     closePlaceModal();
     loadPlacedEquipment();
+    // Prompt to add cost item when under an active formal CR
+    if(activeCRId&&activeCRType==='formal'){
+      const firstItem=plItems[0];
+      const pe=firstItem?projectEquipment.find(e=>e.id===firstItem.peId):null;
+      const activeCR=ccCRs.find(c=>c.id===activeCRId);
+      const currency=projectAward?.currency||activeCR?.co_currency||'EUR';
+      const unitPrice=lookupEquipmentPrice(pe);
+      const totalQty=plItems.reduce((s,i)=>s+i.quantity,0);
+      const desc=plItems.length===1?(pe?.description||'Equipment'):totalQty+' \xd7 '+(pe?.description||'devices');
+      openCostPrompt(activeCRId,desc,totalQty,unitPrice,currency,false);
+    }
   }catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent='Add to Schedule';btn.disabled=false;}
 }
@@ -5458,7 +5609,7 @@ async function onLoginSuccess(){
 async function init(){
   // Restore active CR from session (survives page refresh, cleared on tab close)
   const savedCRId=sessionStorage.getItem('activeCRId');
-  if(savedCRId)activeCRId=savedCRId;
+  if(savedCRId){activeCRId=savedCRId;activeCRType=sessionStorage.getItem('activeCRType')||null;}
   document.getElementById('login-overlay').style.display='flex';
   setConn('checking');
   const email=await tryRestoreSession();
@@ -5967,12 +6118,15 @@ function changeBadge(status,crRef){
 function setActiveCR(id){
   activeCRId=id;
   sessionStorage.setItem('activeCRId',id);
+  const cr=ccCRs.find(c=>c.id===id);
+  activeCRType=cr?.type||null;
+  if(activeCRType)sessionStorage.setItem('activeCRType',activeCRType);
   showActiveCRBanner();
   renderCRs();
 }
 function clearActiveCR(){
-  activeCRId=null;
-  sessionStorage.removeItem('activeCRId');
+  activeCRId=null;activeCRType=null;
+  sessionStorage.removeItem('activeCRId');sessionStorage.removeItem('activeCRType');
   const b=document.getElementById('active-cr-banner');
   if(b)b.style.display='none';
   if(currentPage==='change-control')renderCRs();
