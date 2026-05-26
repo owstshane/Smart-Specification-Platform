@@ -291,6 +291,7 @@
   .cc-badge-pending_owner { background: #fff7ed; color: #9a3412; }
   .cc-badge-approved { background: #f0fff4; color: #276749; }
   .cc-badge-priced { background: #fef3c7; color: #b45309; }
+  .cc-badge-agreed { background: #dcfce7; color: #166534; }
   .cc-badge-closed { background: #ebf4ff; color: #2b6cb0; }
   .cc-badge-rejected { background: #fff5f5; color: #c53030; }
   .cc-badge-preliminary { background: var(--surface2); color: var(--text-3); }
@@ -1434,7 +1435,7 @@
       <div style="margin-top:10px"><label style="font-size:11px;color:var(--text-3)">Description</label><input type="text" id="cp-desc" style="font-size:13px;margin-top:3px"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeCostPrompt()">Skip</button>
+      <button class="btn btn-secondary" onclick="skipCostPrompt()">Skip</button>
       <button class="btn btn-primary" onclick="confirmCostPrompt()">Add to Schedule</button>
     </div>
   </div>
@@ -2033,7 +2034,7 @@ async function saveCostItem(crId){
     crCostItems[crId].push(rows[0]);
     const cr=ccCRs.find(c=>c.id===crId);
     const currency=projectAward?.currency||cr?.co_currency||'EUR';
-    const total=crCostItems[crId].reduce((s,i)=>s+(parseFloat(i.line_value!=null?i.line_value:parseFloat(i.quantity||1)*parseFloat(i.unit_price||0))||0),0);
+    const total=computeCOTotal(crId);
     await dbUpdate('change_requests',crId,{co_total_value:total,co_currency:currency,priced_at:new Date().toISOString()});
     if(cr){cr.co_total_value=total;cr.co_currency=currency;cr.priced_at=new Date().toISOString();}
     renderCRs();
@@ -2045,7 +2046,7 @@ async function deleteCostItem(itemId,crId){
       await dbDelete('cr_cost_items',itemId);
       if(crCostItems[crId])crCostItems[crId]=crCostItems[crId].filter(i=>i.id!==itemId);
       const currency=projectAward?.currency||'EUR';
-      const total=crCostItems[crId].reduce((s,i)=>s+(parseFloat(i.line_value!=null?i.line_value:parseFloat(i.quantity||1)*parseFloat(i.unit_price||0))||0),0);
+      const total=computeCOTotal(crId);
       await dbUpdate('change_requests',crId,{co_total_value:total||null,co_currency:total?currency:null,priced_at:total?new Date().toISOString():null});
       const cr=ccCRs.find(c=>c.id===crId);
       if(cr){cr.co_total_value=total||null;cr.co_currency=total?currency:null;}
@@ -2055,7 +2056,7 @@ async function deleteCostItem(itemId,crId){
 }
 // ── COST PROMPT (placement cost linking) ──
 let costPromptData=null;
-function openCostPrompt(crId,description,qty,unitPrice,currency,isRemoval,bodyText){
+function openCostPrompt(crId,description,qty,unitPrice,currency,isRemoval,bodyText,priceSource){
   costPromptData={crId,isRemoval};
   const crRef=ccCRs.find(c=>c.id===crId)?.cr_number||activeCRRef()||'CR';
   document.getElementById('cp-title').textContent=isRemoval?'Add Credit to Cost Schedule?':'Add to Cost Schedule?';
@@ -2065,7 +2066,8 @@ function openCostPrompt(crId,description,qty,unitPrice,currency,isRemoval,bodyTe
   document.getElementById('cp-desc').value=description||'';
   document.getElementById('cp-qty').value=Math.abs(qty||1);
   document.getElementById('cp-price').value=unitPrice!=null?Math.abs(unitPrice):0;
-  document.getElementById('cp-price-label').textContent='Unit Price ('+(currency||'EUR')+')';
+  const srcLabel=priceSource?' \xb7 '+priceSource:'';
+  document.getElementById('cp-price-label').textContent='Unit Price ('+(currency||'EUR')+srcLabel+')';
   document.getElementById('cost-prompt-modal').classList.add('open');
 }
 function closeCostPrompt(){document.getElementById('cost-prompt-modal').classList.remove('open');costPromptData=null;}
@@ -2092,21 +2094,97 @@ async function confirmCostPrompt(){
     crCostItems[crId].push(rows[0]);
     const cr=ccCRs.find(c=>c.id===crId);
     const currency=projectAward?.currency||cr?.co_currency||'EUR';
-    const total=crCostItems[crId].reduce((s,i)=>s+(parseFloat(i.line_value!=null?i.line_value:parseFloat(i.quantity||1)*parseFloat(i.unit_price||0))||0),0);
+    const total=computeCOTotal(crId);
     await dbUpdate('change_requests',crId,{co_total_value:total,co_currency:currency,priced_at:new Date().toISOString()});
     if(cr){cr.co_total_value=total;cr.co_currency=currency;}
     showToast((isRemoval?'Credit':'Cost item')+' added to '+((ccCRs.find(c=>c.id===crId))?.cr_number||'CR'),'success');
   }catch(e){console.error('confirmCostPrompt error',e);alert('Error adding cost item: '+(e.message||e));}
 }
-// Helper: look up catalogue unit price for a project_equipment record
-function lookupEquipmentPrice(pe){
-  if(!pe)return null;
+// Helper: CO total excluding pending items
+function computeCOTotal(crId){
+  return(crCostItems[crId]||[]).filter(i=>i.item_type!=='pending').reduce((s,i)=>s+(parseFloat(i.line_value!=null?i.line_value:parseFloat(i.quantity||1)*parseFloat(i.unit_price||0))||0),0);
+}
+// Skip cost prompt — creates a pending placeholder instead of discarding
+async function skipCostPrompt(){
+  if(costPromptData){
+    const{crId,isRemoval}=costPromptData;
+    const desc=document.getElementById('cp-desc').value.trim()||'Unpriced change';
+    const absQty=parseFloat(document.getElementById('cp-qty').value||'1');
+    const payload={cr_id:crId,item_type:'pending',description:desc,quantity:isRemoval?-absQty:absQty,unit_price:0,notes:'Skipped — awaiting pricing',sort_order:(crCostItems[crId]||[]).length};
+    try{
+      const rows=await dbInsert('cr_cost_items',payload);
+      if(!crCostItems[crId])crCostItems[crId]=[];
+      crCostItems[crId].push(rows[0]);
+      showToast('Marked as pending — set price in the CR cost schedule','info');
+      if(expandedCRId===crId)renderCRs();
+    }catch(e){console.error('skipCostPrompt error',e);}
+  }
+  costPromptData=null;
+  document.getElementById('cost-prompt-modal').classList.remove('open');
+}
+// Resolve a pending cost item inline
+let resolvingPendingId=null;
+function openResolvePending(itemId,crId){resolvingPendingId={itemId,crId};renderCRs();}
+function cancelResolvePending(){resolvingPendingId=null;renderCRs();}
+async function saveResolvePending(itemId,crId){
+  const type=document.getElementById('rp-type-'+itemId)?.value||'equipment';
+  const desc=document.getElementById('rp-desc-'+itemId)?.value.trim();
+  const qty=parseFloat(document.getElementById('rp-qty-'+itemId)?.value||'1');
+  const price=parseFloat(document.getElementById('rp-price-'+itemId)?.value||'0');
+  if(!desc){alert('Description is required.');return;}
+  if(isNaN(qty)||isNaN(price)){alert('Invalid quantity or price.');return;}
+  try{
+    const rows=await dbUpdate('cr_cost_items',itemId,{item_type:type,description:desc,quantity:qty,unit_price:price,notes:null});
+    const idx=(crCostItems[crId]||[]).findIndex(i=>i.id===itemId);
+    if(idx>=0)crCostItems[crId][idx]=rows[0]||{...crCostItems[crId][idx],item_type:type,description:desc,quantity:qty,unit_price:price};
+    const currency=projectAward?.currency||ccCRs.find(c=>c.id===crId)?.co_currency||'EUR';
+    const total=computeCOTotal(crId);
+    await dbUpdate('change_requests',crId,{co_total_value:total,co_currency:currency,priced_at:new Date().toISOString()});
+    const cr=ccCRs.find(c=>c.id===crId);if(cr){cr.co_total_value=total;cr.co_currency=currency;}
+    resolvingPendingId=null;renderCRs();showToast('Cost item saved','success');
+  }catch(e){console.error('saveResolvePending error',e);alert('Error saving: '+(e.message||e));}
+}
+// Agree cost schedule
+function openAgreeCostScheduleForm(crId){
+  const form=document.getElementById('agree-cs-form-'+crId);
+  const trigger=document.getElementById('agree-cs-trigger-'+crId);
+  if(form)form.style.display='block';
+  if(trigger)trigger.style.display='none';
+  const dateEl=document.getElementById('agree-date-'+crId);
+  if(dateEl&&!dateEl.value)dateEl.value=new Date().toISOString().split('T')[0];
+}
+function closeAgreeCostScheduleForm(crId){
+  const form=document.getElementById('agree-cs-form-'+crId);
+  const trigger=document.getElementById('agree-cs-trigger-'+crId);
+  if(form)form.style.display='none';
+  if(trigger)trigger.style.display='block';
+}
+async function saveAgreeCostSchedule(crId){
+  const name=document.getElementById('agree-name-'+crId)?.value.trim();
+  if(!name){alert('Please enter who agreed the cost schedule.');return;}
+  const date=document.getElementById('agree-date-'+crId)?.value||new Date().toISOString().split('T')[0];
+  try{
+    await dbUpdate('change_requests',crId,{co_agreed_by:name,co_agreed_date:date});
+    const cr=ccCRs.find(c=>c.id===crId);
+    if(cr){cr.co_agreed_by=name;cr.co_agreed_date=date;}
+    logChange('change-control','update','Cost schedule agreed by '+name+' for '+(cr?.cr_number||'CR'));
+    showToast('Cost schedule agreed','success');renderCRs();
+  }catch(e){console.error('saveAgreeCostSchedule error',e);alert('Error: '+(e.message||e));}
+}
+// Helper: look up price AND its source label for a project_equipment record
+function lookupEquipmentPriceInfo(pe){
+  if(!pe)return{price:null,source:null};
   const k=(pe.device_type_id||'')+'|'+(pe.make||'').toLowerCase()+'|'+(pe.model||'').toLowerCase();
   const pp=projectProducts.find(p=>(p.device_type_id||'')+'|'+(p.make||'').toLowerCase()+'|'+(p.model||'').toLowerCase()===k);
-  if(pp){const lo=parseFloat(pp.price_min)||0,hi=parseFloat(pp.price_max)||0;return lo&&hi?(lo+hi)/2:lo||hi||null;}
-  if(pe.budget_price)return parseFloat(pe.budget_price);
-  return null;
+  if(pp){
+    const lo=parseFloat(pp.price_min)||0,hi=parseFloat(pp.price_max)||0;
+    const price=lo&&hi?(lo+hi)/2:lo||hi||null;
+    if(price!=null)return{price,source:'from project catalogue'+(pp.make&&pp.model?' ('+pp.make+' '+pp.model+')':'')};
+  }
+  if(pe.budget_price)return{price:parseFloat(pe.budget_price),source:'budget estimate'};
+  return{price:null,source:'not in catalogue — enter manually'};
 }
+function lookupEquipmentPrice(pe){return lookupEquipmentPriceInfo(pe).price;}
 async function loadTeamMembers(projectId){
   try{
     projectTeam=await dbGet('project_team','project_id=eq.'+projectId+'&order=created_at.asc');
@@ -4020,7 +4098,7 @@ async function selectProduct(productId){
       const toStr=newPrice!=null?fmtPrice(newPrice,currency)||String(newPrice):'unknown';
       const dirWord=delta==null?'changed':delta>=0?'increased':'decreased';
       const bodyText='Product changed under '+crRef+'. Unit price '+dirWord+' from '+fromStr+' to '+toStr+' \xd7 '+placedCount+' placed. Add adjustment to cost schedule?';
-      openCostPrompt(activeCRId,desc,placedCount,Math.abs(delta!=null?delta:0),currency,delta!=null&&delta<0,bodyText);
+      openCostPrompt(activeCRId,desc,placedCount,Math.abs(delta!=null?delta:0),currency,delta!=null&&delta<0,bodyText,'from catalogue');
     }
   }catch(e){showToast('Could not select: '+e.message,'error');}
 }
@@ -5173,7 +5251,7 @@ async function savePeItem(){
         const dirWord=delta==null?'changed':delta>=0?'increased':'decreased';
         const desc='Price adjustment: '+typeId+(oldPe?.description?' ('+oldPe.description+')':'');
         const bodyText='Budget price '+dirWord+' from '+fromStr+' to '+toStr+' under '+crRef+' \xd7 '+placedCount+' placed. Add adjustment to cost schedule?';
-        openCostPrompt(activeCRId,desc,placedCount,Math.abs(delta!=null?delta:newBudgetPrice||0),currency,delta!=null&&delta<0,bodyText);
+        openCostPrompt(activeCRId,desc,placedCount,Math.abs(delta!=null?delta:newBudgetPrice||0),currency,delta!=null&&delta<0,bodyText,'budget estimate');
       }
     }
   }catch(e){showToast('Could not save: '+e.message,'error');}
@@ -5344,8 +5422,8 @@ function confirmDeletePlaced(id,name){
           const pe=inst?projectEquipment.find(e=>e.id===inst.project_equipment_id):null;
           const activeCR=ccCRs.find(c=>c.id===activeCRId);
           const currency=projectAward?.currency||activeCR?.co_currency||'EUR';
-          const unitPrice=lookupEquipmentPrice(pe);
-          openCostPrompt(activeCRId,pe?.description||name,1,unitPrice,currency,true);
+          const {price:unitPrice,source:priceSource}=lookupEquipmentPriceInfo(pe);
+          openCostPrompt(activeCRId,pe?.description||name,1,unitPrice,currency,true,null,priceSource);
         }
       }else{
         await dbDelete('equipment_instances',id);
@@ -5529,10 +5607,10 @@ async function savePlacement(){
       const pe=firstItem?projectEquipment.find(e=>e.id===firstItem.peId):null;
       const activeCR=ccCRs.find(c=>c.id===activeCRId);
       const currency=projectAward?.currency||activeCR?.co_currency||'EUR';
-      const unitPrice=lookupEquipmentPrice(pe);
+      const {price:unitPrice,source:priceSource}=lookupEquipmentPriceInfo(pe);
       const totalQty=plItems.reduce((s,i)=>s+i.quantity,0);
       const desc=plItems.length===1?(pe?.description||'Equipment'):totalQty+' \xd7 '+(pe?.description||'devices');
-      openCostPrompt(activeCRId,desc,totalQty,unitPrice,currency,false);
+      openCostPrompt(activeCRId,desc,totalQty,unitPrice,currency,false,null,priceSource);
     }
   }catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.textContent='Add to Schedule';btn.disabled=false;}
@@ -5757,10 +5835,15 @@ function renderCRs(){
         detail+='</div>';
         // ── Cost Schedule ──
         const costItems=crCostItems[cr.id]||[];
+        const pendingItems=costItems.filter(i=>i.item_type==='pending');
+        const realItems=costItems.filter(i=>i.item_type!=='pending');
         const coCurrency=projectAward?.currency||cr.co_currency||'EUR';
         detail+='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">';
         detail+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+        detail+='<div style="display:flex;align-items:center;gap:8px">';
         detail+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3)">Cost Schedule</div>';
+        if(pendingItems.length)detail+='<span style="font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:10px">'+pendingItems.length+' pending</span>';
+        detail+='</div>';
         detail+='<button class="btn btn-sm" onclick="openAddCostItem(\''+cr.id+'\')">+ Add Item</button>';
         detail+='</div>';
         if(costItems.length){
@@ -5771,10 +5854,11 @@ function renderCRs(){
             +'<th style="padding:4px 8px;text-align:right;border:1px solid var(--border);font-weight:600;color:var(--text-3)">Qty</th>'
             +'<th style="padding:4px 8px;text-align:right;border:1px solid var(--border);font-weight:600;color:var(--text-3);white-space:nowrap">Unit ('+coCurrency+')</th>'
             +'<th style="padding:4px 8px;text-align:right;border:1px solid var(--border);font-weight:600;color:var(--text-3);white-space:nowrap">Total ('+coCurrency+')</th>'
-            +'<th style="padding:4px 8px;border:1px solid var(--border);width:28px"></th>'
+            +'<th style="padding:4px 8px;border:1px solid var(--border);width:60px"></th>'
             +'</tr></thead><tbody>';
           let coTotal=0;
-          costItems.forEach(it=>{
+          // Real items
+          realItems.forEach(it=>{
             const lv=parseFloat(it.line_value!=null?it.line_value:parseFloat(it.quantity||1)*parseFloat(it.unit_price||0))||0;
             coTotal+=lv;
             const unitStr=fmtPrice(it.unit_price,coCurrency)||'—';
@@ -5785,16 +5869,68 @@ function renderCRs(){
               +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:right">'+parseFloat(it.quantity||1).toLocaleString()+'</td>'
               +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:right">'+escHtml(unitStr)+'</td>'
               +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:right;font-weight:600">'+escHtml(totStr)+'</td>'
-              +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:center"><button onclick="deleteCostItem(\''+it.id+'\',\''+cr.id+'\')" title="Remove" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;line-height:1;padding:0">×</button></td>'
+              +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:center"><button onclick="deleteCostItem(\''+it.id+'\',\''+cr.id+'\')" title="Remove" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;line-height:1;padding:0">\xd7</button></td>'
               +'</tr>';
           });
-          detail+='</tbody><tfoot><tr style="background:var(--surface2)">'
-            +'<td colspan="4" style="padding:6px 8px;border:1px solid var(--border);font-weight:700;text-align:right">CO Total</td>'
-            +'<td style="padding:6px 8px;border:1px solid var(--border);font-weight:700;text-align:right">'+escHtml(fmtPrice(coTotal,coCurrency)||'—')+'</td>'
-            +'<td style="border:1px solid var(--border)"></td>'
-            +'</tr></tfoot></table>';
+          // Pending items
+          pendingItems.forEach(it=>{
+            const isEditing=resolvingPendingId?.itemId===it.id;
+            if(isEditing){
+              const typeOpts=['equipment','labour','installation','drawing','other'].map(t=>'<option value="'+t+'">'+t+'</option>').join('');
+              detail+='<tr style="background:#fffbeb">'
+                +'<td style="padding:4px 6px;border:1px solid var(--border)"><select id="rp-type-'+it.id+'" style="font-size:11px;width:100%">'+typeOpts+'</select></td>'
+                +'<td style="padding:4px 6px;border:1px solid var(--border)"><input id="rp-desc-'+it.id+'" type="text" value="'+escHtml(it.description)+'" style="font-size:11px;width:100%"></td>'
+                +'<td style="padding:4px 6px;border:1px solid var(--border)"><input id="rp-qty-'+it.id+'" type="number" value="'+Math.abs(parseFloat(it.quantity)||1)+'" step="0.01" style="font-size:11px;width:60px"></td>'
+                +'<td style="padding:4px 6px;border:1px solid var(--border)"><input id="rp-price-'+it.id+'" type="number" value="0" min="0" step="0.01" style="font-size:11px;width:80px"></td>'
+                +'<td style="border:1px solid var(--border)"></td>'
+                +'<td style="padding:4px 6px;border:1px solid var(--border);white-space:nowrap">'
+                  +'<button class="btn btn-primary btn-sm" onclick="saveResolvePending(\''+it.id+'\',\''+cr.id+'\')">Save</button> '
+                  +'<button class="btn btn-secondary btn-sm" onclick="cancelResolvePending()">Cancel</button>'
+                +'</td>'
+                +'</tr>';
+            }else{
+              detail+='<tr style="background:#fffbeb">'
+                +'<td style="padding:4px 8px;border:1px solid var(--border)"><span style="font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;text-transform:uppercase">Pending</span></td>'
+                +'<td style="padding:4px 8px;border:1px solid var(--border);color:var(--text-2)">'+escHtml(it.description)+'</td>'
+                +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:right;color:var(--text-3)">'+Math.abs(parseFloat(it.quantity)||1)+'</td>'
+                +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:right;color:var(--text-3)">—</td>'
+                +'<td style="padding:4px 8px;border:1px solid var(--border);text-align:right;color:var(--text-3)">—</td>'
+                +'<td style="padding:4px 8px;border:1px solid var(--border);white-space:nowrap">'
+                  +'<button class="btn btn-sm" onclick="openResolvePending(\''+it.id+'\',\''+cr.id+'\')" style="font-size:10px">Set price →</button>'
+                +'</td>'
+                +'</tr>';
+            }
+          });
+          detail+='</tbody>';
+          if(realItems.length){
+            detail+='<tfoot><tr style="background:var(--surface2)">'
+              +'<td colspan="4" style="padding:6px 8px;border:1px solid var(--border);font-weight:700;text-align:right">CO Total'+(pendingItems.length?'<span style="font-size:10px;font-weight:400;color:var(--text-3);margin-left:6px">(excl. '+pendingItems.length+' pending)</span>':'')+'</td>'
+              +'<td style="padding:6px 8px;border:1px solid var(--border);font-weight:700;text-align:right">'+escHtml(fmtPrice(coTotal,coCurrency)||'—')+'</td>'
+              +'<td style="border:1px solid var(--border)"></td>'
+              +'</tr></tfoot>';
+          }
+          detail+='</table>';
         }else{
-          detail+='<div style="font-size:12px;color:var(--text-3);font-style:italic;padding:4px 0">No cost items yet — click + Add Item to build the schedule.</div>';
+          detail+='<div style="font-size:12px;color:var(--text-3);font-style:italic;padding:4px 0">No cost items yet — click + Add Item to build the schedule, or items skipped from the cost prompt will appear here as pending.</div>';
+        }
+        // ── Agree cost schedule ──
+        if(cr.co_agreed_by){
+          detail+='<div style="margin-top:10px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--radius);font-size:12px;color:#166534;display:flex;align-items:center;gap:8px">'
+            +'<span style="font-size:16px">✓</span>'
+            +'<span><strong>Cost schedule agreed</strong> by '+escHtml(cr.co_agreed_by)+(cr.co_agreed_date?' \xb7 '+ccFmtDate(cr.co_agreed_date):'')+'</span>'
+            +'</div>';
+        }else if(realItems.length){
+          detail+='<div style="margin-top:10px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">';
+          detail+='<div id="agree-cs-trigger-'+cr.id+'" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2)">';
+          detail+='<button class="btn btn-secondary btn-sm" onclick="openAgreeCostScheduleForm(\''+cr.id+'\')">Agree Cost Schedule</button>';
+          detail+='<span style="font-size:11px;color:var(--text-3)">Record that the client has formally accepted the commercial value of this change</span>';
+          detail+='</div>';
+          detail+='<div id="agree-cs-form-'+cr.id+'" style="display:none;padding:10px 12px;background:var(--surface)">';
+          detail+='<div style="display:grid;grid-template-columns:1fr 150px auto;gap:8px;align-items:flex-end">';
+          detail+='<div><label style="font-size:11px;color:var(--text-3)">Agreed by *</label><input type="text" id="agree-name-'+cr.id+'" placeholder="Name" style="font-size:12px;margin-top:3px"></div>';
+          detail+='<div><label style="font-size:11px;color:var(--text-3)">Date</label><input type="date" id="agree-date-'+cr.id+'" style="font-size:12px;margin-top:3px"></div>';
+          detail+='<div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" onclick="saveAgreeCostSchedule(\''+cr.id+'\')">Confirm</button><button class="btn btn-secondary btn-sm" onclick="closeAgreeCostScheduleForm(\''+cr.id+'\')">Cancel</button></div>';
+          detail+='</div></div></div>';
         }
         // Inline add-item form
         detail+='<div id="cost-item-form-'+cr.id+'" style="display:none;margin-top:10px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">';
@@ -5860,7 +5996,11 @@ function renderCRs(){
       +'<span class="cc-cr-title">'+escHtml(cr.title)+'</span>'
       +'<span class="cc-badge cc-badge-'+cr.type+'">'+cr.type+'</span>'
       +'<span class="cc-badge cc-badge-'+cr.status+'">'+crStatusLabel(cr.status)+'</span>'
-      +(cr.type==='formal'&&cr.co_total_value!=null?'<span class="cc-badge cc-badge-priced">'+escHtml(fmtPrice(cr.co_total_value,cr.co_currency||'EUR')||'')+'</span>':'')
+      +(cr.type==='formal'&&cr.co_total_value!=null
+        ?cr.co_agreed_by
+          ?'<span class="cc-badge cc-badge-agreed">✓ Agreed: '+escHtml(fmtPrice(cr.co_total_value,cr.co_currency||'EUR')||'')+'</span>'
+          :'<span class="cc-badge cc-badge-priced">Estimated: '+escHtml(fmtPrice(cr.co_total_value,cr.co_currency||'EUR')||'')+'</span>'
+        :'')
       +(cr.raised_by?'<span class="cc-cr-meta">'+escHtml(cr.raised_by)+'</span>':'')
       +(cr.raised_date?'<span class="cc-cr-meta">'+ccFmtDate(cr.raised_date)+'</span>':'')
       +'<span style="color:var(--text-3);font-size:11px">'+(isOpen?'▾':'▸')+'</span>'
