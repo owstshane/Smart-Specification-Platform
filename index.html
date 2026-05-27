@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SMART Advisers — Specification Platform</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -412,6 +414,62 @@
   .login-error.show { display: block; }
   .hidden { display: none !important; }
   .flex { display: flex; } .items-center { align-items: center; } .gap-12 { gap: 12px; }
+
+  /* SPEC BUILDER */
+  .spec-layout { display: grid; grid-template-columns: 310px 1fr; min-height: calc(100vh - 210px); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .spec-tree-pane { border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--surface2); overflow: hidden; }
+  .spec-tree-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; background: var(--surface); flex-shrink: 0; }
+  .spec-tree-header-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-3); flex: 1; }
+  .spec-tree-scroll { flex: 1; overflow-y: auto; }
+  .spec-chapter-group { border-top: 1px solid var(--border); }
+  .spec-chapter-group:first-child { border-top: none; }
+  .spec-chapter-heading { padding: 8px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
+  .spec-chapter-num { font-family: 'DM Mono', monospace; font-size: 10px; min-width: 18px; }
+  .spec-chapter-label { flex: 1; }
+  .spec-chapter-add-btn { background: none; border: none; cursor: pointer; color: var(--text-3); padding: 2px 5px; border-radius: 3px; font-size: 14px; line-height: 1; font-family: inherit; }
+  .spec-chapter-add-btn:hover { background: var(--border); color: var(--accent); }
+  .spec-section-row { display: flex; align-items: center; gap: 4px; padding: 7px 12px 7px 28px; cursor: pointer; border-left: 3px solid transparent; transition: background 0.1s; }
+  .spec-section-row:hover { background: rgba(0,0,0,0.04); }
+  .spec-section-row.selected { background: var(--accent-light); border-left-color: var(--accent); }
+  .spec-section-num { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-3); flex-shrink: 0; min-width: 34px; }
+  .spec-section-title-tree { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .spec-row-actions { display: flex; gap: 1px; flex-shrink: 0; opacity: 0; }
+  .spec-section-row:hover .spec-row-actions { opacity: 1; }
+  .spec-row-btn { background: none; border: none; cursor: pointer; color: var(--text-3); padding: 3px 5px; border-radius: 3px; line-height: 1; display: flex; align-items: center; }
+  .spec-row-btn:hover { background: rgba(0,0,0,0.08); color: var(--text); }
+  .spec-row-btn.del:hover { background: var(--red-light); color: var(--red); }
+  .spec-empty-chapter { padding: 6px 28px 8px; font-size: 11px; color: var(--text-3); font-style: italic; }
+  .spec-preamble-head { padding: 8px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
+  .spec-editor-pane { display: flex; flex-direction: column; overflow: hidden; }
+  .spec-editor-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-3); padding: 40px; }
+  .spec-editor-form { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .spec-editor-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; background: var(--surface); }
+  .spec-editor-num { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 700; color: var(--text-3); flex-shrink: 0; }
+  .spec-editor-title-inp { flex: 1; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 6px 10px; font-size: 16px; font-weight: 600; font-family: 'DM Sans', sans-serif; color: var(--text); background: transparent; outline: none; min-height: unset; }
+  .spec-editor-title-inp:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px rgba(232,80,10,0.08); }
+  .spec-quill-wrap { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+  .spec-quill-wrap .ql-toolbar { border-left: none; border-right: none; border-top: none; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .spec-quill-wrap .ql-container { flex: 1; border: none; font-family: 'DM Sans', sans-serif; font-size: 13.5px; }
+  .spec-quill-wrap .ql-editor { min-height: 300px; }
+  .spec-editor-footer { padding: 10px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-shrink: 0; background: var(--surface); }
+  .spec-dirty-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
+  .spec-changelog-wrap { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .spec-changelog-toggle { display: flex; align-items: center; gap: 8px; padding: 12px 16px; cursor: pointer; border: none; background: transparent; width: 100%; font-family: inherit; text-align: left; }
+  .spec-changelog-toggle:hover { background: var(--surface2); }
+  .spec-changelog-toggle-title { font-size: 13px; font-weight: 600; flex: 1; }
+  .spec-cl-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .spec-cl-table th { padding: 8px 12px; background: var(--surface2); border-bottom: 1px solid var(--border); text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); }
+  .spec-cl-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: top; }
+  .spec-cl-table tr:last-child td { border-bottom: none; }
+  .spec-cl-badge-added { color: var(--green); font-weight: 600; }
+  .spec-cl-badge-modified { color: var(--amber); font-weight: 600; }
+  .spec-cl-badge-removed { color: var(--red); font-weight: 600; }
+  .spec-lib-row { display: grid; grid-template-columns: 160px 140px 1fr 80px; gap: 0; border-bottom: 1px solid var(--border); align-items: center; }
+  .spec-lib-row:last-child { border-bottom: none; }
+  .spec-lib-row:hover { background: var(--surface2); }
+  .spec-lib-cell { padding: 10px 12px; font-size: 12px; }
+  .spec-lib-cell.header { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); background: var(--surface2); }
+  .spec-lib-preview { color: var(--text-3); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 </head>
 <body>
@@ -450,6 +508,10 @@
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         Change Control
       </div>
+      <div class="nav-item sub disabled" onclick="showPage('specification')" id="nav-specification">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
+        Specification
+      </div>
       <div class="divider"></div>
       <div class="nav-item" onclick="showPage('import-export')" id="nav-import-export">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -472,6 +534,10 @@
       <div class="nav-item" onclick="showPage('global-templates')" id="nav-global-templates">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M14 14h6v6h-6z"/></svg>
         Room Templates
+      </div>
+      <div class="nav-item" onclick="showPage('spec-library')" id="nav-spec-library">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="12" y1="6" x2="16" y2="6"/><line x1="12" y1="10" x2="16" y2="10"/></svg>
+        Spec Library
       </div>
     </nav>
     <div class="sidebar-user">
@@ -744,6 +810,58 @@
         </div>
       </div>
 
+      <!-- SPECIFICATION -->
+      <div id="page-specification" class="hidden">
+        <div class="spec-layout">
+          <div class="spec-tree-pane">
+            <div class="spec-tree-header">
+              <span class="spec-tree-header-title">Sections</span>
+              <button class="btn btn-secondary btn-sm" onclick="openSpecLibraryPullModal()" title="Pull section from library">
+                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                Library
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="openAddSpecSectionModal(null)">+ Add</button>
+            </div>
+            <div class="spec-tree-scroll" id="spec-tree-scroll"></div>
+          </div>
+          <div class="spec-editor-pane" id="spec-editor-pane">
+            <div class="spec-editor-empty" id="spec-editor-empty">
+              <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+              <div style="font-size:13px;font-weight:500">Select a section to edit</div>
+              <div style="font-size:12px">or add a new section using the tree on the left</div>
+            </div>
+            <div class="spec-editor-form" id="spec-editor-form" style="display:none">
+              <div class="spec-editor-header">
+                <span class="spec-editor-num" id="spec-editor-num">&#8212;</span>
+                <input id="spec-editor-title" class="spec-editor-title-inp" type="text" placeholder="Section title&#8230;" oninput="specMarkDirty()">
+              </div>
+              <div class="spec-quill-wrap" id="spec-quill-wrap">
+                <div id="spec-quill-editor"></div>
+              </div>
+              <div class="spec-editor-footer">
+                <div class="spec-dirty-dot" id="spec-dirty-dot" style="display:none" title="Unsaved changes"></div>
+                <button class="btn btn-primary btn-sm" onclick="saveSpecSection()">Save</button>
+                <button class="btn btn-secondary btn-sm" onclick="cancelSpecEdit()">Discard</button>
+                <span id="spec-saved-msg" style="font-size:11px;color:var(--green);margin-left:4px;display:none">&#10003; Saved</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="spec-changelog-wrap" id="spec-changelog-wrap">
+          <button class="spec-changelog-toggle" onclick="toggleSpecChangelog()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
+            <span class="spec-changelog-toggle-title">Specification Change Log</span>
+            <span id="spec-changelog-count" style="font-size:11px;color:var(--text-3)"></span>
+          </button>
+          <div id="spec-changelog-body" style="display:none;overflow-x:auto">
+            <table class="spec-cl-table">
+              <thead><tr><th>Date</th><th>Action</th><th>Section</th><th>Changed by</th><th>CR</th></tr></thead>
+              <tbody id="spec-changelog-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- EQUIPMENT -->
       <div id="page-equipment" class="hidden">
         <div class="section-tabs">
@@ -847,6 +965,24 @@
           <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="gt-count"></div>
         </div>
         <div id="global-templates-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+      </div>
+
+      <!-- SPEC SECTION LIBRARY (Global) -->
+      <div id="page-spec-library" class="hidden">
+        <div class="toolbar">
+          <select id="sl-filter-group" onchange="renderSpecLibrary()" style="width:auto;padding:8px 11px"><option value="">All system groups</option></select>
+          <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="sl-count"></div>
+        </div>
+        <div class="equip-table" id="sl-container">
+          <table>
+            <thead>
+              <tr>
+                <th>System Group</th><th>Category</th><th>Title</th><th>Preview</th><th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="sl-tbody"></tbody>
+          </table>
+        </div>
       </div>
 
     </div>
@@ -1611,9 +1747,9 @@ function toggleAvatarPopup(){const p=document.getElementById('avatar-popup'),c=d
 function closeAvatarPopup(){const p=document.getElementById('avatar-popup'),c=document.getElementById('avatar-chevron');if(p)p.classList.remove('open');if(c)c.style.transform='';}
 
 // ── NAVIGATION ──
-const pages=['dashboard','project-info','decks-rooms','import-export','equipment','feature-matrix','change-control','global-library','product-catalogue','system-groups','global-templates'];
-const navIds={'dashboard':'nav-dashboard','project-info':'nav-project-info','decks-rooms':'nav-decks-rooms','import-export':'nav-import-export','equipment':'nav-equipment','feature-matrix':'nav-feature-matrix','change-control':'nav-change-control','global-library':'nav-global-library','product-catalogue':'nav-product-catalogue','system-groups':'nav-system-groups','global-templates':'nav-global-templates'};
-const titles={'dashboard':['All Projects','Overview of all active and archived projects'],'project-info':['Project Info',''],'decks-rooms':['Layout & Zones',''],'import-export':['Import / Export',''],'equipment':['Equipment',''],'feature-matrix':['Feature Matrix',''],'change-control':['Change Control',''],'global-library':['Device Types',''],'product-catalogue':['Product Catalogue',''],'system-groups':['Groups & Categories',''],'global-templates':['Room Templates','']};
+const pages=['dashboard','project-info','decks-rooms','import-export','equipment','feature-matrix','change-control','specification','global-library','product-catalogue','system-groups','global-templates','spec-library'];
+const navIds={'dashboard':'nav-dashboard','project-info':'nav-project-info','decks-rooms':'nav-decks-rooms','import-export':'nav-import-export','equipment':'nav-equipment','feature-matrix':'nav-feature-matrix','change-control':'nav-change-control','specification':'nav-specification','global-library':'nav-global-library','product-catalogue':'nav-product-catalogue','system-groups':'nav-system-groups','global-templates':'nav-global-templates','spec-library':'nav-spec-library'};
+const titles={'dashboard':['All Projects','Overview of all active and archived projects'],'project-info':['Project Info',''],'decks-rooms':['Layout & Zones',''],'import-export':['Import / Export',''],'equipment':['Equipment',''],'feature-matrix':['Feature Matrix',''],'change-control':['Change Control',''],'specification':['Specification',''],'global-library':['Device Types',''],'product-catalogue':['Product Catalogue',''],'system-groups':['Groups & Categories',''],'global-templates':['Room Templates',''],'spec-library':['Spec Section Library','']};
 
 function refreshCurrentPage(){
   const btn=document.getElementById('topbar-refresh-btn');
@@ -1625,10 +1761,12 @@ function refreshCurrentPage(){
   else if(p==='equipment'){if(activeEquipTab==='project')loadProjectEquipment();else if(activeEquipTab==='placed')loadPlacedEquipment();else if(activeEquipTab==='zone-summary')loadZoneSummary();else loadRoomTemplates();}
   else if(p==='feature-matrix'){loadFeatureMatrix();}
   else if(p==='import-export'){}
+  else if(p==='specification')loadSpecification();
   else if(p==='global-library')loadGlobalLibrary();
   else if(p==='product-catalogue')loadProductCatalogue();
   else if(p==='system-groups')loadSystemGroups();
   else if(p==='global-templates')loadGlobalTemplates();
+  else if(p==='spec-library')loadSpecLibrary();
 }
 function showPage(page){
   currentPage=page;
@@ -1651,6 +1789,8 @@ function showPage(page){
   else if(page==='product-catalogue'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Product';btn.onclick=openProductModal;btn.style.display='';}
   else if(page==='global-templates'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Template';btn.onclick=openGlobalTemplateModal;btn.style.display='';}
   else if(page==='system-groups'){updateSgTabBtn();btn.style.display='';}
+  else if(page==='specification'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Section';btn.onclick=()=>openAddSpecSectionModal(null);btn.style.display='';}
+  else if(page==='spec-library'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Library Section';btn.onclick=openSpecLibSectionModal;btn.style.display='';}
   else btn.style.display='none';
   if(page==='dashboard')loadProjects();
   else if(page==='project-info'){Promise.all([loadProjectIntegrators(currentProject.id),loadContractAward(currentProject.id)]).then(()=>renderProjectInfo());}
@@ -1663,11 +1803,13 @@ function showPage(page){
   else if(page==='system-groups')loadSgPage();
   else if(page==='feature-matrix')loadFeatureMatrix();
   else if(page==='change-control')loadChangeControl();
+  else if(page==='specification')loadSpecification();
+  else if(page==='spec-library')loadSpecLibrary();
 }
 function updateSidebarProject(){
   const has=!!currentProject;
   document.getElementById('nav-project-name').textContent=has?currentProject.name:'— None open —';
-  ['nav-project-info','nav-decks-rooms','nav-equipment','nav-feature-matrix','nav-change-control'].forEach(id=>document.getElementById(id).classList.toggle('disabled',!has));
+  ['nav-project-info','nav-decks-rooms','nav-equipment','nav-feature-matrix','nav-change-control','nav-specification'].forEach(id=>document.getElementById(id).classList.toggle('disabled',!has));
   const closeBtn=document.getElementById('close-project-btn');
   if(closeBtn)closeBtn.style.display=has?'':'none';
 }
@@ -3718,8 +3860,6 @@ async function saveSystemGroup(){
       await dbUpdate('system_groups',editingSgId,payload);
       // Cascade name change to related tables if name changed
       if(oldName&&oldName!==name){
-        const cats=await dbGet('device_categories','system_group_name=eq.'+encodeURIComponent(oldName)+'&select=id');
-        for(const c of cats)await dbUpdate('device_categories',c.id,{system_group_name:name});
         const gd=await dbGet('global_equipment','system_group=eq.'+encodeURIComponent(oldName)+'&select=id');
         for(const d of gd)await dbUpdate('global_equipment',d.id,{system_group:name});
         const pe=await dbGet('project_equipment','system_group=eq.'+encodeURIComponent(oldName)+'&select=id');
@@ -3749,7 +3889,17 @@ async function loadSystemGroupOptions(){
   }catch(e){console.error('Could not load system groups',e);}
 }
 async function seedSystemGroups(){
-  const groups=[{name:'Central Systems',code:'CENT',sort_order:1},{name:'Control Devices',code:'CTRL',sort_order:2},{name:'Displays',code:'DISP',sort_order:3},{name:'Loudspeakers',code:'SPK',sort_order:4},{name:'Crew Cabin AV',code:'CREW',sort_order:5},{name:'Events System',code:'EVT',sort_order:6},{name:'Assignable Sources',code:'SRC',sort_order:7},{name:'Central Shared Sources',code:'CSRC',sort_order:8},{name:'Local Sources',code:'LSRC',sort_order:9},{name:'IT Local Equipment',code:'ITLOC',sort_order:10},{name:'IT Network',code:'ITNET',sort_order:11},{name:'Phone System',code:'TEL',sort_order:12},{name:'DAS System',code:'DAS',sort_order:13},{name:'Radio System',code:'RADIO',sort_order:14},{name:'Communications System',code:'COMMS',sort_order:15},{name:'Camera System',code:'CAM',sort_order:16},{name:'Access Control System',code:'ACS',sort_order:17},{name:'Security System',code:'SEC',sort_order:18},{name:'Drone Detection',code:'DRN',sort_order:19}];
+  const groups=[
+    {name:'Central Systems',code:'CEN',sort_order:1},
+    {name:'Audio Visual System',code:'AV',sort_order:2},
+    {name:'Control System',code:'CTRL',sort_order:3},
+    {name:'Cinema System',code:'CIN',sort_order:4},
+    {name:'Lighting Control',code:'LT',sort_order:5},
+    {name:'IT System',code:'IT',sort_order:6},
+    {name:'Satellite & Communications',code:'COMS',sort_order:7},
+    {name:'Security System',code:'SEC',sort_order:8},
+    {name:'Radio System',code:'RAD',sort_order:9}
+  ];
   await Promise.all(groups.map(g=>dbInsert('system_groups',g)));
 }
 
@@ -3762,13 +3912,13 @@ async function loadDeviceCategories(){
     deviceCategories=await dbGet('device_categories','order=sort_order.asc,code.asc');
     if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
     const sel=document.getElementById('dc-filter-group');
-    sel.innerHTML='<option value="">All system groups</option>'+systemGroups.map(g=>'<option value="'+escHtml(g.name)+'">'+escHtml(g.name)+'</option>').join('');
+    sel.innerHTML='<option value="">All system groups</option>'+systemGroups.map(g=>'<option value="'+escHtml(g.id)+'">'+escHtml(g.name)+'</option>').join('');
     renderDeviceCategories();
   }catch(e){document.getElementById('device-categories-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
 }
 function renderDeviceCategories(){
   const filter=(document.getElementById('dc-filter-group')||{}).value||'';
-  let items=filter?deviceCategories.filter(d=>d.system_group_name===filter):deviceCategories;
+  let items=filter?deviceCategories.filter(d=>d.system_group_id===filter):deviceCategories;
   document.getElementById('dc-count').textContent=items.length+' categories';
   const c=document.getElementById('device-categories-container');
   if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-title">No categories found</div></div>';return;}
@@ -3786,7 +3936,7 @@ function renderDeviceCategories(){
       +'</div></td>'
       +'<td style="width:110px"><span class="category-badge">'+escHtml(d.code)+'</span></td>'
       +'<td style="font-weight:500">'+escHtml(d.name)+'</td>'
-      +'<td><span class="group-badge">'+escHtml(d.system_group_name||'—')+'</span></td>'
+      +'<td><span class="group-badge">'+escHtml((systemGroups.find(g=>g.id===d.system_group_id)||{}).name||'—')+'</span></td>'
       +'<td style="width:76px"><div style="display:flex;gap:4px;justify-content:flex-end">'
       +'<button class="btn-icon btn-sm" onclick="openEditDcModal(\''+d.id+'\')">'+ed+'</button>'
       +'<button class="btn-icon btn-sm" onclick="confirmDeleteDc(\''+d.id+'\',\''+d.code.replace(/'/g,'&#39;')+'\')">'+dl+'</button>'
@@ -3802,18 +3952,18 @@ async function moveDcItem(id,direction){
   try{await Promise.all(deviceCategories.map((d,i)=>dbUpdate('device_categories',d.id,{sort_order:i+1})));}
   catch(e){showToast('Could not save order','error');loadDeviceCategories();}
 }
-async function populateDcGroupSelect(selectedGroup){
+async function populateDcGroupSelect(selectedGroupId){
   if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
   const sel=document.getElementById('dc-group');
-  sel.innerHTML='<option value="">— Select —</option>'+systemGroups.map(g=>'<option value="'+escHtml(g.name)+'"'+(g.name===selectedGroup?' selected':'')+'>'+escHtml(g.name)+'</option>').join('');
+  sel.innerHTML='<option value="">— Select —</option>'+systemGroups.map(g=>'<option value="'+escHtml(g.id)+'"'+(g.id===selectedGroupId?' selected':'')+'>'+escHtml(g.name)+'</option>').join('');
 }
 function openDcModal(){editingDcId=null;document.getElementById('dc-modal-title').textContent='Add Category';document.getElementById('dc-save-btn').textContent='Save Category';document.getElementById('dc-code').value='';document.getElementById('dc-name').value='';document.getElementById('dc-order').value=deviceCategories.length;populateDcGroupSelect(null);document.getElementById('dc-modal-overlay').classList.add('open');}
-function openEditDcModal(id){const d=deviceCategories.find(d=>d.id===id);if(!d)return;editingDcId=id;document.getElementById('dc-modal-title').textContent='Edit Category';document.getElementById('dc-save-btn').textContent='Save Changes';document.getElementById('dc-code').value=d.code||'';document.getElementById('dc-name').value=d.name||'';document.getElementById('dc-order').value=d.sort_order||0;populateDcGroupSelect(d.system_group_name);document.getElementById('dc-modal-overlay').classList.add('open');}
+function openEditDcModal(id){const d=deviceCategories.find(d=>d.id===id);if(!d)return;editingDcId=id;document.getElementById('dc-modal-title').textContent='Edit Category';document.getElementById('dc-save-btn').textContent='Save Changes';document.getElementById('dc-code').value=d.code||'';document.getElementById('dc-name').value=d.name||'';document.getElementById('dc-order').value=d.sort_order||0;populateDcGroupSelect(d.system_group_id);document.getElementById('dc-modal-overlay').classList.add('open');}
 function closeDcModal(){document.getElementById('dc-modal-overlay').classList.remove('open');}
 async function saveDeviceCategory(){
   const code=document.getElementById('dc-code').value.trim().toUpperCase(),name=document.getElementById('dc-name').value.trim();
   if(!code){showToast('Please enter a category code','error');return;}if(!name){showToast('Please enter a category name','error');return;}
-  const payload={code,name,system_group_name:document.getElementById('dc-group').value||null,sort_order:parseInt(document.getElementById('dc-order').value)||0};
+  const payload={code,name,system_group_id:document.getElementById('dc-group').value||null,sort_order:parseInt(document.getElementById('dc-order').value)||0};
   const btn=document.getElementById('dc-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{if(editingDcId){await dbUpdate('device_categories',editingDcId,payload);showToast('Category updated','success');}else{await dbInsert('device_categories',payload);showToast('Category added','success');}closeDcModal();loadDeviceCategories();}
   catch(e){showToast('Could not save: '+e.message,'error');}
@@ -3821,8 +3971,54 @@ async function saveDeviceCategory(){
 }
 function confirmDeleteDc(id,code){openConfirm('Delete Category','Delete category "'+code+'"?',async()=>{try{await dbDelete('device_categories',id);showToast('Category deleted','success');loadDeviceCategories();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
 async function seedDeviceCategories(){
-  const cats=[{code:'01-TV',name:'Television Displays',system_group_name:'Displays',sort_order:1},{code:'02-BRACKET',name:'Brackets & Lifts',system_group_name:'Displays',sort_order:2},{code:'03-SPK',name:'Loudspeakers',system_group_name:'Loudspeakers',sort_order:3},{code:'04-SUB',name:'Subwoofers',system_group_name:'Loudspeakers',sort_order:4},{code:'05-EVENT',name:'Events Equipment',system_group_name:'Events System',sort_order:5},{code:'06-CONTROL',name:'Control Devices',system_group_name:'Control Devices',sort_order:6},{code:'07-SOURCE',name:'Local Sources',system_group_name:'Local Sources',sort_order:7},{code:'08-IT',name:'IT Equipment',system_group_name:'IT Local Equipment',sort_order:8},{code:'09-TEL',name:'Telephone',system_group_name:'Phone System',sort_order:9},{code:'10-DAS/COMMS',name:'DAS & Communications',system_group_name:'DAS System',sort_order:10},{code:'11-RACK',name:'Rack Infrastructure',system_group_name:'Central Systems',sort_order:11},{code:'12-CENTRAL',name:'Central Sources',system_group_name:'Central Shared Sources',sort_order:12},{code:'13-MAST',name:'Mast & Antenna',system_group_name:'Communications System',sort_order:13},{code:'20-CAM',name:'Cameras',system_group_name:'Camera System',sort_order:14},{code:'21-DOOR',name:'Door & Access',system_group_name:'Access Control System',sort_order:15},{code:'22-SEC',name:'Security',system_group_name:'Security System',sort_order:16}];
-  await Promise.all(cats.map(c=>dbInsert('device_categories',c)));
+  if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
+  const sgMap={};systemGroups.forEach(g=>sgMap[g.name]=g.id);
+  const cats=[
+    {code:'CEN-RACK',name:'Rack Infrastructure',sg:'Central Systems',sort_order:1},
+    {code:'CEN-EC',name:'Equipment Centres',sg:'Central Systems',sort_order:2},
+    {code:'CEN-PWR',name:'Power & Distribution',sg:'Central Systems',sort_order:3},
+    {code:'CEN-UPS',name:'UPS Systems',sg:'Central Systems',sort_order:4},
+    {code:'CEN-CAB',name:'Cabling Infrastructure',sg:'Central Systems',sort_order:5},
+    {code:'AV-DIST',name:'AV Distribution',sg:'Audio Visual System',sort_order:10},
+    {code:'AV-DISP',name:'Display Equipment',sg:'Audio Visual System',sort_order:11},
+    {code:'AV-MNT',name:'Mounting & Lifts',sg:'Audio Visual System',sort_order:12},
+    {code:'AV-AMP',name:'Audio Processing & Amplification',sg:'Audio Visual System',sort_order:13},
+    {code:'AV-SPK',name:'Loudspeakers',sg:'Audio Visual System',sort_order:14},
+    {code:'AV-SUB',name:'Subwoofers',sg:'Audio Visual System',sort_order:15},
+    {code:'AV-SRC',name:'AV Sources',sg:'Audio Visual System',sort_order:16},
+    {code:'AV-CREW',name:'Crew Cabin AV',sg:'Audio Visual System',sort_order:17},
+    {code:'AV-EVT',name:'Events Equipment',sg:'Audio Visual System',sort_order:18},
+    {code:'AV-SCALL',name:'Steward Call System',sg:'Audio Visual System',sort_order:19},
+    {code:'CTRL-PROC',name:'Control Processors',sg:'Control System',sort_order:20},
+    {code:'CTRL-UI',name:'User Interfaces',sg:'Control System',sort_order:21},
+    {code:'CTRL-PROG',name:'Control Programming & Software',sg:'Control System',sort_order:22},
+    {code:'CTRL-INT',name:'Third-Party System Integration',sg:'Control System',sort_order:23},
+    {code:'CIN-PROJ',name:'Projection',sg:'Cinema System',sort_order:30},
+    {code:'CIN-AUD',name:'Cinema Audio',sg:'Cinema System',sort_order:31},
+    {code:'CIN-SRC',name:'Cinema Sources & Control',sg:'Cinema System',sort_order:32},
+    {code:'CIN-ACOU',name:'Acoustics',sg:'Cinema System',sort_order:33},
+    {code:'LT-SYS',name:'Lighting Control System',sg:'Lighting Control',sort_order:40},
+    {code:'LT-DIM',name:'Dimmers & Drivers',sg:'Lighting Control',sort_order:41},
+    {code:'LT-KP',name:'Control Keypads & Interfaces',sg:'Lighting Control',sort_order:42},
+    {code:'LT-DMX',name:'DMX Systems',sg:'Lighting Control',sort_order:43},
+    {code:'IT-NET',name:'Network Infrastructure',sg:'IT System',sort_order:50},
+    {code:'IT-WIFI',name:'Wireless Network',sg:'IT System',sort_order:51},
+    {code:'IT-WAN',name:'WAN & SD-WAN',sg:'IT System',sort_order:52},
+    {code:'IT-SEC',name:'Network Security & UTM',sg:'IT System',sort_order:53},
+    {code:'IT-SRV',name:'Servers & Storage',sg:'IT System',sort_order:54},
+    {code:'IT-EP',name:'Endpoint Equipment',sg:'IT System',sort_order:55},
+    {code:'IT-TEL',name:'Phone System',sg:'IT System',sort_order:56},
+    {code:'COMS-LEO',name:'LEO/MEO Satellite',sg:'Satellite & Communications',sort_order:60},
+    {code:'COMS-STL',name:'Starlink',sg:'Satellite & Communications',sort_order:61},
+    {code:'COMS-VSAT',name:'VSAT',sg:'Satellite & Communications',sort_order:62},
+    {code:'COMS-LTE',name:'LTE / 5G',sg:'Satellite & Communications',sort_order:63},
+    {code:'COMS-DAS',name:'DAS',sg:'Satellite & Communications',sort_order:64},
+    {code:'SEC-CAM',name:'Cameras',sg:'Security System',sort_order:70},
+    {code:'SEC-GEN',name:'Security Equipment',sg:'Security System',sort_order:71},
+    {code:'SEC-DOOR',name:'Door & Access',sg:'Security System',sort_order:72},
+    {code:'RAD-GEN',name:'Radio Equipment',sg:'Radio System',sort_order:80}
+  ];
+  await Promise.all(cats.map(c=>dbInsert('device_categories',{code:c.code,name:c.name,system_group_id:sgMap[c.sg]||null,sort_order:c.sort_order})));
 }
 
 // ── GLOBAL LIBRARY (DEVICE TYPES) ──
@@ -3865,7 +4061,8 @@ function renderGlobalLibrary(){
 async function filterGdCategories(){
   const sg=document.getElementById('gd-group').value;
   if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc,code.asc');
-  const filtered=sg?deviceCategories.filter(d=>d.system_group_name===sg):deviceCategories;
+  const sgId=sg?((systemGroups.find(g=>g.name===sg)||{}).id||null):null;
+  const filtered=sgId?deviceCategories.filter(d=>d.system_group_id===sgId):deviceCategories;
   const sel=document.getElementById('gd-cat');
   sel.innerHTML='<option value="">— Select —</option>'+filtered.map(d=>'<option value="'+escHtml(d.code)+'">'+escHtml(d.code)+' — '+escHtml(d.name)+'</option>').join('');
   sel.value='';
@@ -3873,7 +4070,8 @@ async function filterGdCategories(){
 async function loadCategoryOptions(selectedCode){
   if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc,code.asc');
   const sg=document.getElementById('gd-group').value;
-  const filtered=sg?deviceCategories.filter(d=>d.system_group_name===sg):deviceCategories;
+  const sgId=sg?((systemGroups.find(g=>g.name===sg)||{}).id||null):null;
+  const filtered=sgId?deviceCategories.filter(d=>d.system_group_id===sgId):deviceCategories;
   const sel=document.getElementById('gd-cat');
   sel.innerHTML='<option value="">— Select —</option>'+filtered.map(d=>'<option value="'+escHtml(d.code)+'"'+(d.code===selectedCode?' selected':'')+'>'+escHtml(d.code)+' — '+escHtml(d.name)+'</option>').join('');
 }
@@ -5167,7 +5365,8 @@ function renderProjectEquipment(){
 async function filterPeCategories(){
   if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc,code.asc');
   const sg=document.getElementById('pe-system-group').value;
-  const filtered=sg?deviceCategories.filter(d=>d.system_group_name===sg):deviceCategories;
+  const sgId=sg?((systemGroups.find(g=>g.name===sg)||{}).id||null):null;
+  const filtered=sgId?deviceCategories.filter(d=>d.system_group_id===sgId):deviceCategories;
   const sel=document.getElementById('pe-category');
   const current=sel.value;
   sel.innerHTML='<option value="">— Select —</option>'+filtered.map(d=>'<option value="'+escHtml(d.code)+'"'+(d.code===current?' selected':'')+'>'+escHtml(d.code)+' — '+escHtml(d.name)+'</option>').join('');
@@ -5633,91 +5832,76 @@ document.getElementById('confirm-ok-btn').addEventListener('click',()=>{if(confi
 // ── SEED GLOBAL LIBRARY ──
 async function seedGlobalLibrary(){
   const devices=[
-    {device_type_id:'AMP-2-100W',description:'Amplifier 2Ch 100W',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'A01',lan_ports:1,poe_ports:0,speaker_channels:2,spk_watts:100,power_types:['230V']},
-    {device_type_id:'AMP-4-50W',description:'Amplifier 4Ch 50W',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'A02',lan_ports:1,poe_ports:0,speaker_channels:4,spk_watts:50,power_types:['230V']},
-    {device_type_id:'AMP-8-100W',description:'Amplifier 8Ch 100W',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'A03',lan_ports:1,poe_ports:0,speaker_channels:8,spk_watts:100,power_types:['230V']},
-    {device_type_id:'AMP-IC-30W',description:'In-Ceiling Amp Module 30W',system_group:'Loudspeakers',category_code:'03-SPK',spec_ref:'A04',lan_ports:0,poe_ports:1,speaker_channels:1,spk_watts:30,power_types:['POE+mains']},
-    {device_type_id:'AV-MATRIX-16X16',description:'AV Matrix Switcher 16x16',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'B01',lan_ports:1,poe_ports:0,power_types:['230V']},
-    {device_type_id:'AV-MATRIX-8X8',description:'AV Matrix Switcher 8x8',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'B02',lan_ports:1,poe_ports:0,power_types:['230V']},
-    {device_type_id:'AV-SW-4X1',description:'HDMI Switcher 4x1',system_group:'Local Sources',category_code:'07-SOURCE',spec_ref:'B03',lan_ports:0,poe_ports:0,power_types:['12V']},
-    {device_type_id:'AV-SW-8X1',description:'HDMI Switcher 8x1',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'B04',lan_ports:1,poe_ports:0,power_types:['12V']},
-    {device_type_id:'BLURAY',description:'Blu-ray Player',system_group:'Central Shared Sources',category_code:'12-CENTRAL',spec_ref:'C01',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'BTH-RX',description:'Bluetooth Receiver',system_group:'Local Sources',category_code:'07-SOURCE',spec_ref:'C02',lan_ports:0,poe_ports:0,power_types:['12V']},
-    {device_type_id:'BTH-TX',description:'Bluetooth Transmitter',system_group:'Local Sources',category_code:'07-SOURCE',spec_ref:'C03',lan_ports:0,poe_ports:0,power_types:['12V']},
-    {device_type_id:'CAM-DOME',description:'Dome Camera',system_group:'Camera System',category_code:'20-CAM',spec_ref:'D01',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'CAM-HULL',description:'Hull Camera',system_group:'Camera System',category_code:'20-CAM',spec_ref:'D02',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'CAM-IP-PTZ',description:'PTZ IP Camera',system_group:'Camera System',category_code:'20-CAM',spec_ref:'D03',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'CAM-THERM',description:'Thermal Camera',system_group:'Camera System',category_code:'20-CAM',spec_ref:'D04',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'CTRL-KEYPAD-4',description:'Control Keypad 4 Button',system_group:'Control Devices',category_code:'06-CONTROL',spec_ref:'E01',lan_ports:0,poe_ports:1,power_types:['POE-only']},
-    {device_type_id:'CTRL-KEYPAD-8',description:'Control Keypad 8 Button',system_group:'Control Devices',category_code:'06-CONTROL',spec_ref:'E02',lan_ports:0,poe_ports:1,power_types:['POE-only']},
-    {device_type_id:'CTRL-PANEL-10',description:'Control Panel 10"',system_group:'Control Devices',category_code:'06-CONTROL',spec_ref:'E03',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'CTRL-PANEL-15',description:'Control Panel 15"',system_group:'Control Devices',category_code:'06-CONTROL',spec_ref:'E04',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'CTRL-PANEL-7',description:'Control Panel 7"',system_group:'Control Devices',category_code:'06-CONTROL',spec_ref:'E05',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'CTRL-PROC',description:'Control Processor',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'E06',lan_ports:2,poe_ports:0,power_types:['230V']},
-    {device_type_id:'DAS-ANTENNA',description:'DAS Antenna',system_group:'DAS System',category_code:'10-DAS/COMMS',spec_ref:'F01',lan_ports:0,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'DAS-BDA',description:'DAS Bi-Directional Amplifier',system_group:'DAS System',category_code:'10-DAS/COMMS',spec_ref:'F02',lan_ports:1,poe_ports:0,power_types:['230V']},
-    {device_type_id:'DAS-HEAD',description:'DAS Head End Unit',system_group:'DAS System',category_code:'10-DAS/COMMS',spec_ref:'F03',lan_ports:1,poe_ports:0,power_types:['230V']},
-    {device_type_id:'DISP-32',description:'Display 32"',system_group:'Displays',category_code:'01-TV',spec_ref:'G01',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DISP-43',description:'Display 43"',system_group:'Displays',category_code:'01-TV',spec_ref:'G02',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DISP-50',description:'Display 50"',system_group:'Displays',category_code:'01-TV',spec_ref:'G03',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DISP-55',description:'Display 55"',system_group:'Displays',category_code:'01-TV',spec_ref:'G04',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DISP-65',description:'Display 65"',system_group:'Displays',category_code:'01-TV',spec_ref:'G05',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DISP-75',description:'Display 75"',system_group:'Displays',category_code:'01-TV',spec_ref:'G06',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DISP-85',description:'Display 85"',system_group:'Displays',category_code:'01-TV',spec_ref:'G07',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DISP-98',description:'Display 98"',system_group:'Displays',category_code:'01-TV',spec_ref:'G08',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DISP-CREW-32',description:'Crew Cabin Display 32"',system_group:'Crew Cabin AV',category_code:'01-TV',spec_ref:'G09',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DISP-EXT-55',description:'External Display 55"',system_group:'Displays',category_code:'01-TV',spec_ref:'G10',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DISP-EXT-75',description:'External Display 75"',system_group:'Displays',category_code:'01-TV',spec_ref:'G11',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'DOOR-CTRL',description:'Door Controller',system_group:'Access Control System',category_code:'21-DOOR',spec_ref:'H01',lan_ports:1,poe_ports:0,power_types:['12V']},
-    {device_type_id:'DOOR-READER',description:'Door Card Reader',system_group:'Access Control System',category_code:'21-DOOR',spec_ref:'H02',lan_ports:0,poe_ports:1,power_types:['POE-only']},
-    {device_type_id:'DSP-PROC',description:'DSP Audio Processor',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'I01',lan_ports:1,poe_ports:0,power_types:['230V']},
-    {device_type_id:'DRONE-DET',description:'Drone Detection Sensor',system_group:'Drone Detection',category_code:'22-SEC',spec_ref:'J01',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'DRONE-PROC',description:'Drone Detection Processor',system_group:'Drone Detection',category_code:'22-SEC',spec_ref:'J02',lan_ports:2,poe_ports:0,power_types:['230V']},
-    {device_type_id:'GAMING-CONS',description:'Gaming Console',system_group:'Local Sources',category_code:'07-SOURCE',spec_ref:'K01',lan_ports:1,poe_ports:0,power_types:['100-240V']},
-    {device_type_id:'HDBT-RX',description:'HDBaseT Receiver',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'L01',lan_ports:1,poe_ports:1,power_types:['POE-only']},
-    {device_type_id:'HDBT-TX',description:'HDBaseT Transmitter',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'L02',lan_ports:1,poe_ports:1,power_types:['POE-only']},
-    {device_type_id:'INTERCOM-MAIN',description:'Intercom Main Station',system_group:'Communications System',category_code:'10-DAS/COMMS',spec_ref:'M01',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'INTERCOM-SUB',description:'Intercom Sub Station',system_group:'Communications System',category_code:'10-DAS/COMMS',spec_ref:'M02',lan_ports:0,poe_ports:1,power_types:['POE-only']},
-    {device_type_id:'IPTV-HEAD',description:'IPTV Headend',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'N01',lan_ports:4,poe_ports:0,power_types:['230V']},
-    {device_type_id:'IPTV-STB',description:'IPTV Set Top Box',system_group:'Local Sources',category_code:'07-SOURCE',spec_ref:'N02',lan_ports:1,poe_ports:0,power_types:['12V']},
-    {device_type_id:'MEDIA-PC',description:'Media PC / NUC',system_group:'Local Sources',category_code:'07-SOURCE',spec_ref:'O01',lan_ports:1,poe_ports:0,power_types:['12V']},
-    {device_type_id:'MEDIA-SERVER',description:'Media Server NAS',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'O02',lan_ports:2,poe_ports:0,power_types:['230V']},
-    {device_type_id:'MEDIA-STREAM',description:'Streaming Device',system_group:'Local Sources',category_code:'07-SOURCE',spec_ref:'O03',lan_ports:1,poe_ports:0,power_types:['12V']},
-    {device_type_id:'NVR',description:'Network Video Recorder',system_group:'Camera System',category_code:'20-CAM',spec_ref:'P01',lan_ports:2,poe_ports:0,power_types:['230V']},
-    {device_type_id:'PATCH-24',description:'Patch Panel 24 Port',system_group:'IT Network',category_code:'11-RACK',spec_ref:'Q01',lan_ports:0,poe_ports:0,power_types:null},
-    {device_type_id:'PATCH-48',description:'Patch Panel 48 Port',system_group:'IT Network',category_code:'11-RACK',spec_ref:'Q02',lan_ports:0,poe_ports:0,power_types:null},
-    {device_type_id:'POE-INJECTOR',description:'POE Injector Single Port',system_group:'IT Network',category_code:'11-RACK',spec_ref:'Q03',lan_ports:2,poe_ports:1,power_types:['230V']},
-    {device_type_id:'PROJECTOR',description:'Projector',system_group:'Events System',category_code:'05-EVENT',spec_ref:'R01',lan_ports:1,poe_ports:0,power_types:['230V']},
-    {device_type_id:'PROJ-SCREEN',description:'Projection Screen',system_group:'Events System',category_code:'05-EVENT',spec_ref:'R02',lan_ports:0,poe_ports:0,power_types:['230V']},
-    {device_type_id:'RADIO-VHF',description:'VHF Radio',system_group:'Radio System',category_code:'13-MAST',spec_ref:'S01',lan_ports:0,poe_ports:0,power_types:['12V']},
-    {device_type_id:'RACK-PDU',description:'Rack PDU / Power Distribution',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'T01',lan_ports:1,poe_ports:0,power_types:['230V']},
-    {device_type_id:'RACK-UPS',description:'UPS (Rack Mount)',system_group:'Central Systems',category_code:'11-RACK',spec_ref:'T02',lan_ports:1,poe_ports:0,power_types:['230V']},
-    {device_type_id:'SAT-MODEM',description:'Satellite Modem',system_group:'Communications System',category_code:'13-MAST',spec_ref:'U01',lan_ports:2,poe_ports:0,power_types:['230V']},
-    {device_type_id:'SAT-TV-RX',description:'Satellite TV Receiver',system_group:'Central Shared Sources',category_code:'12-CENTRAL',spec_ref:'U02',lan_ports:1,poe_ports:0,power_types:['230V']},
-    {device_type_id:'SPK-1-IC',description:'Loudspeaker 1-Way In-Ceiling',system_group:'Loudspeakers',category_code:'03-SPK',spec_ref:'V01',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
-    {device_type_id:'SPK-1-IW',description:'Loudspeaker 1-Way In-Wall',system_group:'Loudspeakers',category_code:'03-SPK',spec_ref:'V02',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
-    {device_type_id:'SPK-2-IC',description:'Loudspeaker 2-Way In-Ceiling',system_group:'Loudspeakers',category_code:'03-SPK',spec_ref:'V03',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
-    {device_type_id:'SPK-2-IW',description:'Loudspeaker 2-Way In-Wall',system_group:'Loudspeakers',category_code:'03-SPK',spec_ref:'V04',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
-    {device_type_id:'SPK-EXT',description:'Loudspeaker External',system_group:'Loudspeakers',category_code:'03-SPK',spec_ref:'V05',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
-    {device_type_id:'SPK-SUB',description:'Subwoofer',system_group:'Loudspeakers',category_code:'04-SUB',spec_ref:'V06',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
-    {device_type_id:'SPK-SUB-IC',description:'Subwoofer In-Ceiling',system_group:'Loudspeakers',category_code:'04-SUB',spec_ref:'V07',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
-    {device_type_id:'STREAMING-PC',description:'4K Streaming PC',system_group:'Central Shared Sources',category_code:'12-CENTRAL',spec_ref:'W01',lan_ports:1,poe_ports:0,power_types:['230V']},
-    {device_type_id:'SW-CORE-24',description:'Network Switch Core 24 Port',system_group:'IT Network',category_code:'11-RACK',spec_ref:'X01',lan_ports:26,poe_ports:24,poe_type:'802.3at',power_types:['230V']},
-    {device_type_id:'SW-CORE-48',description:'Network Switch Core 48 Port',system_group:'IT Network',category_code:'11-RACK',spec_ref:'X02',lan_ports:50,poe_ports:48,poe_type:'802.3at',power_types:['230V']},
-    {device_type_id:'SW-LAN-12',description:'Network Switch Edge 12 Port',system_group:'IT Network',category_code:'11-RACK',spec_ref:'X03',lan_ports:12,poe_ports:12,poe_type:'802.3af',power_types:['230V']},
-    {device_type_id:'SW-LAN-24',description:'Network Switch Edge 24 Port',system_group:'IT Network',category_code:'11-RACK',spec_ref:'X04',lan_ports:24,poe_ports:24,poe_type:'802.3af',power_types:['230V']},
-    {device_type_id:'SW-LAN-8',description:'Network Switch Edge 8 Port',system_group:'IT Network',category_code:'11-RACK',spec_ref:'X05',lan_ports:8,poe_ports:8,poe_type:'802.3af',power_types:['230V']},
-    {device_type_id:'TEL-DECT-BASE',description:'DECT Telephone Base Station',system_group:'Phone System',category_code:'09-TEL',spec_ref:'Y01',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'TEL-DECT-HAND',description:'DECT Handset Charger',system_group:'Phone System',category_code:'09-TEL',spec_ref:'Y02',lan_ports:0,poe_ports:0,power_types:['12V']},
-    {device_type_id:'TEL-IP',description:'IP Telephone',system_group:'Phone System',category_code:'09-TEL',spec_ref:'Y03',lan_ports:2,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'TEL-PBXSVR',description:'IP PBX Server / Gateway',system_group:'Phone System',category_code:'09-TEL',spec_ref:'Y04',lan_ports:2,poe_ports:0,power_types:['230V']},
-    {device_type_id:'TV-LIFT',description:'TV Lift Mechanism',system_group:'Displays',category_code:'02-BRACKET',spec_ref:'Z01',lan_ports:0,poe_ports:0,power_types:['230V']},
-    {device_type_id:'TV-MOUNT-FLX',description:'TV Flexible Wall Mount',system_group:'Displays',category_code:'02-BRACKET',spec_ref:'Z02',lan_ports:0,poe_ports:0,power_types:null},
-    {device_type_id:'TV-MOUNT-FX',description:'TV Fixed Wall Mount',system_group:'Displays',category_code:'02-BRACKET',spec_ref:'Z03',lan_ports:0,poe_ports:0,power_types:null},
-    {device_type_id:'VSAT-ANTENNA',description:'VSAT Antenna',system_group:'Communications System',category_code:'13-MAST',spec_ref:'AA01',lan_ports:2,poe_ports:0,power_types:['230V']},
-    {device_type_id:'WIFI-AP',description:'WiFi Access Point',system_group:'IT Network',category_code:'08-IT',spec_ref:'BB01',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'WIFI-AP-EXT',description:'WiFi Access Point External',system_group:'IT Network',category_code:'08-IT',spec_ref:'BB02',lan_ports:1,poe_ports:0,power_types:['POE-only']},
-    {device_type_id:'WIFI-CTRL',description:'WiFi Controller',system_group:'IT Network',category_code:'08-IT',spec_ref:'BB03',lan_ports:4,poe_ports:0,power_types:['230V']}
+    {device_type_id:'AMP-2-100W',description:'Amplifier 2Ch 100W',system_group:'Audio Visual System',category_code:'AV-AMP',spec_ref:'A01',lan_ports:1,poe_ports:0,speaker_channels:2,spk_watts:100,power_types:['230V']},
+    {device_type_id:'AMP-4-50W',description:'Amplifier 4Ch 50W',system_group:'Audio Visual System',category_code:'AV-AMP',spec_ref:'A02',lan_ports:1,poe_ports:0,speaker_channels:4,spk_watts:50,power_types:['230V']},
+    {device_type_id:'AMP-8-100W',description:'Amplifier 8Ch 100W',system_group:'Audio Visual System',category_code:'AV-AMP',spec_ref:'A03',lan_ports:1,poe_ports:0,speaker_channels:8,spk_watts:100,power_types:['230V']},
+    {device_type_id:'AMP-IC-30W',description:'In-Ceiling Amp Module 30W',system_group:'Audio Visual System',category_code:'AV-AMP',spec_ref:'A04',lan_ports:0,poe_ports:1,speaker_channels:1,spk_watts:30,power_types:['POE+mains']},
+    {device_type_id:'AV-MATRIX-16X16',description:'AV Matrix Switcher 16x16',system_group:'Audio Visual System',category_code:'AV-DIST',spec_ref:'B01',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'AV-MATRIX-8X8',description:'AV Matrix Switcher 8x8',system_group:'Audio Visual System',category_code:'AV-DIST',spec_ref:'B02',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'AV-SW-4X1',description:'HDMI Switcher 4x1',system_group:'Audio Visual System',category_code:'AV-DIST',spec_ref:'B03',lan_ports:0,poe_ports:0,power_types:['12V']},
+    {device_type_id:'AV-SW-8X1',description:'HDMI Switcher 8x1',system_group:'Audio Visual System',category_code:'AV-DIST',spec_ref:'B04',lan_ports:1,poe_ports:0,power_types:['12V']},
+    {device_type_id:'BLURAY',description:'Blu-ray Player',system_group:'Audio Visual System',category_code:'AV-SRC',spec_ref:'C01',lan_ports:1,poe_ports:0,power_types:['100-240V']},
+    {device_type_id:'SRC-BT',description:'Bluetooth Receiver',system_group:'Audio Visual System',category_code:'AV-SRC',spec_ref:'C02',lan_ports:0,poe_ports:0,power_types:['12V']},
+    {device_type_id:'CAM-DOME',description:'Dome Camera',system_group:'Security System',category_code:'SEC-CAM',spec_ref:'D01',lan_ports:1,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'CAM-HULL',description:'Hull Camera',system_group:'Security System',category_code:'SEC-CAM',spec_ref:'D02',lan_ports:1,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'CAM-IP-PTZ',description:'PTZ IP Camera',system_group:'Security System',category_code:'SEC-CAM',spec_ref:'D03',lan_ports:1,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'CAM-THERMAL',description:'Thermal Camera',system_group:'Security System',category_code:'SEC-CAM',spec_ref:'D04',lan_ports:1,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'CTR-KEYPAD-4',description:'Control Keypad 4 Button',system_group:'Control System',category_code:'CTRL-UI',spec_ref:'E01',lan_ports:0,poe_ports:1,power_types:['POE-only']},
+    {device_type_id:'CTR-KEYPAD-8',description:'Control Keypad 8 Button',system_group:'Control System',category_code:'CTRL-UI',spec_ref:'E02',lan_ports:0,poe_ports:1,power_types:['POE-only']},
+    {device_type_id:'CTR-10-WM',description:'Control Panel 10"',system_group:'Control System',category_code:'CTRL-UI',spec_ref:'E03',lan_ports:1,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'CTR-15-WM',description:'Control Panel 15"',system_group:'Control System',category_code:'CTRL-UI',spec_ref:'E04',lan_ports:1,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'CTR-7-WM',description:'Control Panel 7"',system_group:'Control System',category_code:'CTRL-UI',spec_ref:'E05',lan_ports:1,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'CTRL-PROC',description:'Control Processor',system_group:'Control System',category_code:'CTRL-PROC',spec_ref:'E06',lan_ports:2,poe_ports:0,power_types:['230V']},
+    {device_type_id:'DAS-ANTENNA',description:'DAS Antenna',system_group:'Satellite & Communications',category_code:'COMS-DAS',spec_ref:'F01',lan_ports:0,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'DAS-BDA',description:'DAS Bi-Directional Amplifier',system_group:'Satellite & Communications',category_code:'COMS-DAS',spec_ref:'F02',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'DAS-HEAD',description:'DAS Head End Unit',system_group:'Satellite & Communications',category_code:'COMS-DAS',spec_ref:'F03',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'DISP-32',description:'Display 32"',system_group:'Audio Visual System',category_code:'AV-DISP',spec_ref:'G01',lan_ports:1,poe_ports:0,power_types:['100-240V']},
+    {device_type_id:'DISP-43',description:'Display 43"',system_group:'Audio Visual System',category_code:'AV-DISP',spec_ref:'G02',lan_ports:1,poe_ports:0,power_types:['100-240V']},
+    {device_type_id:'DISP-55',description:'Display 55"',system_group:'Audio Visual System',category_code:'AV-DISP',spec_ref:'G04',lan_ports:1,poe_ports:0,power_types:['100-240V']},
+    {device_type_id:'DISP-65',description:'Display 65"',system_group:'Audio Visual System',category_code:'AV-DISP',spec_ref:'G05',lan_ports:1,poe_ports:0,power_types:['100-240V']},
+    {device_type_id:'DISP-75',description:'Display 75"',system_group:'Audio Visual System',category_code:'AV-DISP',spec_ref:'G06',lan_ports:1,poe_ports:0,power_types:['100-240V']},
+    {device_type_id:'DISP-85',description:'Display 85"',system_group:'Audio Visual System',category_code:'AV-DISP',spec_ref:'G07',lan_ports:1,poe_ports:0,power_types:['100-240V']},
+    {device_type_id:'DISP-PROJ',description:'Projector',system_group:'Audio Visual System',category_code:'AV-DISP',spec_ref:'G08',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'SEC-DOOR-CTRL',description:'Door Controller',system_group:'Security System',category_code:'SEC-DOOR',spec_ref:'H01',lan_ports:1,poe_ports:0,power_types:['12V']},
+    {device_type_id:'SEC-DOOR-RDR',description:'Door Card Reader',system_group:'Security System',category_code:'SEC-DOOR',spec_ref:'H02',lan_ports:0,poe_ports:1,power_types:['POE-only']},
+    {device_type_id:'DSP-PROC',description:'DSP Audio Processor',system_group:'Audio Visual System',category_code:'AV-AMP',spec_ref:'I01',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'SRC-GAME',description:'Gaming Console',system_group:'Audio Visual System',category_code:'AV-SRC',spec_ref:'K01',lan_ports:1,poe_ports:0,power_types:['100-240V']},
+    {device_type_id:'HDBT-RX',description:'HDBaseT Receiver',system_group:'Audio Visual System',category_code:'AV-DIST',spec_ref:'L01',lan_ports:1,poe_ports:1,power_types:['POE-only']},
+    {device_type_id:'HDBT-TX',description:'HDBaseT Transmitter',system_group:'Audio Visual System',category_code:'AV-DIST',spec_ref:'L02',lan_ports:1,poe_ports:1,power_types:['POE-only']},
+    {device_type_id:'SRC-IPTV-C',description:'IPTV Headend',system_group:'Audio Visual System',category_code:'AV-SRC',spec_ref:'N01',lan_ports:4,poe_ports:0,power_types:['230V']},
+    {device_type_id:'SRC-VOD-C',description:'Video-on-Demand Player',system_group:'Audio Visual System',category_code:'AV-SRC',spec_ref:'N02',lan_ports:1,poe_ports:0,power_types:['12V']},
+    {device_type_id:'SRC-PC-C',description:'Streaming PC',system_group:'Audio Visual System',category_code:'AV-SRC',spec_ref:'O01',lan_ports:1,poe_ports:0,power_types:['12V']},
+    {device_type_id:'IT-SRV-NAS',description:'Media Server NAS',system_group:'IT System',category_code:'IT-SRV',spec_ref:'O02',lan_ports:2,poe_ports:0,power_types:['230V']},
+    {device_type_id:'SRC-ATV-C',description:'Apple TV / Streaming Device',system_group:'Audio Visual System',category_code:'AV-SRC',spec_ref:'O03',lan_ports:1,poe_ports:0,power_types:['12V']},
+    {device_type_id:'SEC-NVR',description:'Network Video Recorder',system_group:'Security System',category_code:'SEC-CAM',spec_ref:'P01',lan_ports:2,poe_ports:0,power_types:['230V']},
+    {device_type_id:'IT-PATCH-24',description:'Patch Panel 24 Port',system_group:'IT System',category_code:'IT-NET',spec_ref:'Q01',lan_ports:0,poe_ports:0,power_types:null},
+    {device_type_id:'IT-PATCH-48',description:'Patch Panel 48 Port',system_group:'IT System',category_code:'IT-NET',spec_ref:'Q02',lan_ports:0,poe_ports:0,power_types:null},
+    {device_type_id:'IT-POE-INJ',description:'POE Injector Single Port',system_group:'IT System',category_code:'IT-NET',spec_ref:'Q03',lan_ports:2,poe_ports:1,power_types:['230V']},
+    {device_type_id:'EVENT-PROJ',description:'Events Projector',system_group:'Audio Visual System',category_code:'AV-EVT',spec_ref:'R01',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'MNT-PROJ-SCR',description:'Projection Screen',system_group:'Audio Visual System',category_code:'AV-MNT',spec_ref:'R02',lan_ports:0,poe_ports:0,power_types:['230V']},
+    {device_type_id:'RADIO-VHF',description:'VHF Radio',system_group:'Radio System',category_code:'RAD-GEN',spec_ref:'S01',lan_ports:0,poe_ports:0,power_types:['12V']},
+    {device_type_id:'RACK-1',description:'Rack 1000x800',system_group:'Central Systems',category_code:'CEN-RACK',spec_ref:'T01',lan_ports:0,poe_ports:0,power_types:null},
+    {device_type_id:'CEN-PDU',description:'Rack PDU / Power Distribution',system_group:'Central Systems',category_code:'CEN-PWR',spec_ref:'T02',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'CEN-UPS',description:'UPS (Rack Mount)',system_group:'Central Systems',category_code:'CEN-UPS',spec_ref:'T03',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'COMS-SAT-MDM',description:'Satellite Modem',system_group:'Satellite & Communications',category_code:'COMS-LEO',spec_ref:'U01',lan_ports:2,poe_ports:0,power_types:['230V']},
+    {device_type_id:'SRC-SAT-C',description:'Satellite TV Receiver',system_group:'Audio Visual System',category_code:'AV-SRC',spec_ref:'U02',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'SPK-1-IC',description:'Loudspeaker 1-Way In-Ceiling',system_group:'Audio Visual System',category_code:'AV-SPK',spec_ref:'V01',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
+    {device_type_id:'SPK-1-IW',description:'Loudspeaker 1-Way In-Wall',system_group:'Audio Visual System',category_code:'AV-SPK',spec_ref:'V02',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
+    {device_type_id:'SPK-2-IC',description:'Loudspeaker 2-Way In-Ceiling',system_group:'Audio Visual System',category_code:'AV-SPK',spec_ref:'V03',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
+    {device_type_id:'SUB-1-IC',description:'Subwoofer In-Ceiling',system_group:'Audio Visual System',category_code:'AV-SUB',spec_ref:'V06',lan_ports:0,poe_ports:0,speaker_channels:1,spk_watts:null,power_types:null},
+    {device_type_id:'SRC-PC-C',description:'4K Streaming PC',system_group:'Audio Visual System',category_code:'AV-SRC',spec_ref:'W01',lan_ports:1,poe_ports:0,power_types:['230V']},
+    {device_type_id:'IT-SW-CORE-24',description:'Network Switch Core 24 Port',system_group:'IT System',category_code:'IT-NET',spec_ref:'X01',lan_ports:26,poe_ports:24,poe_type:'802.3at',power_types:['230V']},
+    {device_type_id:'IT-SW-CORE-48',description:'Network Switch Core 48 Port',system_group:'IT System',category_code:'IT-NET',spec_ref:'X02',lan_ports:50,poe_ports:48,poe_type:'802.3at',power_types:['230V']},
+    {device_type_id:'IT-SW-8',description:'Network Switch Edge 8 Port',system_group:'IT System',category_code:'IT-NET',spec_ref:'X03',lan_ports:8,poe_ports:8,poe_type:'802.3af',power_types:['230V']},
+    {device_type_id:'IT-SW-24',description:'Network Switch Edge 24 Port',system_group:'IT System',category_code:'IT-NET',spec_ref:'X04',lan_ports:24,poe_ports:24,poe_type:'802.3af',power_types:['230V']},
+    {device_type_id:'IT-TEL-IP',description:'IP Telephone',system_group:'IT System',category_code:'IT-TEL',spec_ref:'Y01',lan_ports:2,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'IT-TEL-PBX',description:'IP PBX Server / Gateway',system_group:'IT System',category_code:'IT-TEL',spec_ref:'Y02',lan_ports:2,poe_ports:0,power_types:['230V']},
+    {device_type_id:'MNT-LIFT-POP',description:'TV Lift Mechanism - Popup',system_group:'Audio Visual System',category_code:'AV-MNT',spec_ref:'Z01',lan_ports:0,poe_ports:0,power_types:['230V']},
+    {device_type_id:'MNT-BRKT-FLX',description:'TV Flexible Wall Mount',system_group:'Audio Visual System',category_code:'AV-MNT',spec_ref:'Z02',lan_ports:0,poe_ports:0,power_types:null},
+    {device_type_id:'COMS-VSAT',description:'VSAT Antenna',system_group:'Satellite & Communications',category_code:'COMS-VSAT',spec_ref:'AA01',lan_ports:2,poe_ports:0,power_types:['230V']},
+    {device_type_id:'AP',description:'WiFi Access Point',system_group:'IT System',category_code:'IT-WIFI',spec_ref:'BB01',lan_ports:1,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'AP-EXT',description:'WiFi Access Point External',system_group:'IT System',category_code:'IT-WIFI',spec_ref:'BB02',lan_ports:1,poe_ports:0,power_types:['POE-only']},
+    {device_type_id:'IT-WIFI-CTRL',description:'WiFi Controller',system_group:'IT System',category_code:'IT-WIFI',spec_ref:'BB03',lan_ports:4,poe_ports:0,power_types:['230V']}
   ];
   for(const d of devices){try{await dbInsert('global_equipment',d);}catch(e){console.warn('Seed skip:',d.device_type_id,e.message);}}
 }
@@ -6332,6 +6516,479 @@ async function reopenCR(id){
     showToast('CR re-opened','success');
   }catch(e){showToast('Failed: '+e.message,'error');}
   },'Re-open','btn-primary');
+}
+
+// ── GENERIC MODAL HELPER ──────────────────────────────────────────────────────
+// Creates/reuses a generic dynamic modal. id is used to name overlay: modal-{id}
+function openModal(id,title,bodyHtml,footerHtml,maxWidth){
+  const ovId='modal-'+id;
+  let ov=document.getElementById(ovId);
+  if(!ov){
+    ov=document.createElement('div');
+    ov.className='modal-overlay';
+    ov.id=ovId;
+    ov.innerHTML='<div class="modal" id="modal-inner-'+id+'"><div class="modal-header"><div class="modal-title" id="modal-title-'+id+'"></div><button class="btn-icon" onclick="closeModal(\''+id+'\')"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div class="modal-body" id="modal-body-'+id+'"></div><div class="modal-footer" id="modal-footer-'+id+'"></div></div>';
+    document.body.appendChild(ov);
+  }
+  document.getElementById('modal-title-'+id).textContent=title;
+  document.getElementById('modal-body-'+id).innerHTML=bodyHtml||'';
+  document.getElementById('modal-footer-'+id).innerHTML=footerHtml||'';
+  if(maxWidth){const inner=document.getElementById('modal-inner-'+id);if(inner)inner.style.maxWidth=maxWidth;}
+  ov.classList.add('open');
+}
+function closeModal(id){
+  const ov=document.getElementById('modal-'+id);
+  if(ov)ov.classList.remove('open');
+}
+
+// ── SPEC BUILDER ──────────────────────────────────────────────────────────────
+let specDocument=null,specSections=[],selectedSectionId=null,specQuill=null,specDirty=false;
+let specLibrarySections=[],specChangeLog=[];
+
+async function loadSpecification(){
+  if(!currentProject)return;
+  renderSpecTree('<div class="loading"><div class="spinner"></div> Loading…</div>');
+  try{
+    const docs=await dbGet('spec_documents','project_id=eq.'+currentProject.id+'&order=created_at.asc&limit=1');
+    if(docs.length){specDocument=docs[0];}
+    else{const ins=await dbInsert('spec_documents',{project_id:currentProject.id,title:currentProject.name+' — AV/IT Specification',status:'draft'});specDocument=ins[0];}
+    specSections=await dbGet('spec_sections','document_id=eq.'+specDocument.id+'&order=sort_order.asc');
+    specChangeLog=await dbGet('spec_change_log','document_id=eq.'+specDocument.id+'&order=created_at.desc');
+    initSpecQuill();
+    renderSpecTree();
+    renderSpecChangelog();
+    showSpecEmpty();
+  }catch(e){renderSpecTree('<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>');showToast('Failed to load specification: '+e.message,'error');}
+}
+
+function initSpecQuill(){
+  if(specQuill)return;
+  const el=document.getElementById('spec-quill-editor');
+  if(!el)return;
+  specQuill=new Quill('#spec-quill-editor',{
+    theme:'snow',
+    modules:{toolbar:[[{header:[1,2,3,false]}],'bold','italic','underline',{list:'ordered'},{list:'bullet'},'clean']},
+    placeholder:'Write specification requirements here…'
+  });
+  specQuill.on('text-change',()=>specMarkDirty());
+}
+
+function renderSpecTree(html){
+  const el=document.getElementById('spec-tree-scroll');
+  if(!el)return;
+  if(html!==undefined){el.innerHTML=html;return;}
+  const nums=computeSpecNumbers();
+  let out='';
+
+  // Preamble (no system group)
+  const preamble=specSections.filter(s=>!s.system_group_id).sort((a,b)=>a.sort_order-b.sort_order);
+  if(preamble.length){
+    out+='<div class="spec-chapter-group"><div class="spec-preamble-head"><span style="flex:1">Preamble</span><button class="spec-chapter-add-btn" onclick="openAddSpecSectionModal(null)" title="Add preamble section">+</button></div>';
+    preamble.forEach(s=>{
+      const n=nums.get(s.id)||'';
+      out+=specSectionRow(s,n);
+    });
+    out+='</div>';
+  }else{
+    out+='<div class="spec-chapter-group"><div class="spec-preamble-head"><span style="flex:1">Preamble</span><button class="spec-chapter-add-btn" onclick="openAddSpecSectionModal(null)" title="Add preamble section">+</button></div><div class="spec-empty-chapter">No sections</div></div>';
+  }
+
+  // System group chapters
+  systemGroups.forEach((g,gi)=>{
+    const sections=specSections.filter(s=>s.system_group_id===g.id).sort((a,b)=>a.sort_order-b.sort_order);
+    const chapterNum=computeChapterNum(g.id,nums);
+    out+='<div class="spec-chapter-group"><div class="spec-chapter-heading"><span class="spec-chapter-num">'+escHtml(chapterNum+'.')+'</span><span class="spec-chapter-label">'+escHtml(g.name)+'</span><button class="spec-chapter-add-btn" onclick="openAddSpecSectionModal(\''+g.id+'\')" title="Add section">+</button></div>';
+    if(sections.length){
+      sections.forEach(s=>{const n=nums.get(s.id)||'';out+=specSectionRow(s,n);});
+    }else{
+      out+='<div class="spec-empty-chapter">No sections — click + to add</div>';
+    }
+    out+='</div>';
+  });
+
+  el.innerHTML=out;
+}
+
+function computeSpecNumbers(){
+  const nums=new Map();
+  const preamble=specSections.filter(s=>!s.system_group_id).sort((a,b)=>a.sort_order-b.sort_order);
+  preamble.forEach((s,i)=>nums.set(s.id,String(i+1)));
+  const pCount=preamble.length;
+  let chIdx=0;
+  systemGroups.forEach(g=>{
+    const secs=specSections.filter(s=>s.system_group_id===g.id).sort((a,b)=>a.sort_order-b.sort_order);
+    const chNum=pCount+chIdx+1;
+    chIdx++;
+    secs.forEach((s,si)=>nums.set(s.id,chNum+'.'+(si+1)));
+  });
+  return nums;
+}
+
+function computeChapterNum(groupId,nums){
+  const pCount=specSections.filter(s=>!s.system_group_id).length;
+  const idx=systemGroups.findIndex(g=>g.id===groupId);
+  return pCount+idx+1;
+}
+
+function specSectionRow(s,num){
+  const sel=selectedSectionId===s.id;
+  return '<div class="spec-section-row'+(sel?' selected':'')+'" onclick="selectSpecSection(\''+s.id+'\')">'
+    +'<span class="spec-section-num">'+escHtml(num)+'</span>'
+    +'<span class="spec-section-title-tree">'+escHtml(s.title||'Untitled')+'</span>'
+    +'<span class="spec-row-actions">'
+    +'<button class="spec-row-btn" onclick="event.stopPropagation();moveSpecSection(\''+s.id+'\',-1)" title="Move up"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18,15 12,9 6,15"/></svg></button>'
+    +'<button class="spec-row-btn" onclick="event.stopPropagation();moveSpecSection(\''+s.id+'\',1)" title="Move down"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button>'
+    +'<button class="spec-row-btn del" onclick="event.stopPropagation();deleteSpecSection(\''+s.id+'\')" title="Delete"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/></svg></button>'
+    +'</span>'
+    +'</div>';
+}
+
+function selectSpecSection(id){
+  if(specDirty){openConfirm('Unsaved Changes','You have unsaved changes. Discard them?',()=>_doSelectSection(id));return;}
+  _doSelectSection(id);
+}
+function _doSelectSection(id){
+  specDirty=false;
+  selectedSectionId=id;
+  const s=specSections.find(x=>x.id===id);
+  if(!s)return;
+  const nums=computeSpecNumbers();
+  // Show editor before Quill init so dimensions are available
+  document.getElementById('spec-editor-empty').style.display='none';
+  document.getElementById('spec-editor-form').style.display='flex';
+  initSpecQuill();
+  document.getElementById('spec-editor-num').textContent=nums.get(id)||'';
+  document.getElementById('spec-editor-title').value=s.title||'';
+  if(specQuill)specQuill.clipboard.dangerouslyPasteHTML(s.content||'');
+  document.getElementById('spec-dirty-dot').style.display='none';
+  document.getElementById('spec-saved-msg').style.display='none';
+  renderSpecTree();
+}
+
+function showSpecEmpty(){
+  selectedSectionId=null;
+  document.getElementById('spec-editor-empty').style.display='';
+  document.getElementById('spec-editor-form').style.display='none';
+}
+
+function cancelSpecEdit(){
+  specDirty=false;
+  showSpecEmpty();
+  renderSpecTree();
+}
+
+function specMarkDirty(){
+  if(!selectedSectionId)return;
+  specDirty=true;
+  const dot=document.getElementById('spec-dirty-dot');
+  if(dot)dot.style.display='';
+  const msg=document.getElementById('spec-saved-msg');
+  if(msg)msg.style.display='none';
+}
+
+async function saveSpecSection(){
+  if(!selectedSectionId||!specDocument)return;
+  const title=document.getElementById('spec-editor-title').value.trim();
+  if(!title){showToast('Section title is required','error');return;}
+  const content=specQuill?specQuill.root.innerHTML:'';
+  const old=specSections.find(s=>s.id===selectedSectionId);
+  try{
+    await dbUpdate('spec_sections',selectedSectionId,{title,content,updated_at:new Date().toISOString()});
+    const s=specSections.find(s=>s.id===selectedSectionId);
+    if(s){s.title=title;s.content=content;}
+    specDirty=false;
+    document.getElementById('spec-dirty-dot').style.display='none';
+    const msg=document.getElementById('spec-saved-msg');
+    if(msg){msg.style.display='';setTimeout(()=>msg.style.display='none',2500);}
+    const wasModified=old&&(old.title!==title||old.content!==content);
+    if(wasModified)await addSpecChangeLog(selectedSectionId,'modified','Section "'+title+'" updated');
+    renderSpecTree();
+  }catch(e){showToast('Save failed: '+e.message,'error');}
+}
+
+async function openAddSpecSectionModal(groupId){
+  if(!specDocument)return;
+
+  let html='<div class="form-group">'
+    +'<label>System Group <span class="optional">optional — leave blank for preamble</span></label>'
+    +'<select id="as-group">'
+    +'<option value="">— Preamble (no system group) —</option>'
+    +systemGroups.map(g=>'<option value="'+escHtml(g.id)+'"'+(g.id===groupId?' selected':'')+'>'+escHtml(g.name)+'</option>').join('')
+    +'</select>'
+    +'</div>'
+    +'<div class="form-group"><label>Section Title <span class="required">*</span></label><input id="as-title" type="text" placeholder="e.g. Display Systems" autofocus></div>';
+
+  openModal('add-section-modal','New Specification Section',html,
+    '<button class="btn btn-secondary" onclick="closeModal(\'add-section-modal\')">Cancel</button>'
+    +'<button class="btn btn-primary" onclick="confirmAddSpecSection()">Add Section</button>');
+}
+
+async function confirmAddSpecSection(){
+  const groupId=document.getElementById('as-group').value||null;
+  const title=document.getElementById('as-title').value.trim();
+  if(!title){showToast('Title is required','error');return;}
+
+  // Work out sort_order (max + 1 within the group)
+  const siblings=specSections.filter(s=>(s.system_group_id||null)===(groupId||null));
+  const maxOrder=siblings.reduce((m,s)=>Math.max(m,s.sort_order),-1);
+
+  try{
+    const ins=await dbInsert('spec_sections',{document_id:specDocument.id,system_group_id:groupId,title,content:'',sort_order:maxOrder+1,is_auto_pulled:false});
+    const row=ins[0];
+    specSections.push(row);
+    await addSpecChangeLog(row.id,'added','Section "'+title+'" added');
+    closeModal('add-section-modal');
+    renderSpecTree();
+    renderSpecChangelog();
+    selectedSectionId=row.id;
+    selectSpecSection(row.id);
+    showToast('Section added','success');
+  }catch(e){showToast('Failed to add section: '+e.message,'error');}
+}
+
+async function moveSpecSection(id,dir){
+  const s=specSections.find(x=>x.id===id);
+  if(!s)return;
+  const siblings=specSections.filter(x=>(x.system_group_id||null)===(s.system_group_id||null)).sort((a,b)=>a.sort_order-b.sort_order);
+  const idx=siblings.findIndex(x=>x.id===id);
+  const swapIdx=idx+dir;
+  if(swapIdx<0||swapIdx>=siblings.length)return;
+  const swap=siblings[swapIdx];
+  const tmpOrder=s.sort_order;
+  try{
+    await Promise.all([
+      dbUpdate('spec_sections',s.id,{sort_order:swap.sort_order}),
+      dbUpdate('spec_sections',swap.id,{sort_order:tmpOrder})
+    ]);
+    s.sort_order=swap.sort_order;
+    swap.sort_order=tmpOrder;
+    renderSpecTree();
+  }catch(e){showToast('Reorder failed: '+e.message,'error');}
+}
+
+async function deleteSpecSection(id){
+  const s=specSections.find(x=>x.id===id);
+  if(!s)return;
+  openConfirm('Delete Section','Delete section "'+s.title+'"? This cannot be undone.',async()=>{
+    try{
+      await addSpecChangeLog(id,'removed','Section "'+s.title+'" deleted');
+      await dbDelete('spec_sections',id);
+      specSections=specSections.filter(x=>x.id!==id);
+      if(selectedSectionId===id)showSpecEmpty();
+      renderSpecTree();
+      renderSpecChangelog();
+      showToast('Section deleted','success');
+    }catch(e){showToast('Delete failed: '+e.message,'error');}
+  });
+}
+
+async function addSpecChangeLog(sectionId,action,description){
+  if(!specDocument)return;
+  try{
+    const cr_id=activeCRId||null;
+    const ins=await dbInsert('spec_change_log',{document_id:specDocument.id,section_id:sectionId,action,description,cr_id,changed_by:currentUser?.email||null});
+    specChangeLog.unshift(ins[0]);
+    renderSpecChangelog();
+  }catch(e){console.warn('Failed to log spec change:',e);}
+}
+
+function renderSpecChangelog(){
+  const count=specChangeLog.length;
+  const el=document.getElementById('spec-changelog-count');
+  if(el)el.textContent=count?'('+count+' entries)':'';
+  const tbody=document.getElementById('spec-changelog-tbody');
+  if(!tbody)return;
+  if(!count){tbody.innerHTML='<tr><td colspan="5" style="padding:12px;text-align:center;color:var(--text-3);font-size:12px">No changes logged yet.</td></tr>';return;}
+  tbody.innerHTML=specChangeLog.map(e=>{
+    const sec=specSections.find(s=>s.id===e.section_id);
+    const actionClass='spec-cl-badge-'+e.action;
+    const dt=e.created_at?new Date(e.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'';
+    return '<tr>'
+      +'<td>'+escHtml(dt)+'</td>'
+      +'<td><span class="'+actionClass+'">'+escHtml(e.action)+'</span></td>'
+      +'<td>'+escHtml(e.description||'')+'</td>'
+      +'<td>'+escHtml(e.changed_by||'—')+'</td>'
+      +'<td>'+(e.cr_id?escHtml(ccCRs.find(c=>c.id===e.cr_id)?.cr_number||'CR'):'—')+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function toggleSpecChangelog(){
+  const body=document.getElementById('spec-changelog-body');
+  const icon=document.querySelector('.spec-changelog-toggle svg');
+  if(!body)return;
+  const open=body.style.display!=='none';
+  body.style.display=open?'none':'block';
+  if(icon)icon.style.transform=open?'':'rotate(90deg)';
+}
+
+// ── SPEC LIBRARY PULL ────────────────────────────────────────────────────────
+
+async function openSpecLibraryPullModal(){
+  if(!specDocument)return;
+  if(!specLibrarySections.length)specLibrarySections=await dbGet('spec_section_library','order=sort_order.asc');
+  const used=new Set(specSections.filter(s=>s.library_section_id).map(s=>s.library_section_id));
+  const available=specLibrarySections.filter(s=>!used.has(s.id));
+
+  let html='';
+  if(!available.length){
+    html='<div class="empty-state" style="padding:24px"><div class="empty-state-title">All library sections are already in this spec</div></div>';
+  }else{
+    html='<div style="margin-bottom:12px;font-size:13px;color:var(--text-2)">Select sections to add to this project\'s specification:</div>';
+    let lastGroup='';
+    available.forEach(s=>{
+      const g=systemGroups.find(x=>x.id===s.system_group_id);
+      const gName=g?g.name:'Preamble';
+      if(gName!==lastGroup){
+        html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--text-3);padding:10px 0 4px;border-top:1px solid var(--border);margin-top:4px">'+escHtml(gName)+'</div>';
+        lastGroup=gName;
+      }
+      html+='<label style="display:flex;align-items:flex-start;gap:10px;padding:8px 4px;cursor:pointer;border-radius:4px" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'">'
+        +'<input type="checkbox" value="'+s.id+'" style="width:15px;height:15px;margin-top:2px;accent-color:var(--accent)">'
+        +'<div><div style="font-size:13px;font-weight:500">'+escHtml(s.title)+'</div>'
+        +(s.category_code?'<div style="font-size:11px;color:var(--text-3)">'+escHtml(s.category_code)+'</div>':'')
+        +'</div></label>';
+    });
+  }
+
+  openModal('spec-lib-pull-modal','Pull from Spec Library',html,
+    '<button class="btn btn-secondary" onclick="closeModal(\'spec-lib-pull-modal\')">Cancel</button>'
+    +(available.length?'<button class="btn btn-primary" onclick="confirmSpecLibPull()">Add Selected</button>':''));
+}
+
+async function confirmSpecLibPull(){
+  const checkboxes=document.querySelectorAll('#modal-spec-lib-pull-modal input[type=checkbox]:checked');
+  if(!checkboxes.length){showToast('No sections selected','error');return;}
+  const ids=Array.from(checkboxes).map(c=>c.value);
+  const selected=specLibrarySections.filter(s=>ids.includes(s.id));
+  try{
+    for(const lib of selected){
+      const siblings=specSections.filter(s=>(s.system_group_id||null)===(lib.system_group_id||null));
+      const maxOrder=siblings.reduce((m,s)=>Math.max(m,s.sort_order),-1);
+      const ins=await dbInsert('spec_sections',{document_id:specDocument.id,system_group_id:lib.system_group_id,library_section_id:lib.id,title:lib.title,content:lib.content,sort_order:maxOrder+1,is_auto_pulled:false});
+      const row=ins[0];
+      specSections.push(row);
+      await addSpecChangeLog(row.id,'added','Section "'+lib.title+'" pulled from library');
+    }
+    closeModal('spec-lib-pull-modal');
+    renderSpecTree();
+    renderSpecChangelog();
+    showToast(ids.length+' section'+(ids.length>1?'s':'')+' added','success');
+  }catch(e){showToast('Failed to pull sections: '+e.message,'error');}
+}
+
+// ── SPEC SECTION LIBRARY (Global Page) ───────────────────────────────────────
+
+async function loadSpecLibrary(){
+  const container=document.getElementById('sl-tbody');
+  if(container)container.innerHTML='<tr><td colspan="5" style="padding:24px;text-align:center"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr>';
+  try{
+    if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
+    specLibrarySections=await dbGet('spec_section_library','order=sort_order.asc');
+    populateSlGroupFilter();
+    renderSpecLibrary();
+  }catch(e){showToast('Failed to load spec library: '+e.message,'error');}
+}
+
+function populateSlGroupFilter(){
+  const sel=document.getElementById('sl-filter-group');
+  if(!sel)return;
+  sel.innerHTML='<option value="">All system groups</option>'+systemGroups.map(g=>'<option value="'+escHtml(g.id)+'">'+escHtml(g.name)+'</option>').join('');
+}
+
+function renderSpecLibrary(){
+  const filter=(document.getElementById('sl-filter-group')||{}).value||'';
+  let items=filter?specLibrarySections.filter(s=>s.system_group_id===filter):specLibrarySections;
+  const count=document.getElementById('sl-count');
+  if(count)count.textContent=items.length+' section'+(items.length!==1?'s':'');
+  const tbody=document.getElementById('sl-tbody');
+  if(!tbody)return;
+  if(!items.length){tbody.innerHTML='<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text-3)">No library sections. Add one to get started.</td></tr>';return;}
+  tbody.innerHTML=items.map(s=>{
+    const g=systemGroups.find(x=>x.id===s.system_group_id);
+    const preview=s.content?s.content.replace(/<[^>]+>/g,'').substring(0,80)+(s.content.length>80?'…':''):'';
+    return '<tr>'
+      +'<td>'+escHtml(g?g.name:'—')+'</td>'
+      +'<td>'+(s.category_code?'<span class="category-badge">'+escHtml(s.category_code)+'</span>':'<span style="color:var(--text-3)">—</span>')+'</td>'
+      +'<td style="font-weight:500">'+escHtml(s.title)+'</td>'
+      +'<td style="color:var(--text-3);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(preview||'—')+'</td>'
+      +'<td><div class="td-actions">'
+      +'<button class="btn-icon btn-sm" onclick="openSpecLibSectionModal(\''+s.id+'\')" title="Edit"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+      +'<button class="btn-icon btn-sm" onclick="deleteSpecLibSection(\''+s.id+'\')" title="Delete" style="color:var(--red)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"/></svg></button>'
+      +'</div></td>'
+      +'</tr>';
+  }).join('');
+}
+
+let specLibEditId=null,specLibQuill=null;
+function openSpecLibSectionModal(id){
+  specLibEditId=id||null;
+  const s=id?specLibrarySections.find(x=>x.id===id):null;
+  const html='<div class="form-row form-row-2">'
+    +'<div class="form-group"><label>System Group</label>'
+    +'<select id="sl-sg">'
+    +'<option value="">— Preamble —</option>'
+    +systemGroups.map(g=>'<option value="'+escHtml(g.id)+'"'+(s&&s.system_group_id===g.id?' selected':'')+'>'+escHtml(g.name)+'</option>').join('')
+    +'</select></div>'
+    +'<div class="form-group"><label>Category Code <span class="optional">optional</span></label><input id="sl-cat" type="text" placeholder="e.g. AV-DISP" value="'+escHtml(s?s.category_code||'':'')+'"></div>'
+    +'</div>'
+    +'<div class="form-group"><label>Section Title <span class="required">*</span></label><input id="sl-title" type="text" placeholder="e.g. Display Systems" value="'+escHtml(s?s.title||'':'')+'"></div>'
+    +'<div class="form-group"><label>Sort Order</label><input id="sl-order" type="number" value="'+((s?s.sort_order:0)||0)+'" style="width:100px"></div>'
+    +'<div class="form-group"><label>Content</label><div id="sl-quill-editor" style="min-height:200px;border:1px solid var(--border-strong);border-radius:var(--radius-sm)"></div></div>';
+
+  openModal('spec-lib-modal',(id?'Edit':'New')+' Library Section',html,
+    '<button class="btn btn-secondary" onclick="closeModal(\'spec-lib-modal\')">Cancel</button>'
+    +'<button class="btn btn-primary" onclick="saveSpecLibSection()">Save</button>',
+    '720px');
+
+  // Init Quill for library editor (reinit each time since modal is rebuilt)
+  setTimeout(()=>{
+    specLibQuill=new Quill('#sl-quill-editor',{
+      theme:'snow',
+      modules:{toolbar:[[{header:[1,2,3,false]}],'bold','italic','underline',{list:'ordered'},{list:'bullet'},'clean']},
+      placeholder:'Write standard specification text…'
+    });
+    if(s&&s.content)specLibQuill.clipboard.dangerouslyPasteHTML(s.content);
+  },50);
+}
+
+async function saveSpecLibSection(){
+  const title=(document.getElementById('sl-title').value||'').trim();
+  if(!title){showToast('Title is required','error');return;}
+  const payload={
+    system_group_id:document.getElementById('sl-sg').value||null,
+    category_code:(document.getElementById('sl-cat').value||'').trim().toUpperCase()||null,
+    title,
+    content:specLibQuill?specLibQuill.root.innerHTML:'',
+    sort_order:parseInt(document.getElementById('sl-order').value)||0
+  };
+  try{
+    if(specLibEditId){
+      await dbUpdate('spec_section_library',specLibEditId,payload);
+      const idx=specLibrarySections.findIndex(x=>x.id===specLibEditId);
+      if(idx>=0)Object.assign(specLibrarySections[idx],payload);
+      showToast('Library section updated','success');
+    }else{
+      const ins=await dbInsert('spec_section_library',payload);
+      specLibrarySections.push(ins[0]);
+      showToast('Library section created','success');
+    }
+    closeModal('spec-lib-modal');
+    renderSpecLibrary();
+  }catch(e){showToast('Save failed: '+e.message,'error');}
+}
+
+async function deleteSpecLibSection(id){
+  const s=specLibrarySections.find(x=>x.id===id);
+  if(!s)return;
+  openConfirm('Delete Library Section','Delete "'+s.title+'" from the library? Sections already pulled into projects will not be affected.',async()=>{
+    try{
+      await dbDelete('spec_section_library',id);
+      specLibrarySections=specLibrarySections.filter(x=>x.id!==id);
+      renderSpecLibrary();
+      showToast('Library section deleted','success');
+    }catch(e){showToast('Delete failed: '+e.message,'error');}
+  });
 }
 
 // ── EVENT LISTENERS ──
