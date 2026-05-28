@@ -58,10 +58,9 @@ The app is a **single HTML file** (`index.html`) with all CSS and JavaScript inl
 
 ### Specification
 - `spec_documents` — project_id, title, discipline (avit/security/navigation/radio/lighting/combined), doc_code, status, sort_order — **many per project** (one standalone spec per discipline; "combined" spans several)
-- `spec_chapters` — document_id, name, sort_order (per-document free-form chapter headings; replaces system-group grouping)
-- `spec_sections` — document_id, chapter_id (null = preamble), library_section_id, title, content (HTML), sort_order, is_auto_pulled
+- `spec_sections` — document_id, system_group_id (null = preamble/front matter), category_id, library_section_id, title, content (HTML), sort_order, is_auto_pulled. **Grouped by System Group (main section) and Category (sub-section)** from Groups & Categories.
 - `spec_change_log` — document_id, section_id, action (added/modified/removed), description, cr_id, changed_by, created_at
-- `spec_section_library` — discipline, chapter_name, category_code, title, content (HTML), sort_order (global reusable templates, tagged by discipline + chapter)
+- `spec_section_library` — discipline, system_group_id, category_id, title, content (HTML), sort_order (global reusable templates, tagged by discipline + system group + category; legacy chapter_name/category_code columns retained but unused)
 
 ---
 
@@ -193,14 +192,15 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 
 ## Specification — Detail
 
-### Structure (multi-document, per discipline)
+### Structure (multi-document, per discipline; sections = System Group + Category)
 - A project has **many specifications** (`spec_documents`), one per discipline (AV/IT, Security, Navigation, Radio, Lighting) or a single "Combined" document. Disciplines list = `SPEC_DISCIPLINES` const in the JS.
-- "Split vs combined" is just how many documents you create — same building blocks either way. A combined doc pulls chapters from several disciplines into one document.
-- Each document has its own **chapters** (`spec_chapters`, free-form), and each chapter holds **sections** (`spec_sections`). Preamble = sections with no chapter.
-- Document bar at the top of the Specification page switches between the project's specs (`renderSpecDocBar`); New / rename / delete specification supported.
-- New Specification can "seed standard chapters and sections from the Spec Library for this discipline" (`seedSpecFromLibrary`).
-- **Auto-numbering:** Preamble sections = 1, 2, 3…; then each chapter is numbered, sections `N.M`. Computed at render time (`computeSpecNumbers`), never stored.
-- Library "Pull" is discipline-filtered; pulling a template auto-creates its chapter in the target document if missing.
+- "Split vs combined" is just how many documents you create.
+- **Within a document, the structure mirrors Groups & Categories:** main sections = **System Groups** (e.g. Central Systems, Audio Visual), each leading with a Scope of Supply overview, then sub-sections = **Categories** (e.g. Equipment Centres, Rack Infrastructure) detailing device types, features and functions. Front matter (Introduction, Key Principles, Owner Supply) sits above as Preamble (sections with no system group).
+- A spec section (`spec_sections`) has `system_group_id` (null = preamble) + optional `category_id` (null = Scope of Supply or a custom sub-section like Safe Areas). Helpers: `specGroupsInUse()`, `specCatsForGroup(gid)`.
+- Document bar at the top switches between the project's specs (`renderSpecDocBar`); New / rename / delete supported.
+- New Specification seeds standard sections from the Spec Library for the chosen discipline (`seedSpecFromLibrary`), copying system_group_id + category_id.
+- **Auto-numbering:** Preamble sections = 1, 2, 3…; then each System Group in use is numbered (taxonomy order), sub-sections `N.M`. Computed at render (`computeSpecNumbers`), never stored.
+- Library "Pull" is discipline-filtered and grouped by System Group; pulling copies system_group_id + category_id.
 
 ### Authoring (Specification page)
 - Two-pane layout: section tree (left) + Quill rich-text editor (right)
@@ -248,5 +248,5 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 - **Code review (May 2026):** Full audit completed; bugs fixed (token refresh race, CSS variable gaps, null crash in modalAddDiscipline); performance fixes (feature matrix pre-built Maps, template apply inner loop); batch DB ops (savePlacement, fmSeedFromLibrary, saveModalIntegrators, saveCRRevisionLinks all converted to single bulk requests); dead code removed (ccFmtDateTime duplicate, ieActiveTab unread variable)
 - **global_products DB fix (May 2026):** audio_role, avip_role, ups_protected columns were missing from global_products table — added via migration; all default to 'none'/false
 - **Spec Builder (May 2026):** Authoring built (4 tables, two-pane Quill editor, system-group chapters, auto-numbering, change log, global library + pull). Section numbers computed at render, not stored. Content is HTML. RLS also enabled on contract_awards, cr_cost_items, contractor_pricing in the same change.
-- **Spec Builder multi-document (May 2026):** Reworked to many specs per project, one per discipline (spec_chapters table added; spec_sections moved from system_group to chapter_id; library tagged by discipline + chapter_name). See "Specification — Detail".
-- **Spec Library seeded (May 2026):** Global library pre-populated with 52 generalised templates derived from the Defy AV/IT (39) and Security (13) specs, with [placeholders], contractor-supplies-everything default, and no em-dashes. Navigation/Radio/Lighting disciplines exist but have no library content yet (no standalone SMART source spec found except Defy NAV R0.4, not yet mined). Next: Export Centre (Word/PDF output)
+- **Spec Builder multi-document (May 2026):** Reworked to many specs per project, one per discipline. Within a document, sections are grouped by **System Group (main) + Category (sub-section)** pulled from Groups & Categories, each group leading with a Scope of Supply overview; front matter is Preamble. (An interim "free-form chapters" model was tried and dropped; spec_chapters table removed.) See "Specification — Detail".
+- **Spec Library seeded (May 2026):** Global library populated with 39 generalised AV/IT templates derived from the Defy AV/IT spec, tagged by system group + category, with [placeholders], contractor-supplies-everything default (Owner Supply = airtime + Apple Business Manager only), and no em-dashes. Security content was drafted then removed pending a rethink (revisit later). Navigation/Radio/Lighting disciplines exist but have no library content yet. Next: Export Centre (Word/PDF output)
