@@ -6567,7 +6567,7 @@ function initSpecQuill(){
   if(!el)return;
   specQuill=new Quill('#spec-quill-editor',{
     theme:'snow',
-    modules:{toolbar:[[{header:[1,2,3,false]}],'bold','italic','underline',{list:'ordered'},{list:'bullet'},'clean']},
+    modules:{toolbar:[[{header:[1,2,3,false]}],['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['clean']]},
     placeholder:'Write specification requirements here…'
   });
   specQuill.on('text-change',()=>specMarkDirty());
@@ -6945,7 +6945,7 @@ function openSpecLibSectionModal(id){
   setTimeout(()=>{
     specLibQuill=new Quill('#sl-quill-editor',{
       theme:'snow',
-      modules:{toolbar:[[{header:[1,2,3,false]}],'bold','italic','underline',{list:'ordered'},{list:'bullet'},'clean']},
+      modules:{toolbar:[[{header:[1,2,3,false]}],['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['clean']]},
       placeholder:'Write standard specification text…'
     });
     if(s&&s.content)specLibQuill.clipboard.dangerouslyPasteHTML(s.content);
