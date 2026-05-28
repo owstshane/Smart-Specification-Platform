@@ -56,6 +56,12 @@ The app is a **single HTML file** (`index.html`) with all CSS and JavaScript inl
 - `project_revisions` — project_id, revision_number, revision_type, status, issued_by, issued_date, notes
 - `change_log` — project_id, area, action, summary, cr_id, changed_by, created_at
 
+### Specification
+- `spec_section_library` — system_group_id, category_code, title, content (HTML), sort_order (global reusable standard text templates)
+- `spec_documents` — project_id, title, status (one per project, auto-created on first visit)
+- `spec_sections` — document_id, system_group_id (null = preamble), title, content (HTML), sort_order, is_auto_pulled
+- `spec_change_log` — document_id, section_id, action (added/modified/removed), description, cr_id, changed_by, created_at
+
 ---
 
 ## Application Structure
@@ -63,8 +69,9 @@ The app is a **single HTML file** (`index.html`) with all CSS and JavaScript inl
 ### Navigation
 **Sidebar — Workspace:** All Projects
 **Sidebar — Current Project:** Project Info | Layout & Zones | Equipment | Feature Matrix | Change Control
+**Sidebar — Current Project:** … | Specification
 **Sidebar — Standalone:** Import / Export
-**Sidebar — Global:** Groups & Categories | Device Types | Product Catalogue | Room Templates
+**Sidebar — Global:** Groups & Categories | Device Types | Product Catalogue | Room Templates | Spec Library
 
 ### Equipment Page Tabs
 Project Library | Project Catalogue | Equipment Schedule | Equipment Matrix | Zone Summary | Room Templates
@@ -119,7 +126,8 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 - ✅ Contract Award — record award against an integrator with ceremony flow; advances project phase to Engineering; shown as tile on Project Info
 - ✅ CR Cost Schedule (Change Orders) — per-CR cost items, CO total, pending queue, Estimated/Agreed states (see detail below)
 - ✅ Pricing — budget_price on project equipment; price_min/price_max/currency on global and project products; shown in Equipment Schedule
-- ✅ Global — Device Types, Product Catalogue, System Groups & Categories, Room Templates
+- ✅ Specification — two-pane authoring (section tree + Quill rich-text editor), chapters by system group with auto-numbering, section CRUD + reorder, dirty-state tracking, spec change log, Pull from Spec Library (see detail below)
+- ✅ Global — Device Types, Product Catalogue, System Groups & Categories, Room Templates, Spec Library (standard SMART text templates)
 - ✅ Import / Export — full coverage of all sections, both global and project
 - ✅ Authentication — login/logout, JWT proactive refresh mid-session, retry on 401
 
@@ -182,11 +190,37 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 
 ---
 
+## Specification — Detail
+
+### Structure
+- One `spec_documents` row per project, auto-created with title "{project} — AV/IT Specification" on first visit to the page
+- Sections live in `spec_sections`, grouped into chapters by `system_group_id` (null = Preamble chapter)
+- **Auto-numbering:** Preamble sections = 1, 2, 3…; then each system group becomes a chapter, sections numbered `N.M`. Numbers are computed at render time (`computeSpecNumbers`), never stored
+
+### Authoring (Specification page)
+- Two-pane layout: section tree (left) + Quill rich-text editor (right)
+- Quill toolbar: headers (H1–H3), bold/italic/underline, ordered/bullet lists, clean
+- Section CRUD: add (per chapter via + button), delete (confirm), reorder (move up/down within chapter via sort_order swap)
+- Dirty-state tracking: unsaved-changes dot + "Saved ✓" flash; switching sections with unsaved edits prompts discard confirm
+- Content stored as HTML in `spec_sections.content`
+
+### Spec Change Log
+- Every add/modified/removed action logged to `spec_change_log` (action, description, changed_by, cr_id if a CR is active)
+- Collapsible viewer at the bottom of the Specification page
+
+### Spec Library (Global)
+- `spec_section_library` holds reusable standard SMART text templates (system_group_id, category_code, title, content, sort_order)
+- Managed on Global > Spec Library with full CRUD + its own Quill editor
+- "Pull from Spec Library" on a project spec imports standard sections in one click (sets `is_auto_pulled`)
+
+---
+
 ## Pending Backlog (Priority Order)
 
-1. ⬜ Specification section — core document builder (major feature, not started); structure TBD — needs design discussion before coding
-2. ⬜ Export Centre — Word/PDF spec output, formatted Excel/CSV schedules; depends on spec section being built first
-3. ⬜ CO Document generation — produce a formal Change Order PDF/Word document from a CR's cost schedule (distinct from the tracking already built)
+1. ⬜ Export Centre — Word/PDF spec output, formatted Excel/CSV schedules; spec authoring now built, so this is the next logical step
+2. ⬜ CO Document generation — produce a formal Change Order PDF/Word document from a CR's cost schedule (distinct from the tracking already built)
+
+(Spec Builder authoring — formerly backlog #1 — is now built; see What's Built and the Specification — Detail section.)
 
 ---
 
@@ -208,3 +242,4 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 - File delivered as index.html for direct GitHub Pages deployment
 - **Code review (May 2026):** Full audit completed; bugs fixed (token refresh race, CSS variable gaps, null crash in modalAddDiscipline); performance fixes (feature matrix pre-built Maps, template apply inner loop); batch DB ops (savePlacement, fmSeedFromLibrary, saveModalIntegrators, saveCRRevisionLinks all converted to single bulk requests); dead code removed (ccFmtDateTime duplicate, ieActiveTab unread variable)
 - **global_products DB fix (May 2026):** audio_role, avip_role, ups_protected columns were missing from global_products table — added via migration; all default to 'none'/false
+- **Spec Builder (May 2026):** Authoring built (4 tables, two-pane Quill editor, system-group chapters, auto-numbering, change log, global library + pull). Section numbers computed at render, not stored. Content is HTML. RLS also enabled on contract_awards, cr_cost_items, contractor_pricing in the same change. Next: Export Centre (Word/PDF output)
