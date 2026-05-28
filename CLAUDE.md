@@ -57,10 +57,11 @@ The app is a **single HTML file** (`index.html`) with all CSS and JavaScript inl
 - `change_log` — project_id, area, action, summary, cr_id, changed_by, created_at
 
 ### Specification
-- `spec_section_library` — system_group_id, category_code, title, content (HTML), sort_order (global reusable standard text templates)
-- `spec_documents` — project_id, title, status (one per project, auto-created on first visit)
-- `spec_sections` — document_id, system_group_id (null = preamble), title, content (HTML), sort_order, is_auto_pulled
+- `spec_documents` — project_id, title, discipline (avit/security/navigation/radio/lighting/combined), doc_code, status, sort_order — **many per project** (one standalone spec per discipline; "combined" spans several)
+- `spec_chapters` — document_id, name, sort_order (per-document free-form chapter headings; replaces system-group grouping)
+- `spec_sections` — document_id, chapter_id (null = preamble), library_section_id, title, content (HTML), sort_order, is_auto_pulled
 - `spec_change_log` — document_id, section_id, action (added/modified/removed), description, cr_id, changed_by, created_at
+- `spec_section_library` — discipline, chapter_name, category_code, title, content (HTML), sort_order (global reusable templates, tagged by discipline + chapter)
 
 ---
 
@@ -192,10 +193,14 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 
 ## Specification — Detail
 
-### Structure
-- One `spec_documents` row per project, auto-created with title "{project} — AV/IT Specification" on first visit to the page
-- Sections live in `spec_sections`, grouped into chapters by `system_group_id` (null = Preamble chapter)
-- **Auto-numbering:** Preamble sections = 1, 2, 3…; then each system group becomes a chapter, sections numbered `N.M`. Numbers are computed at render time (`computeSpecNumbers`), never stored
+### Structure (multi-document, per discipline)
+- A project has **many specifications** (`spec_documents`), one per discipline (AV/IT, Security, Navigation, Radio, Lighting) or a single "Combined" document. Disciplines list = `SPEC_DISCIPLINES` const in the JS.
+- "Split vs combined" is just how many documents you create — same building blocks either way. A combined doc pulls chapters from several disciplines into one document.
+- Each document has its own **chapters** (`spec_chapters`, free-form), and each chapter holds **sections** (`spec_sections`). Preamble = sections with no chapter.
+- Document bar at the top of the Specification page switches between the project's specs (`renderSpecDocBar`); New / rename / delete specification supported.
+- New Specification can "seed standard chapters and sections from the Spec Library for this discipline" (`seedSpecFromLibrary`).
+- **Auto-numbering:** Preamble sections = 1, 2, 3…; then each chapter is numbered, sections `N.M`. Computed at render time (`computeSpecNumbers`), never stored.
+- Library "Pull" is discipline-filtered; pulling a template auto-creates its chapter in the target document if missing.
 
 ### Authoring (Specification page)
 - Two-pane layout: section tree (left) + Quill rich-text editor (right)
@@ -209,7 +214,7 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 - Collapsible viewer at the bottom of the Specification page
 
 ### Spec Library (Global)
-- `spec_section_library` holds reusable standard SMART text templates (system_group_id, category_code, title, content, sort_order)
+- `spec_section_library` holds reusable standard SMART text templates (discipline, chapter_name, category_code, title, content, sort_order)
 - Managed on Global > Spec Library with full CRUD + its own Quill editor
 - "Pull from Spec Library" on a project spec imports standard sections in one click (sets `is_auto_pulled`)
 

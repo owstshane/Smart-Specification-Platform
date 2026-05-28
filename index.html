@@ -440,6 +440,18 @@
   .spec-row-btn.del:hover { background: var(--red-light); color: var(--red); }
   .spec-empty-chapter { padding: 6px 28px 8px; font-size: 11px; color: var(--text-3); font-style: italic; }
   .spec-preamble-head { padding: 8px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
+  .spec-doc-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; }
+  .spec-doc-tabs { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
+  .spec-doc-tab { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--radius-sm); cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--text-2); font-family: inherit; }
+  .spec-doc-tab:hover { border-color: var(--accent); color: var(--text); }
+  .spec-doc-tab.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .spec-doc-tab-code { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700; background: var(--border); color: var(--text-2); padding: 1px 5px; border-radius: 3px; }
+  .spec-doc-tab.active .spec-doc-tab-code { background: var(--accent); color: #fff; }
+  .spec-doc-actions { display: flex; align-items: center; gap: 6px; }
+  .spec-chapter-tools { display: flex; align-items: center; gap: 1px; opacity: 0; }
+  .spec-chapter-heading:hover .spec-chapter-tools { opacity: 1; }
+  .spec-add-chapter-btn { display: block; width: calc(100% - 24px); margin: 10px 12px; padding: 7px; border: 1px dashed var(--border-strong); background: none; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-3); font-size: 12px; font-family: inherit; }
+  .spec-add-chapter-btn:hover { border-color: var(--accent); color: var(--accent); }
   .spec-editor-pane { display: flex; flex-direction: column; overflow: hidden; }
   .spec-editor-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-3); padding: 40px; }
   .spec-editor-form { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -812,6 +824,7 @@
 
       <!-- SPECIFICATION -->
       <div id="page-specification" class="hidden">
+        <div class="spec-doc-bar" id="spec-doc-bar"></div>
         <div class="spec-layout">
           <div class="spec-tree-pane">
             <div class="spec-tree-header">
@@ -970,14 +983,15 @@
       <!-- SPEC SECTION LIBRARY (Global) -->
       <div id="page-spec-library" class="hidden">
         <div class="toolbar">
-          <select id="sl-filter-group" onchange="renderSpecLibrary()" style="width:auto;padding:8px 11px"><option value="">All system groups</option></select>
+          <select id="sl-filter-group" onchange="renderSpecLibrary()" style="width:auto;padding:8px 11px"><option value="">All disciplines</option></select>
+          <button class="btn btn-primary btn-sm" onclick="openSpecLibSectionModal()" style="margin-left:8px">+ New Section</button>
           <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="sl-count"></div>
         </div>
         <div class="equip-table" id="sl-container">
           <table>
             <thead>
               <tr>
-                <th>System Group</th><th>Category</th><th>Title</th><th>Preview</th><th style="text-align:right">Actions</th>
+                <th>Discipline</th><th>Chapter</th><th>Category</th><th>Title</th><th>Preview</th><th style="text-align:right">Actions</th>
               </tr>
             </thead>
             <tbody id="sl-tbody"></tbody>
@@ -6542,23 +6556,172 @@ function closeModal(id){
 }
 
 // ── SPEC BUILDER ──────────────────────────────────────────────────────────────
-let specDocument=null,specSections=[],selectedSectionId=null,specQuill=null,specDirty=false;
-let specLibrarySections=[],specChangeLog=[];
+let specDocuments=[],specDocument=null,specChapters=[],specSections=[],selectedSectionId=null,specQuill=null,specDirty=false;
+let specLibrarySections=[],specChangeLog=[],_splpAvailable=[];
+const SPEC_DISCIPLINES=[
+  {code:'avit',label:'AV/IT & Communications',doc:'AVIT'},
+  {code:'security',label:'Security',doc:'SEC'},
+  {code:'navigation',label:'Navigation',doc:'NAV'},
+  {code:'radio',label:'Radio',doc:'RAD'},
+  {code:'lighting',label:'Lighting Control',doc:'LT'},
+  {code:'combined',label:'Combined',doc:'SPEC'}
+];
+const _byOrder=(a,b)=>a.sort_order-b.sort_order;
+function specDiscLabel(code){const d=SPEC_DISCIPLINES.find(x=>x.code===code);return d?d.label:'Generic';}
 
 async function loadSpecification(){
   if(!currentProject)return;
   renderSpecTree('<div class="loading"><div class="spinner"></div> Loading…</div>');
   try{
-    const docs=await dbGet('spec_documents','project_id=eq.'+currentProject.id+'&order=created_at.asc&limit=1');
-    if(docs.length){specDocument=docs[0];}
-    else{const ins=await dbInsert('spec_documents',{project_id:currentProject.id,title:currentProject.name+' — AV/IT Specification',status:'draft'});specDocument=ins[0];}
-    specSections=await dbGet('spec_sections','document_id=eq.'+specDocument.id+'&order=sort_order.asc');
-    specChangeLog=await dbGet('spec_change_log','document_id=eq.'+specDocument.id+'&order=created_at.desc');
-    initSpecQuill();
-    renderSpecTree();
-    renderSpecChangelog();
-    showSpecEmpty();
+    if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
+    specDocuments=await dbGet('spec_documents','project_id=eq.'+currentProject.id+'&order=sort_order.asc,created_at.asc');
+    renderSpecDocBar();
+    if(specDocuments.length){
+      await selectSpecDocument(specDocuments[0].id);
+    }else{
+      specDocument=null;specChapters=[];specSections=[];specChangeLog=[];
+      renderSpecTree();renderSpecChangelog();showSpecEmpty();
+    }
   }catch(e){renderSpecTree('<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>');showToast('Failed to load specification: '+e.message,'error');}
+}
+
+function renderSpecDocBar(){
+  const el=document.getElementById('spec-doc-bar');
+  if(!el)return;
+  if(!specDocuments.length){
+    el.innerHTML='<div style="flex:1;font-size:13px;color:var(--text-3)">No specifications yet for this project.</div>'
+      +'<button class="btn btn-primary btn-sm" onclick="openNewSpecDocModal()">+ New Specification</button>';
+    return;
+  }
+  const tabs=specDocuments.slice().sort(_byOrder).map(d=>{
+    const sel=specDocument&&specDocument.id===d.id;
+    const code=d.doc_code||(SPEC_DISCIPLINES.find(x=>x.code===d.discipline)||{}).doc||'';
+    return '<button class="spec-doc-tab'+(sel?' active':'')+'" onclick="selectSpecDocument(\''+d.id+'\')">'
+      +(code?'<span class="spec-doc-tab-code">'+escHtml(code)+'</span>':'')
+      +escHtml(d.title)+'</button>';
+  }).join('');
+  let actions='';
+  if(specDocument){
+    actions+='<button class="btn-icon btn-sm" title="Rename specification" onclick="openEditSpecDocModal()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+      +'<button class="btn-icon btn-sm" title="Delete specification" style="color:var(--red)" onclick="deleteSpecDocument()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"/></svg></button>';
+  }
+  actions+='<button class="btn btn-primary btn-sm" onclick="openNewSpecDocModal()">+ New</button>';
+  el.innerHTML='<div class="spec-doc-tabs">'+tabs+'</div><div class="spec-doc-actions">'+actions+'</div>';
+}
+
+async function selectSpecDocument(id){
+  const doc=specDocuments.find(d=>d.id===id);
+  if(!doc)return;
+  const go=async()=>{
+    specDirty=false;selectedSectionId=null;specDocument=doc;
+    renderSpecTree('<div class="loading"><div class="spinner"></div> Loading…</div>');
+    try{
+      specChapters=await dbGet('spec_chapters','document_id=eq.'+doc.id+'&order=sort_order.asc');
+      specSections=await dbGet('spec_sections','document_id=eq.'+doc.id+'&order=sort_order.asc');
+      specChangeLog=await dbGet('spec_change_log','document_id=eq.'+doc.id+'&order=created_at.desc');
+      renderSpecDocBar();renderSpecTree();renderSpecChangelog();showSpecEmpty();
+    }catch(e){showToast('Failed to load specification: '+e.message,'error');}
+  };
+  if(specDirty){openConfirm('Unsaved Changes','You have unsaved changes. Discard them?',go);return;}
+  await go();
+}
+
+// ── SPEC DOCUMENTS (per discipline) ──
+
+function openNewSpecDocModal(){
+  const opts=SPEC_DISCIPLINES.map(d=>'<option value="'+d.code+'">'+escHtml(d.label)+'</option>').join('');
+  const html='<div class="form-group"><label>Discipline</label><select id="nsd-disc" onchange="nsdDiscChanged()">'+opts+'</select></div>'
+    +'<div class="form-group"><label>Title <span class="required">*</span></label><input id="nsd-title" type="text" placeholder="e.g. AV/IT &amp; Communications Specification"></div>'
+    +'<div class="form-group"><label>Document Code <span class="optional">optional</span></label><input id="nsd-code" type="text" placeholder="e.g. AVIT" style="width:140px"></div>'
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="nsd-seed" checked style="width:15px;height:15px;accent-color:var(--accent)"> Create standard chapters and sections from the Spec Library for this discipline</label>';
+  openModal('new-spec-doc-modal','New Specification',html,
+    '<button class="btn btn-secondary" onclick="closeModal(\'new-spec-doc-modal\')">Cancel</button>'
+    +'<button class="btn btn-primary" onclick="confirmNewSpecDoc()">Create</button>');
+  nsdDiscChanged();
+}
+function nsdDiscChanged(){
+  const d=SPEC_DISCIPLINES.find(x=>x.code===(document.getElementById('nsd-disc')||{}).value);
+  if(!d)return;
+  const codeEl=document.getElementById('nsd-code'),titleEl=document.getElementById('nsd-title');
+  if(codeEl)codeEl.value=d.doc;
+  if(titleEl)titleEl.value=d.code==='combined'?'Technology Specification':d.label+' Specification';
+}
+async function confirmNewSpecDoc(){
+  const discipline=document.getElementById('nsd-disc').value;
+  const title=(document.getElementById('nsd-title').value||'').trim();
+  const doc_code=(document.getElementById('nsd-code').value||'').trim().toUpperCase()||null;
+  const seed=document.getElementById('nsd-seed').checked;
+  if(!title){showToast('Title is required','error');return;}
+  try{
+    const maxOrder=specDocuments.reduce((m,d)=>Math.max(m,d.sort_order||0),-1);
+    const ins=await dbInsert('spec_documents',{project_id:currentProject.id,title,discipline,doc_code,status:'draft',sort_order:maxOrder+1});
+    const doc=ins[0];specDocuments.push(doc);
+    if(seed)await seedSpecFromLibrary(doc,discipline);
+    closeModal('new-spec-doc-modal');
+    renderSpecDocBar();
+    await selectSpecDocument(doc.id);
+    showToast('Specification created','success');
+  }catch(e){showToast('Failed to create specification: '+e.message,'error');}
+}
+async function seedSpecFromLibrary(doc,discipline){
+  if(!specLibrarySections.length)specLibrarySections=await dbGet('spec_section_library','order=sort_order.asc');
+  const tmpls=specLibrarySections.filter(s=>(s.discipline||'')===discipline||!s.discipline).slice().sort(_byOrder);
+  if(!tmpls.length)return;
+  const chapterNames=[];
+  tmpls.forEach(t=>{const cn=(t.chapter_name||'').trim();if(cn&&!chapterNames.includes(cn))chapterNames.push(cn);});
+  const chapterMap={};
+  for(let i=0;i<chapterNames.length;i++){
+    const ins=await dbInsert('spec_chapters',{document_id:doc.id,name:chapterNames[i],sort_order:i});
+    chapterMap[chapterNames[i]]=ins[0].id;
+  }
+  let preOrder=0;const chOrder={};
+  for(const t of tmpls){
+    const cn=(t.chapter_name||'').trim();
+    const chapter_id=cn?chapterMap[cn]:null;
+    const so=cn?(chOrder[cn]=(chOrder[cn]||0)+1)-1:preOrder++;
+    await dbInsert('spec_sections',{document_id:doc.id,chapter_id,library_section_id:t.id,title:t.title,content:t.content,sort_order:so,is_auto_pulled:true});
+  }
+}
+function openEditSpecDocModal(){
+  if(!specDocument)return;
+  const d=specDocument;
+  const opts=SPEC_DISCIPLINES.map(x=>'<option value="'+x.code+'"'+(x.code===d.discipline?' selected':'')+'>'+escHtml(x.label)+'</option>').join('');
+  const html='<div class="form-group"><label>Discipline</label><select id="esd-disc">'+opts+'</select></div>'
+    +'<div class="form-group"><label>Title <span class="required">*</span></label><input id="esd-title" type="text" value="'+escHtml(d.title||'')+'"></div>'
+    +'<div class="form-group"><label>Document Code</label><input id="esd-code" type="text" value="'+escHtml(d.doc_code||'')+'" style="width:140px"></div>';
+  openModal('edit-spec-doc-modal','Edit Specification',html,
+    '<button class="btn btn-secondary" onclick="closeModal(\'edit-spec-doc-modal\')">Cancel</button>'
+    +'<button class="btn btn-primary" onclick="confirmEditSpecDoc()">Save</button>');
+}
+async function confirmEditSpecDoc(){
+  if(!specDocument)return;
+  const title=(document.getElementById('esd-title').value||'').trim();
+  if(!title){showToast('Title is required','error');return;}
+  const payload={title,discipline:document.getElementById('esd-disc').value,doc_code:(document.getElementById('esd-code').value||'').trim().toUpperCase()||null};
+  try{
+    await dbUpdate('spec_documents',specDocument.id,payload);
+    Object.assign(specDocument,payload);
+    closeModal('edit-spec-doc-modal');renderSpecDocBar();
+    showToast('Specification updated','success');
+  }catch(e){showToast('Save failed: '+e.message,'error');}
+}
+async function deleteSpecDocument(){
+  if(!specDocument)return;
+  const doc=specDocument;
+  openConfirm('Delete Specification','Delete "'+doc.title+'" and all its chapters and sections? This cannot be undone.',async()=>{
+    try{
+      await supaFetch('DELETE','spec_change_log',null,null,'document_id=eq.'+doc.id);
+      await supaFetch('DELETE','spec_sections',null,null,'document_id=eq.'+doc.id);
+      await supaFetch('DELETE','spec_chapters',null,null,'document_id=eq.'+doc.id);
+      await dbDelete('spec_documents',doc.id);
+      specDocuments=specDocuments.filter(d=>d.id!==doc.id);
+      specDocument=null;specChapters=[];specSections=[];specChangeLog=[];selectedSectionId=null;
+      renderSpecDocBar();
+      if(specDocuments.length){await selectSpecDocument(specDocuments.sort(_byOrder)[0].id);}
+      else{renderSpecTree();renderSpecChangelog();showSpecEmpty();}
+      showToast('Specification deleted','success');
+    }catch(e){showToast('Delete failed: '+e.message,'error');}
+  });
 }
 
 function initSpecQuill(){
@@ -6577,57 +6740,113 @@ function renderSpecTree(html){
   const el=document.getElementById('spec-tree-scroll');
   if(!el)return;
   if(html!==undefined){el.innerHTML=html;return;}
+  if(!specDocument){el.innerHTML='<div class="spec-empty-chapter" style="padding:16px 12px">No specification selected. Create one using the bar above.</div>';return;}
   const nums=computeSpecNumbers();
   let out='';
 
-  // Preamble (no system group)
-  const preamble=specSections.filter(s=>!s.system_group_id).sort((a,b)=>a.sort_order-b.sort_order);
-  if(preamble.length){
-    out+='<div class="spec-chapter-group"><div class="spec-preamble-head"><span style="flex:1">Preamble</span><button class="spec-chapter-add-btn" onclick="openAddSpecSectionModal(null)" title="Add preamble section">+</button></div>';
-    preamble.forEach(s=>{
-      const n=nums.get(s.id)||'';
-      out+=specSectionRow(s,n);
-    });
-    out+='</div>';
-  }else{
-    out+='<div class="spec-chapter-group"><div class="spec-preamble-head"><span style="flex:1">Preamble</span><button class="spec-chapter-add-btn" onclick="openAddSpecSectionModal(null)" title="Add preamble section">+</button></div><div class="spec-empty-chapter">No sections</div></div>';
-  }
+  // Preamble (no chapter)
+  const preamble=specSections.filter(s=>!s.chapter_id).sort(_byOrder);
+  out+='<div class="spec-chapter-group"><div class="spec-preamble-head"><span style="flex:1">Preamble</span><button class="spec-chapter-add-btn" onclick="openAddSpecSectionModal(null)" title="Add preamble section">+</button></div>';
+  if(preamble.length){preamble.forEach(s=>out+=specSectionRow(s,nums.get(s.id)||''));}
+  else{out+='<div class="spec-empty-chapter">No preamble sections</div>';}
+  out+='</div>';
 
-  // System group chapters
-  systemGroups.forEach((g,gi)=>{
-    const sections=specSections.filter(s=>s.system_group_id===g.id).sort((a,b)=>a.sort_order-b.sort_order);
-    const chapterNum=computeChapterNum(g.id,nums);
-    out+='<div class="spec-chapter-group"><div class="spec-chapter-heading"><span class="spec-chapter-num">'+escHtml(chapterNum+'.')+'</span><span class="spec-chapter-label">'+escHtml(g.name)+'</span><button class="spec-chapter-add-btn" onclick="openAddSpecSectionModal(\''+g.id+'\')" title="Add section">+</button></div>';
-    if(sections.length){
-      sections.forEach(s=>{const n=nums.get(s.id)||'';out+=specSectionRow(s,n);});
-    }else{
-      out+='<div class="spec-empty-chapter">No sections — click + to add</div>';
-    }
+  // Chapters
+  const chapters=specChapters.slice().sort(_byOrder);
+  chapters.forEach((ch,ci)=>{
+    const chNum=preamble.length+ci+1;
+    const sections=specSections.filter(s=>s.chapter_id===ch.id).sort(_byOrder);
+    out+='<div class="spec-chapter-group"><div class="spec-chapter-heading">'
+      +'<span class="spec-chapter-num">'+escHtml(chNum+'.')+'</span>'
+      +'<span class="spec-chapter-label">'+escHtml(ch.name)+'</span>'
+      +'<span class="spec-chapter-tools">'
+      +'<button class="spec-row-btn" onclick="event.stopPropagation();moveSpecChapter(\''+ch.id+'\',-1)" title="Move up"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18,15 12,9 6,15"/></svg></button>'
+      +'<button class="spec-row-btn" onclick="event.stopPropagation();moveSpecChapter(\''+ch.id+'\',1)" title="Move down"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button>'
+      +'<button class="spec-row-btn" onclick="event.stopPropagation();renameSpecChapter(\''+ch.id+'\')" title="Rename chapter"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+      +'<button class="spec-row-btn del" onclick="event.stopPropagation();deleteSpecChapter(\''+ch.id+'\')" title="Delete chapter"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"/></svg></button>'
+      +'<button class="spec-chapter-add-btn" onclick="event.stopPropagation();openAddSpecSectionModal(\''+ch.id+'\')" title="Add section">+</button>'
+      +'</span></div>';
+    if(sections.length){sections.forEach(s=>out+=specSectionRow(s,nums.get(s.id)||''));}
+    else{out+='<div class="spec-empty-chapter">No sections. Click + to add.</div>';}
     out+='</div>';
   });
 
+  out+='<button class="spec-add-chapter-btn" onclick="addSpecChapter()">+ Add chapter</button>';
   el.innerHTML=out;
 }
 
 function computeSpecNumbers(){
   const nums=new Map();
-  const preamble=specSections.filter(s=>!s.system_group_id).sort((a,b)=>a.sort_order-b.sort_order);
+  const preamble=specSections.filter(s=>!s.chapter_id).sort(_byOrder);
   preamble.forEach((s,i)=>nums.set(s.id,String(i+1)));
   const pCount=preamble.length;
-  let chIdx=0;
-  systemGroups.forEach(g=>{
-    const secs=specSections.filter(s=>s.system_group_id===g.id).sort((a,b)=>a.sort_order-b.sort_order);
-    const chNum=pCount+chIdx+1;
-    chIdx++;
-    secs.forEach((s,si)=>nums.set(s.id,chNum+'.'+(si+1)));
+  specChapters.slice().sort(_byOrder).forEach((ch,ci)=>{
+    const chNum=pCount+ci+1;
+    specSections.filter(s=>s.chapter_id===ch.id).sort(_byOrder).forEach((s,si)=>nums.set(s.id,chNum+'.'+(si+1)));
   });
   return nums;
 }
 
-function computeChapterNum(groupId,nums){
-  const pCount=specSections.filter(s=>!s.system_group_id).length;
-  const idx=systemGroups.findIndex(g=>g.id===groupId);
-  return pCount+idx+1;
+// ── SPEC CHAPTERS ──
+
+function addSpecChapter(){
+  if(!specDocument){showToast('Create or select a specification first','error');return;}
+  const html='<div class="form-group"><label>Chapter Name <span class="required">*</span></label><input id="ch-name" type="text" placeholder="e.g. Audio Visual System"></div>';
+  openModal('chapter-modal','New Chapter',html,
+    '<button class="btn btn-secondary" onclick="closeModal(\'chapter-modal\')">Cancel</button>'
+    +'<button class="btn btn-primary" onclick="confirmAddSpecChapter()">Add</button>');
+  setTimeout(()=>{const i=document.getElementById('ch-name');if(i)i.focus();},60);
+}
+async function confirmAddSpecChapter(){
+  const name=(document.getElementById('ch-name').value||'').trim();
+  if(!name){showToast('Chapter name is required','error');return;}
+  const maxOrder=specChapters.reduce((m,c)=>Math.max(m,c.sort_order),-1);
+  try{
+    const ins=await dbInsert('spec_chapters',{document_id:specDocument.id,name,sort_order:maxOrder+1});
+    specChapters.push(ins[0]);
+    closeModal('chapter-modal');renderSpecTree();
+    showToast('Chapter added','success');
+  }catch(e){showToast('Failed to add chapter: '+e.message,'error');}
+}
+function renameSpecChapter(id){
+  const ch=specChapters.find(c=>c.id===id);if(!ch)return;
+  const html='<div class="form-group"><label>Chapter Name <span class="required">*</span></label><input id="ch-name" type="text" value="'+escHtml(ch.name)+'"></div>';
+  openModal('chapter-modal','Rename Chapter',html,
+    '<button class="btn btn-secondary" onclick="closeModal(\'chapter-modal\')">Cancel</button>'
+    +'<button class="btn btn-primary" onclick="confirmRenameSpecChapter(\''+id+'\')">Save</button>');
+  setTimeout(()=>{const i=document.getElementById('ch-name');if(i){i.focus();i.select();}},60);
+}
+async function confirmRenameSpecChapter(id){
+  const ch=specChapters.find(c=>c.id===id);if(!ch)return;
+  const name=(document.getElementById('ch-name').value||'').trim();
+  if(!name){showToast('Chapter name is required','error');return;}
+  try{await dbUpdate('spec_chapters',id,{name});ch.name=name;closeModal('chapter-modal');renderSpecTree();}
+  catch(e){showToast('Rename failed: '+e.message,'error');}
+}
+async function moveSpecChapter(id,dir){
+  const sorted=specChapters.slice().sort(_byOrder);
+  const idx=sorted.findIndex(c=>c.id===id);
+  const swapIdx=idx+dir;if(swapIdx<0||swapIdx>=sorted.length)return;
+  const a=sorted[idx],b=sorted[swapIdx],tmp=a.sort_order;
+  try{
+    await Promise.all([dbUpdate('spec_chapters',a.id,{sort_order:b.sort_order}),dbUpdate('spec_chapters',b.id,{sort_order:tmp})]);
+    a.sort_order=b.sort_order;b.sort_order=tmp;renderSpecTree();
+  }catch(e){showToast('Reorder failed: '+e.message,'error');}
+}
+async function deleteSpecChapter(id){
+  const ch=specChapters.find(c=>c.id===id);if(!ch)return;
+  const secs=specSections.filter(s=>s.chapter_id===id);
+  openConfirm('Delete Chapter','Delete chapter "'+ch.name+'"'+(secs.length?' and its '+secs.length+' section'+(secs.length>1?'s':''):'')+'? This cannot be undone.',async()=>{
+    try{
+      for(const s of secs)await dbDelete('spec_sections',s.id);
+      await dbDelete('spec_chapters',id);
+      specSections=specSections.filter(s=>s.chapter_id!==id);
+      specChapters=specChapters.filter(c=>c.id!==id);
+      if(selectedSectionId&&!specSections.find(s=>s.id===selectedSectionId))showSpecEmpty();
+      renderSpecTree();renderSpecChangelog();
+      showToast('Chapter deleted','success');
+    }catch(e){showToast('Delete failed: '+e.message,'error');}
+  });
 }
 
 function specSectionRow(s,num){
@@ -6706,17 +6925,17 @@ async function saveSpecSection(){
   }catch(e){showToast('Save failed: '+e.message,'error');}
 }
 
-async function openAddSpecSectionModal(groupId){
-  if(!specDocument)return;
+async function openAddSpecSectionModal(chapterId){
+  if(!specDocument){showToast('Create or select a specification first','error');return;}
 
   let html='<div class="form-group">'
-    +'<label>System Group <span class="optional">optional — leave blank for preamble</span></label>'
-    +'<select id="as-group">'
-    +'<option value="">— Preamble (no system group) —</option>'
-    +systemGroups.map(g=>'<option value="'+escHtml(g.id)+'"'+(g.id===groupId?' selected':'')+'>'+escHtml(g.name)+'</option>').join('')
+    +'<label>Chapter <span class="optional">leave blank for preamble</span></label>'
+    +'<select id="as-chapter">'
+    +'<option value="">— Preamble (no chapter) —</option>'
+    +specChapters.slice().sort(_byOrder).map(c=>'<option value="'+escHtml(c.id)+'"'+(c.id===chapterId?' selected':'')+'>'+escHtml(c.name)+'</option>').join('')
     +'</select>'
     +'</div>'
-    +'<div class="form-group"><label>Section Title <span class="required">*</span></label><input id="as-title" type="text" placeholder="e.g. Display Systems" autofocus></div>';
+    +'<div class="form-group"><label>Section Title <span class="required">*</span></label><input id="as-title" type="text" placeholder="e.g. Display Equipment" autofocus></div>';
 
   openModal('add-section-modal','New Specification Section',html,
     '<button class="btn btn-secondary" onclick="closeModal(\'add-section-modal\')">Cancel</button>'
@@ -6724,16 +6943,16 @@ async function openAddSpecSectionModal(groupId){
 }
 
 async function confirmAddSpecSection(){
-  const groupId=document.getElementById('as-group').value||null;
+  const chapter_id=document.getElementById('as-chapter').value||null;
   const title=document.getElementById('as-title').value.trim();
   if(!title){showToast('Title is required','error');return;}
 
-  // Work out sort_order (max + 1 within the group)
-  const siblings=specSections.filter(s=>(s.system_group_id||null)===(groupId||null));
+  // Work out sort_order (max + 1 within the chapter)
+  const siblings=specSections.filter(s=>(s.chapter_id||null)===(chapter_id||null));
   const maxOrder=siblings.reduce((m,s)=>Math.max(m,s.sort_order),-1);
 
   try{
-    const ins=await dbInsert('spec_sections',{document_id:specDocument.id,system_group_id:groupId,title,content:'',sort_order:maxOrder+1,is_auto_pulled:false});
+    const ins=await dbInsert('spec_sections',{document_id:specDocument.id,chapter_id,title,content:'',sort_order:maxOrder+1,is_auto_pulled:false});
     const row=ins[0];
     specSections.push(row);
     await addSpecChangeLog(row.id,'added','Section "'+title+'" added');
@@ -6749,7 +6968,7 @@ async function confirmAddSpecSection(){
 async function moveSpecSection(id,dir){
   const s=specSections.find(x=>x.id===id);
   if(!s)return;
-  const siblings=specSections.filter(x=>(x.system_group_id||null)===(s.system_group_id||null)).sort((a,b)=>a.sort_order-b.sort_order);
+  const siblings=specSections.filter(x=>(x.chapter_id||null)===(s.chapter_id||null)).sort(_byOrder);
   const idx=siblings.findIndex(x=>x.id===id);
   const swapIdx=idx+dir;
   if(swapIdx<0||swapIdx>=siblings.length)return;
@@ -6825,35 +7044,39 @@ function toggleSpecChangelog(){
 // ── SPEC LIBRARY PULL ────────────────────────────────────────────────────────
 
 async function openSpecLibraryPullModal(){
-  if(!specDocument)return;
+  if(!specDocument){showToast('Create or select a specification first','error');return;}
   if(!specLibrarySections.length)specLibrarySections=await dbGet('spec_section_library','order=sort_order.asc');
   const used=new Set(specSections.filter(s=>s.library_section_id).map(s=>s.library_section_id));
-  const available=specLibrarySections.filter(s=>!used.has(s.id));
+  _splpAvailable=specLibrarySections.filter(s=>!used.has(s.id));
 
-  let html='';
-  if(!available.length){
-    html='<div class="empty-state" style="padding:24px"><div class="empty-state-title">All library sections are already in this spec</div></div>';
-  }else{
-    html='<div style="margin-bottom:12px;font-size:13px;color:var(--text-2)">Select sections to add to this project\'s specification:</div>';
-    let lastGroup='';
-    available.forEach(s=>{
-      const g=systemGroups.find(x=>x.id===s.system_group_id);
-      const gName=g?g.name:'Preamble';
-      if(gName!==lastGroup){
-        html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--text-3);padding:10px 0 4px;border-top:1px solid var(--border);margin-top:4px">'+escHtml(gName)+'</div>';
-        lastGroup=gName;
-      }
-      html+='<label style="display:flex;align-items:flex-start;gap:10px;padding:8px 4px;cursor:pointer;border-radius:4px" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'">'
-        +'<input type="checkbox" value="'+s.id+'" style="width:15px;height:15px;margin-top:2px;accent-color:var(--accent)">'
-        +'<div><div style="font-size:13px;font-weight:500">'+escHtml(s.title)+'</div>'
-        +(s.category_code?'<div style="font-size:11px;color:var(--text-3)">'+escHtml(s.category_code)+'</div>':'')
-        +'</div></label>';
-    });
-  }
-
-  openModal('spec-lib-pull-modal','Pull from Spec Library',html,
+  const discFilter='<div class="form-group"><label>Discipline</label><select id="splp-disc" onchange="renderSpecLibPullList()">'
+    +'<option value="">All disciplines</option>'
+    +SPEC_DISCIPLINES.map(d=>'<option value="'+d.code+'"'+(d.code===specDocument.discipline?' selected':'')+'>'+escHtml(d.label)+'</option>').join('')
+    +'</select></div>';
+  openModal('spec-lib-pull-modal','Pull from Spec Library',discFilter+'<div id="splp-list"></div>',
     '<button class="btn btn-secondary" onclick="closeModal(\'spec-lib-pull-modal\')">Cancel</button>'
-    +(available.length?'<button class="btn btn-primary" onclick="confirmSpecLibPull()">Add Selected</button>':''));
+    +'<button class="btn btn-primary" onclick="confirmSpecLibPull()">Add Selected</button>','640px');
+  renderSpecLibPullList();
+}
+
+function renderSpecLibPullList(){
+  const disc=(document.getElementById('splp-disc')||{}).value||'';
+  let items=_splpAvailable.filter(s=>!disc||(s.discipline||'')===disc);
+  const el=document.getElementById('splp-list');
+  if(!el)return;
+  if(!items.length){el.innerHTML='<div class="empty-state" style="padding:20px"><div class="empty-state-title">Nothing available to add</div></div>';return;}
+  items=items.slice().sort((a,b)=>(a.discipline||'').localeCompare(b.discipline||'')||(a.chapter_name||'').localeCompare(b.chapter_name||'')||(a.sort_order-b.sort_order));
+  let out='',lastKey='';
+  items.forEach(s=>{
+    const key=specDiscLabel(s.discipline)+' / '+(s.chapter_name||'Preamble');
+    if(key!==lastKey){out+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--text-3);padding:10px 0 4px;border-top:1px solid var(--border);margin-top:4px">'+escHtml(key)+'</div>';lastKey=key;}
+    out+='<label style="display:flex;align-items:flex-start;gap:10px;padding:7px 4px;cursor:pointer;border-radius:4px">'
+      +'<input type="checkbox" value="'+s.id+'" style="width:15px;height:15px;margin-top:2px;accent-color:var(--accent)">'
+      +'<div><div style="font-size:13px;font-weight:500">'+escHtml(s.title)+'</div>'
+      +(s.category_code?'<div style="font-size:11px;color:var(--text-3)">'+escHtml(s.category_code)+'</div>':'')
+      +'</div></label>';
+  });
+  el.innerHTML=out;
 }
 
 async function confirmSpecLibPull(){
@@ -6863,12 +7086,22 @@ async function confirmSpecLibPull(){
   const selected=specLibrarySections.filter(s=>ids.includes(s.id));
   try{
     for(const lib of selected){
-      const siblings=specSections.filter(s=>(s.system_group_id||null)===(lib.system_group_id||null));
+      let chapter_id=null;
+      const cn=(lib.chapter_name||'').trim();
+      if(cn){
+        let ch=specChapters.find(c=>c.name.toLowerCase()===cn.toLowerCase());
+        if(!ch){
+          const maxOrder=specChapters.reduce((m,c)=>Math.max(m,c.sort_order),-1);
+          const cins=await dbInsert('spec_chapters',{document_id:specDocument.id,name:cn,sort_order:maxOrder+1});
+          ch=cins[0];specChapters.push(ch);
+        }
+        chapter_id=ch.id;
+      }
+      const siblings=specSections.filter(s=>(s.chapter_id||null)===(chapter_id||null));
       const maxOrder=siblings.reduce((m,s)=>Math.max(m,s.sort_order),-1);
-      const ins=await dbInsert('spec_sections',{document_id:specDocument.id,system_group_id:lib.system_group_id,library_section_id:lib.id,title:lib.title,content:lib.content,sort_order:maxOrder+1,is_auto_pulled:false});
-      const row=ins[0];
-      specSections.push(row);
-      await addSpecChangeLog(row.id,'added','Section "'+lib.title+'" pulled from library');
+      const ins=await dbInsert('spec_sections',{document_id:specDocument.id,chapter_id,library_section_id:lib.id,title:lib.title,content:lib.content,sort_order:maxOrder+1,is_auto_pulled:false});
+      specSections.push(ins[0]);
+      await addSpecChangeLog(ins[0].id,'added','Section "'+lib.title+'" pulled from library');
     }
     closeModal('spec-lib-pull-modal');
     renderSpecTree();
@@ -6881,9 +7114,8 @@ async function confirmSpecLibPull(){
 
 async function loadSpecLibrary(){
   const container=document.getElementById('sl-tbody');
-  if(container)container.innerHTML='<tr><td colspan="5" style="padding:24px;text-align:center"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr>';
+  if(container)container.innerHTML='<tr><td colspan="6" style="padding:24px;text-align:center"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr>';
   try{
-    if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
     specLibrarySections=await dbGet('spec_section_library','order=sort_order.asc');
     populateSlGroupFilter();
     renderSpecLibrary();
@@ -6893,22 +7125,23 @@ async function loadSpecLibrary(){
 function populateSlGroupFilter(){
   const sel=document.getElementById('sl-filter-group');
   if(!sel)return;
-  sel.innerHTML='<option value="">All system groups</option>'+systemGroups.map(g=>'<option value="'+escHtml(g.id)+'">'+escHtml(g.name)+'</option>').join('');
+  sel.innerHTML='<option value="">All disciplines</option>'+SPEC_DISCIPLINES.map(d=>'<option value="'+d.code+'">'+escHtml(d.label)+'</option>').join('');
 }
 
 function renderSpecLibrary(){
   const filter=(document.getElementById('sl-filter-group')||{}).value||'';
-  let items=filter?specLibrarySections.filter(s=>s.system_group_id===filter):specLibrarySections;
+  let items=filter?specLibrarySections.filter(s=>(s.discipline||'')===filter):specLibrarySections;
+  items=items.slice().sort((a,b)=>(a.discipline||'').localeCompare(b.discipline||'')||(a.chapter_name||'').localeCompare(b.chapter_name||'')||(a.sort_order-b.sort_order));
   const count=document.getElementById('sl-count');
   if(count)count.textContent=items.length+' section'+(items.length!==1?'s':'');
   const tbody=document.getElementById('sl-tbody');
   if(!tbody)return;
-  if(!items.length){tbody.innerHTML='<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text-3)">No library sections. Add one to get started.</td></tr>';return;}
+  if(!items.length){tbody.innerHTML='<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text-3)">No library sections. Add one to get started.</td></tr>';return;}
   tbody.innerHTML=items.map(s=>{
-    const g=systemGroups.find(x=>x.id===s.system_group_id);
     const preview=s.content?s.content.replace(/<[^>]+>/g,'').substring(0,80)+(s.content.length>80?'…':''):'';
     return '<tr>'
-      +'<td>'+escHtml(g?g.name:'—')+'</td>'
+      +'<td>'+escHtml(specDiscLabel(s.discipline))+'</td>'
+      +'<td>'+escHtml(s.chapter_name||'Preamble')+'</td>'
       +'<td>'+(s.category_code?'<span class="category-badge">'+escHtml(s.category_code)+'</span>':'<span style="color:var(--text-3)">—</span>')+'</td>'
       +'<td style="font-weight:500">'+escHtml(s.title)+'</td>'
       +'<td style="color:var(--text-3);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(preview||'—')+'</td>'
@@ -6924,16 +7157,16 @@ let specLibEditId=null,specLibQuill=null;
 function openSpecLibSectionModal(id){
   specLibEditId=id||null;
   const s=id?specLibrarySections.find(x=>x.id===id):null;
+  const discOpts='<option value="">— Generic / shared —</option>'+SPEC_DISCIPLINES.map(d=>'<option value="'+d.code+'"'+(s&&s.discipline===d.code?' selected':'')+'>'+escHtml(d.label)+'</option>').join('');
   const html='<div class="form-row form-row-2">'
-    +'<div class="form-group"><label>System Group</label>'
-    +'<select id="sl-sg">'
-    +'<option value="">— Preamble —</option>'
-    +systemGroups.map(g=>'<option value="'+escHtml(g.id)+'"'+(s&&s.system_group_id===g.id?' selected':'')+'>'+escHtml(g.name)+'</option>').join('')
-    +'</select></div>'
-    +'<div class="form-group"><label>Category Code <span class="optional">optional</span></label><input id="sl-cat" type="text" placeholder="e.g. AV-DISP" value="'+escHtml(s?s.category_code||'':'')+'"></div>'
+    +'<div class="form-group"><label>Discipline</label><select id="sl-disc">'+discOpts+'</select></div>'
+    +'<div class="form-group"><label>Chapter <span class="optional">blank = preamble</span></label><input id="sl-chapter" type="text" placeholder="e.g. Audio Visual System" value="'+escHtml(s?s.chapter_name||'':'')+'"></div>'
     +'</div>'
-    +'<div class="form-group"><label>Section Title <span class="required">*</span></label><input id="sl-title" type="text" placeholder="e.g. Display Systems" value="'+escHtml(s?s.title||'':'')+'"></div>'
-    +'<div class="form-group"><label>Sort Order</label><input id="sl-order" type="number" value="'+((s?s.sort_order:0)||0)+'" style="width:100px"></div>'
+    +'<div class="form-row form-row-2">'
+    +'<div class="form-group"><label>Category Code <span class="optional">optional</span></label><input id="sl-cat" type="text" placeholder="e.g. AV-DISP" value="'+escHtml(s?s.category_code||'':'')+'"></div>'
+    +'<div class="form-group"><label>Sort Order</label><input id="sl-order" type="number" value="'+((s?s.sort_order:0)||0)+'"></div>'
+    +'</div>'
+    +'<div class="form-group"><label>Section Title <span class="required">*</span></label><input id="sl-title" type="text" placeholder="e.g. Display Equipment" value="'+escHtml(s?s.title||'':'')+'"></div>'
     +'<div class="form-group"><label>Content</label><div id="sl-quill-editor" style="min-height:200px;border:1px solid var(--border-strong);border-radius:var(--radius-sm)"></div></div>';
 
   openModal('spec-lib-modal',(id?'Edit':'New')+' Library Section',html,
@@ -6956,7 +7189,8 @@ async function saveSpecLibSection(){
   const title=(document.getElementById('sl-title').value||'').trim();
   if(!title){showToast('Title is required','error');return;}
   const payload={
-    system_group_id:document.getElementById('sl-sg').value||null,
+    discipline:document.getElementById('sl-disc').value||null,
+    chapter_name:(document.getElementById('sl-chapter').value||'').trim()||null,
     category_code:(document.getElementById('sl-cat').value||'').trim().toUpperCase()||null,
     title,
     content:specLibQuill?specLibQuill.root.innerHTML:'',
