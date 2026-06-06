@@ -7391,7 +7391,9 @@ async function generateCsiSpec(){
     const devByType={};globalLibrary.forEach(d=>devByType[d.device_type_id]=d);
     const sgByName={};systemGroups.forEach(g=>sgByName[g.name]=g);
     const exampleFor=(dt)=>{const prod=pp.find(p=>p.device_type_id===dt&&(p.make||p.model));if(prod)return [prod.make,prod.model].filter(Boolean).join(' ');const e=pe.find(p=>p.device_type_id===dt&&(p.make||p.model));return e?[e.make,e.model].filter(Boolean).join(' '):'';};
-    const devList=(types)=>{let h='<ul>';types.sort((a,b)=>(((peByType[a]||{}).description||a)).localeCompare(((peByType[b]||{}).description||b))).forEach(dt=>{const dev=devByType[dt],e=peByType[dt];const desc=(e&&e.description)||(dev&&dev.description)||dt;const ex=exampleFor(dt);h+='<li>'+escHtml(desc)+(ex?' <span style="color:#666">(example: '+escHtml(ex)+')</span>':'');if(dev&&dev.spec_text)h+=_specLinesToHtml(dev.spec_text);h+='</li>';});return h+'</ul>';};
+    // Part 2 (Products) carries requirement text only; quantities/locations live in Annex A.
+    // Only device types with their OWN override text are itemised here.
+    const devOverrides=(types)=>{let h='';types.sort((a,b)=>(((peByType[a]||{}).description||a)).localeCompare(((peByType[b]||{}).description||b))).forEach(dt=>{const dev=devByType[dt],e=peByType[dt];if(dev&&dev.spec_text){const desc=(e&&e.description)||(dev&&dev.description)||dt;h+='<p style="font-weight:600;margin:6px 0 2px">'+escHtml(desc)+'</p>'+_specLinesToHtml(dev.spec_text);}});return h;};
     const active=instances.filter(i=>i.change_status!=='removed'&&i.room_id);
     const usedTypes=new Set(active.map(i=>{const e=peById[i.project_equipment_id];return e?e.device_type_id:null;}).filter(Boolean));
 
@@ -7419,10 +7421,10 @@ async function generateCsiSpec(){
         deviceSubcategories.filter(s=>s.category_id===cat.id).forEach(sub=>{
           const t=typesInCat.filter(dt=>{const e=peByType[dt];return e&&e.subcategory_code===sub.code;});
           if(!t.length)return;usedSub.add(sub.code);
-          prod+='<h4>'+escHtml(sub.name)+'</h4>';if(sub.spec_text)prod+=_specLinesToHtml(sub.spec_text);prod+=devList(t);
+          prod+='<h4>'+escHtml(sub.name)+'</h4>';if(sub.spec_text)prod+=_specLinesToHtml(sub.spec_text);prod+=devOverrides(t);
         });
         const loose=typesInCat.filter(dt=>{const e=peByType[dt];return!e.subcategory_code||!usedSub.has(e.subcategory_code);});
-        if(loose.length)prod+=devList(loose);
+        if(loose.length)prod+=devOverrides(loose);
       });
       body+=prod||'<p>Refer to the equipment schedule in Annex A.</p>';
       body+='<h2>'+n+'.3 Execution</h2>'+(g.execution_text?_specLinesToHtml(g.execution_text):'<p>Install, test, commission and hand over in accordance with Section 1, General Requirements.</p>');
