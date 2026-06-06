@@ -5025,15 +5025,14 @@ function zsToggle(id){
   const chv=document.getElementById('chv-'+id);
   if(chv)chv.innerHTML=open?'&#9658;':'&#9660;';
 }
-function renderZoneSummary(instances){
-  const c=document.getElementById('zone-summary-container');
+function computeZoneLoads(instances, rooms, zones, peLookup){
   const roomZoneMap={};
-  currentRooms.forEach(r=>{if(r.rack_zone_id)roomZoneMap[r.id]=r.rack_zone_id;});
-  const zones={};
-  currentZones.forEach(z=>{zones[z.id]={
+  rooms.forEach(r=>{if(r.rack_zone_id)roomZoneMap[r.id]=r.rack_zone_id;});
+  const out={};
+  zones.forEach(z=>{out[z.id]={
     lan_demand:0,lan_supply:0,poe_port_demand:0,poe_port_supply:0,
     poe_watts_demand:0,poe_budget_supply:0,spk_channel_demand:0,spk_watts_demand:0,
-    rack_power_demand:0,ups_watts:0,mains_watts:0,device_count:0,
+    rack_power_demand:0,ups_watts:0,mains_watts:0,device_count:0,heat_btu_total:0,
     avip_requires:0,avip_provides:0,amp_channel_supply:0,amp_watts_supply:0,
     lan_di:[],lan_si:[],poe_di:[],poe_si:[],poe_budget_di:[],poe_budget_si:[],
     spk_di:[],spk_pwr_di:[],amp_si:[],amp_pwr_si:[],
@@ -5041,16 +5040,17 @@ function renderZoneSummary(instances){
   };});
   const addItem=(list,desc,qty,each)=>{const ex=list.find(i=>i.desc===desc);if(ex){ex.qty+=qty;ex.total+=each*qty;}else list.push({desc,qty,each,total:each*qty});};
   instances.forEach(inst=>{
-    const pe=projectEquipment.find(e=>e.id===inst.project_equipment_id);
+    const pe=peLookup(inst.project_equipment_id);
     if(!pe)return;
     let zoneId=inst.rack_zone_id||null;
     if(!zoneId&&inst.room_id)zoneId=roomZoneMap[inst.room_id]||null;
-    if(!zoneId||!zones[zoneId])return;
-    const t=zones[zoneId];const qty=inst.quantity||1;
+    if(!zoneId||!out[zoneId])return;
+    const t=out[zoneId];const qty=inst.quantity||1;
     const isInfra=pe.network_role==='infrastructure';
     const isEndpoint=pe.network_role==='endpoint';
     const desc=pe.description||pe.device_type_id;
     t.device_count+=qty;
+    t.heat_btu_total+=(pe.heat_btu||0)*qty;
     if(isEndpoint){
       if(pe.lan_ports){t.lan_demand+=(pe.lan_ports||0)*qty;addItem(t.lan_di,desc,qty,pe.lan_ports);}
       if((pe.poe_ports||0)>0){
@@ -5084,6 +5084,11 @@ function renderZoneSummary(instances){
       if(pw)addItem(t.amp_pwr_si,desc,qty,pw);
     }
   });
+  return out;
+}
+function renderZoneSummary(instances){
+  const c=document.getElementById('zone-summary-container');
+  const zones=computeZoneLoads(instances,currentRooms,currentZones,id=>projectEquipment.find(e=>e.id===id));
   const statusIcon=(d,s)=>{if(!s)return'';if(d>s)return' <span style="color:#e53e3e">&#9888;</span>';if(d>s*0.8)return' <span style="color:#dd6b20">~</span>';return' <span style="color:#38a169">&#10003;</span>';};
   const sectionHdr=label=>'<tr><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);padding:10px 12px 4px;background:var(--surface2)">'+label+'</td></tr>';
   const thStyle='padding:8px 12px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);background:var(--surface2);border-bottom:1px solid var(--border)';
@@ -5157,6 +5162,7 @@ function renderZoneSummary(instances){
         rows+=countRow('Mains Load',Math.round(t.mains_watts)+' W',t.mains_di);
       }
     }
+    if(t.heat_btu_total){rows+=sectionHdr('Thermal');rows+=countRow('Heat Load',Math.round(t.heat_btu_total)+' BTU/h',null);}
     html+='<div class="zs-card">'
       +'<div class="zs-card-header" style="border-left:4px solid '+(z.colour||'var(--accent)')+'"><div><div class="zs-card-name">'+escHtml(z.name)+'</div><div class="zs-card-meta">'+zoneRooms.length+' room'+(zoneRooms.length!==1?'s':'')+' · '+(z.rack_count||0)+' rack'+(z.rack_count!==1?'s':'')+'</div></div><div class="zs-device-count">'+t.device_count+' <span>devices</span></div></div>'
       +(rows?'<table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+thStyle+'"></th><th style="'+thStyle+';text-align:right">Required</th><th style="'+thStyle+';text-align:right">Available</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div style="padding:14px 16px;font-size:12px;color:var(--text-3)">No equipment assigned to this zone yet.</div>')
@@ -7252,14 +7258,40 @@ function _specLinesToHtml(t){
   const ls=t.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   return ls.length?'<ul>'+ls.map(l=>'<li>'+escHtml(l)+'</li>').join('')+'</ul>':'';
 }
-function _buildWordDoc(title,date,part1,part2){
-  const styles="<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#222}h1{font-size:16pt;color:#111;border-bottom:2px solid #888;padding-bottom:3px;margin-top:18px}h2{font-size:13pt;color:#111;margin-top:14px}h3{font-size:11.5pt;color:#1a6b3a;margin:8px 0 2px}h4{font-size:11pt;margin:6px 0 2px}ul{margin:3px 0 8px 18px}li{margin:1px 0}p{margin:4px 0}</style>";
-  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">'+styles+'</head><body>'
-    +'<div style="font-size:22pt;font-weight:700">'+escHtml(title)+'</div>'
-    +'<p style="color:#666">AV/IT Specification (room by room). Generated '+escHtml(date)+'.</p>'
-    +'<h1>Part 1: Equipment by Room</h1>'+part1
-    +'<h1 style="page-break-before:always">Part 2: Equipment Specifications</h1>'+part2
-    +'</body></html>';
+// Terse equipment list for one location, grouped by System Group, aggregated by device type.
+function _groupedEquipList(insts,peById,systemGroups,sgByName,exampleFor){
+  const groups={};
+  insts.forEach(i=>{const e=peById[i.project_equipment_id];if(!e)return;const sg=e.system_group||'Other';(groups[sg]=groups[sg]||[]).push({e,qty:i.quantity||1});});
+  const sgNames=systemGroups.map(g=>g.name).filter(n=>groups[n]).concat(Object.keys(groups).filter(n=>!sgByName[n]));
+  let h='';
+  sgNames.forEach(sgName=>{
+    h+='<h3>'+escHtml(sgName)+'</h3>';
+    const agg={};
+    groups[sgName].forEach(({e,qty})=>{const k=e.device_type_id||e.description;if(!agg[k])agg[k]={desc:e.description,dt:e.device_type_id,qty:0};agg[k].qty+=qty;});
+    h+='<ul>'+Object.values(agg).sort((a,b)=>(a.desc||'').localeCompare(b.desc||'')).map(a=>{
+      const ex=exampleFor(a.dt);
+      return '<li>'+a.qty+' x '+escHtml(a.desc||a.dt||'')+(ex?' <span style="color:#666">(example: '+escHtml(ex)+')</span>':'')+'</li>';
+    }).join('')+'</ul>';
+  });
+  return h;
+}
+// Full equipment schedule: rooms (by deck) then rack zones (Technical Spaces). Numbered sequentially.
+function _equipScheduleHtml(decks,rooms,zoneList,active,peById,systemGroups,sgByName,exampleFor){
+  let secNum=0,out='';
+  const block=(num,title,sub,insts)=>'<h2>'+escHtml(num+'. '+title)+(sub?' <span style="font-weight:400;font-size:0.8em;color:#666">('+escHtml(sub)+')</span>':'')+'</h2>'+_groupedEquipList(insts,peById,systemGroups,sgByName,exampleFor);
+  decks.forEach(deck=>{
+    rooms.filter(r=>r.deck_id===deck.id).forEach(room=>{
+      const ri=active.filter(i=>i.room_id===room.id);
+      if(!ri.length)return;secNum++;
+      out+=block(secNum,(room.name||room.room_id||'Room'),deck.name,ri);
+    });
+  });
+  (zoneList||[]).forEach(z=>{
+    const zi=active.filter(i=>!i.room_id&&i.rack_zone_id===z.id);
+    if(!zi.length)return;secNum++;
+    out+=block(secNum,(z.name||'Technical Space'),'Equipment Rack',zi);
+  });
+  return out;
 }
 function _downloadDoc(filename,html){
   const blob=new Blob(['﻿'+html],{type:'application/msword'});
@@ -7273,17 +7305,13 @@ async function generateRoomSpec(){
     const decks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
     const deckIds=decks.map(d=>d.id);
     const rooms=deckIds.length?await dbGet('rooms','deck_id=in.('+deckIds.join(',')+')&order=room_number.asc'):[];
+    const zoneList=await dbGet('rack_zones','project_id=eq.'+currentProject.id+'&order=name.asc');
     const instances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
     const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id);
     const pp=await dbGet('project_products','project_id=eq.'+currentProject.id);
-    if(!globalLibrary.length)globalLibrary=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
     if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
-    if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc');
-    if(!deviceSubcategories.length)deviceSubcategories=await dbGet('device_subcategories','order=sort_order.asc');
 
     const peById={};pe.forEach(e=>peById[e.id]=e);
-    const peByType={};pe.forEach(e=>{if(!peByType[e.device_type_id])peByType[e.device_type_id]=e;});
-    const devByType={};globalLibrary.forEach(d=>devByType[d.device_type_id]=d);
     const sgByName={};systemGroups.forEach(g=>sgByName[g.name]=g);
 
     const exampleFor=(dt)=>{
@@ -7292,44 +7320,11 @@ async function generateRoomSpec(){
       const e=pe.find(p=>p.device_type_id===dt&&(p.make||p.model));
       return e?[e.make,e.model].filter(Boolean).join(' '):'';
     };
-    const deviceListHtml=(types)=>{
-      let h='<ul>';
-      types.sort((a,b)=>(((peByType[a]||{}).description||a)).localeCompare(((peByType[b]||{}).description||b))).forEach(dt=>{
-        const dev=devByType[dt],e=peByType[dt];
-        const desc=(e&&e.description)||(dev&&dev.description)||dt;
-        const ex=exampleFor(dt);
-        h+='<li>'+escHtml(desc)+(ex?' <span style="color:#666">(example: '+escHtml(ex)+')</span>':'');
-        if(dev&&dev.spec_text)h+=_specLinesToHtml(dev.spec_text);
-        h+='</li>';
-      });
-      return h+'</ul>';
-    };
 
-    const active=instances.filter(i=>i.change_status!=='removed'&&i.room_id);
+    const active=instances.filter(i=>i.change_status!=='removed'&&(i.room_id||i.rack_zone_id));
 
-    // Part 1: room by room
-    let part1='',secNum=0;
-    decks.forEach(deck=>{
-      rooms.filter(r=>r.deck_id===deck.id).forEach(room=>{
-        const roomInst=active.filter(i=>i.room_id===room.id);
-        if(!roomInst.length)return;
-        secNum++;
-        part1+='<h2>'+escHtml(secNum+'. '+(room.name||room.room_id||'Room'))+(deck.name?' <span style="font-weight:400;font-size:0.8em;color:#666">('+escHtml(deck.name)+')</span>':'')+'</h2>';
-        const groups={};
-        roomInst.forEach(i=>{const e=peById[i.project_equipment_id];if(!e)return;const sg=e.system_group||'Other';(groups[sg]=groups[sg]||[]).push({e,qty:i.quantity||1});});
-        const sgNames=systemGroups.map(g=>g.name).filter(n=>groups[n]).concat(Object.keys(groups).filter(n=>!sgByName[n]));
-        sgNames.forEach(sgName=>{
-          part1+='<h3>'+escHtml(sgName)+'</h3>';
-          const agg={};
-          groups[sgName].forEach(({e,qty})=>{const k=e.device_type_id||e.description;if(!agg[k])agg[k]={desc:e.description,dt:e.device_type_id,qty:0};agg[k].qty+=qty;});
-          part1+='<ul>'+Object.values(agg).sort((a,b)=>(a.desc||'').localeCompare(b.desc||'')).map(a=>{
-            const ex=exampleFor(a.dt);
-            return '<li>'+a.qty+' x '+escHtml(a.desc||a.dt||'')+(ex?' <span style="color:#666">(example: '+escHtml(ex)+')</span>':'')+'</li>';
-          }).join('')+'</ul>';
-        });
-      });
-    });
-    if(!part1)part1='<p>No equipment has been placed in rooms for this project yet.</p>';
+    let part1=_equipScheduleHtml(decks,rooms,zoneList,active,peById,systemGroups,sgByName,exampleFor);
+    if(!part1)part1='<p>No equipment has been placed for this project yet.</p>';
 
     // Schedule only: equipment by room. Specifications live in the CSI document.
     const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
@@ -7339,7 +7334,7 @@ async function generateRoomSpec(){
 }
 
 function _wrapWordDoc(title,subtitle,bodyHtml){
-  const styles="<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#222}h1{font-size:16pt;color:#111;border-bottom:2px solid #888;padding-bottom:3px;margin-top:18px}h2{font-size:13pt;color:#111;margin-top:14px}h3{font-size:11.5pt;color:#1a6b3a;margin:8px 0 2px}h4{font-size:11pt;margin:6px 0 2px}ul{margin:3px 0 8px 18px}li{margin:1px 0}p{margin:4px 0}</style>";
+  const styles="<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#222}h1{font-size:16pt;color:#111;border-bottom:2px solid #888;padding-bottom:3px;margin-top:18px}h2{font-size:13pt;color:#111;margin-top:14px}h3{font-size:11.5pt;color:#1a6b3a;margin:8px 0 2px}h4{font-size:11pt;margin:6px 0 2px}ul{margin:3px 0 8px 18px}li{margin:1px 0}p{margin:4px 0}table{border-collapse:collapse;margin:6px 0 12px}td,th{border:1px solid #bbb;padding:3px 9px;font-size:10.5pt}th{background:#eee;text-align:left}</style>";
   return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">'+styles+'</head><body>'
     +'<div style="font-size:22pt;font-weight:700">'+escHtml(title)+'</div><p style="color:#666">'+escHtml(subtitle)+'</p>'+bodyHtml+'</body></html>';
 }
@@ -7349,6 +7344,7 @@ async function generateCsiSpec(){
     const decks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
     const deckIds=decks.map(d=>d.id);
     const rooms=deckIds.length?await dbGet('rooms','deck_id=in.('+deckIds.join(',')+')&order=room_number.asc'):[];
+    const zoneList=await dbGet('rack_zones','project_id=eq.'+currentProject.id+'&order=name.asc');
     const instances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
     const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id);
     const pp=await dbGet('project_products','project_id=eq.'+currentProject.id);
@@ -7366,7 +7362,7 @@ async function generateCsiSpec(){
     // Part 2 (Products) carries requirement text only; quantities/locations live in Annex A.
     // Only device types with their OWN override text are itemised here.
     const devOverrides=(types)=>{let h='';types.sort((a,b)=>(((peByType[a]||{}).description||a)).localeCompare(((peByType[b]||{}).description||b))).forEach(dt=>{const dev=devByType[dt],e=peByType[dt];if(dev&&dev.spec_text){const desc=(e&&e.description)||(dev&&dev.description)||dt;h+='<p style="font-weight:600;margin:6px 0 2px">'+escHtml(desc)+'</p>'+_specLinesToHtml(dev.spec_text);}});return h;};
-    const active=instances.filter(i=>i.change_status!=='removed'&&i.room_id);
+    const active=instances.filter(i=>i.change_status!=='removed'&&(i.room_id||i.rack_zone_id));
     const usedTypes=new Set(active.map(i=>{const e=peById[i.project_equipment_id];return e?e.device_type_id:null;}).filter(Boolean));
 
     let body='',n=0;
@@ -7401,11 +7397,40 @@ async function generateCsiSpec(){
       body+=prod||'<p>Refer to the equipment schedule in Annex A.</p>';
       body+='<h2>'+n+'.3 Execution</h2>'+(g.execution_text?_specLinesToHtml(g.execution_text):'<p>Install, test, commission and hand over in accordance with Section 1, General Requirements.</p>');
     });
-    // Annex A: equipment schedule by room
-    body+='<h1 style="page-break-before:always">Annex A: Equipment Schedule by Room</h1>';
-    let secNum=0,sched='';
-    decks.forEach(deck=>{rooms.filter(r=>r.deck_id===deck.id).forEach(room=>{const ri=active.filter(i=>i.room_id===room.id);if(!ri.length)return;secNum++;sched+='<h2>'+escHtml(secNum+'. '+(room.name||room.room_id||'Room'))+(deck.name?' <span style="font-weight:400;font-size:0.8em;color:#666">('+escHtml(deck.name)+')</span>':'')+'</h2>';const groups={};ri.forEach(i=>{const e=peById[i.project_equipment_id];if(!e)return;const sg=e.system_group||'Other';(groups[sg]=groups[sg]||[]).push({e,qty:i.quantity||1});});const sgNames=systemGroups.map(x=>x.name).filter(nm=>groups[nm]).concat(Object.keys(groups).filter(nm=>!sgByName[nm]));sgNames.forEach(sgName=>{sched+='<h3>'+escHtml(sgName)+'</h3>';const agg={};groups[sgName].forEach(o=>{const k=o.e.device_type_id||o.e.description;if(!agg[k])agg[k]={desc:o.e.description,dt:o.e.device_type_id,qty:0};agg[k].qty+=o.qty;});sched+='<ul>'+Object.values(agg).sort((a,b)=>(a.desc||'').localeCompare(b.desc||'')).map(a=>{const ex=exampleFor(a.dt);return '<li>'+a.qty+' x '+escHtml(a.desc||a.dt||'')+(ex?' <span style="color:#666">(example: '+escHtml(ex)+')</span>':'')+'</li>';}).join('')+'</ul>';});});});
-    body+=sched||'<p>No equipment placed yet.</p>';
+    // Annex A: equipment schedule by room and technical space
+    body+='<h1 style="page-break-before:always">Annex A: Equipment Schedule by Location</h1>';
+    body+=_equipScheduleHtml(decks,rooms,zoneList,active,peById,systemGroups,sgByName,exampleFor)||'<p>No equipment placed yet.</p>';
+
+    // Annex B: rack zone / technical schedule (engineering loads per zone)
+    body+='<h1 style="page-break-before:always">Annex B: Rack Zone / Technical Schedule</h1>';
+    body+='<p style="color:#666">Engineering loads per rack zone, derived from placed equipment. Refer to the GA drawing for the physical location of each zone.</p>';
+    const zl=computeZoneLoads(active,rooms,zoneList,id=>peById[id]);
+    let annB='';
+    zoneList.forEach(z=>{
+      const t=zl[z.id];
+      if(!t||!t.device_count)return;
+      annB+='<h2>'+escHtml(z.name||'Technical Space')+(z.rack_count?' <span style="font-weight:400;font-size:0.8em;color:#666">('+z.rack_count+' rack'+(z.rack_count!==1?'s':'')+')</span>':'')+'</h2>';
+      const rb=[];
+      const add=(label,val)=>{if(val)rb.push('<tr><td>'+label+'</td><td style="text-align:right">'+val+'</td></tr>');};
+      add('Devices',t.device_count);
+      add('LAN ports required',t.lan_demand);
+      add('LAN ports available',t.lan_supply);
+      add('PoE ports required',t.poe_port_demand);
+      add('PoE ports available',t.poe_port_supply);
+      add('PoE budget required (W)',Math.round(t.poe_watts_demand));
+      add('PoE budget available (W)',t.poe_budget_supply);
+      add('Amplifier channels required',t.spk_channel_demand);
+      add('Amplifier channels available',t.amp_channel_supply);
+      add('Amplifier power required (W)',Math.round(t.spk_watts_demand));
+      add('AVoIP streams required',t.avip_requires);
+      add('AVoIP streams available',t.avip_provides);
+      add('UPS load (W)',Math.round(t.ups_watts));
+      add('Mains load (W)',Math.round(t.mains_watts));
+      add('Total power (W)',Math.round(t.ups_watts+t.mains_watts));
+      add('Heat load (BTU/h)',Math.round(t.heat_btu_total));
+      annB+='<table><tbody>'+rb.join('')+'</tbody></table>';
+    });
+    body+=annB||'<p>No rack zones with placed equipment.</p>';
 
     const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
     _downloadDoc(currentProject.name+' - Specification (CSI).doc',_wrapWordDoc(currentProject.name,'AV/IT Specification (CSI format). Generated '+today+'.',body));
