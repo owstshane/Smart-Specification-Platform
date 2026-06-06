@@ -7331,38 +7331,10 @@ async function generateRoomSpec(){
     });
     if(!part1)part1='<p>No equipment has been placed in rooms for this project yet.</p>';
 
-    // Part 2: definitions (device > sub-category > category text)
-    const usedTypes=new Set(active.map(i=>{const e=peById[i.project_equipment_id];return e?e.device_type_id:null;}).filter(Boolean));
-    let part2='';
-    systemGroups.forEach(g=>{
-      const cats=deviceCategories.filter(c=>c.system_group_id===g.id);
-      const groupUsed=Array.from(usedTypes).some(dt=>{const e=peByType[dt];return e&&e.system_group===g.name;});
-      if(!groupUsed)return;
-      part2+='<h2>'+escHtml(g.name)+'</h2>';
-      cats.forEach(cat=>{
-        const typesInCat=Array.from(usedTypes).filter(dt=>{const e=peByType[dt];return e&&e.category_code===cat.code;});
-        if(!typesInCat.length)return;
-        part2+='<h3>'+escHtml(cat.name)+'</h3>';
-        if(cat.spec_text)part2+=_specLinesToHtml(cat.spec_text);
-        const subs=deviceSubcategories.filter(s=>s.category_id===cat.id);
-        const usedSub=new Set();
-        subs.forEach(sub=>{
-          const t=typesInCat.filter(dt=>{const e=peByType[dt];return e&&e.subcategory_code===sub.code;});
-          if(!t.length)return;
-          usedSub.add(sub.code);
-          part2+='<h4>'+escHtml(sub.name)+'</h4>';
-          if(sub.spec_text)part2+=_specLinesToHtml(sub.spec_text);
-          part2+=deviceListHtml(t);
-        });
-        const loose=typesInCat.filter(dt=>{const e=peByType[dt];return!e.subcategory_code||!usedSub.has(e.subcategory_code);});
-        if(loose.length)part2+=deviceListHtml(loose);
-      });
-    });
-    if(!part2)part2='<p>No specification text is available for the placed equipment yet. Add features and functions text to the relevant categories, sub-categories or device types.</p>';
-
+    // Schedule only: equipment by room. Specifications live in the CSI document.
     const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
-    _downloadDoc(currentProject.name+' - Specification.doc',_buildWordDoc(currentProject.name,today,part1,part2));
-    showToast('Specification generated','success');
+    _downloadDoc(currentProject.name+' - Equipment Schedule.doc',_wrapWordDoc(currentProject.name,'Equipment schedule by room. Generated '+today+'.','<h1>Equipment Schedule by Room</h1>'+part1));
+    showToast('Schedule generated','success');
   }catch(e){showToast('Generation failed: '+e.message,'error');}
 }
 
