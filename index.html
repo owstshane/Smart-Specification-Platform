@@ -826,8 +826,9 @@
       <div id="page-specification" class="hidden">
         <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap">
           <span style="font-size:12px;color:var(--text-2);font-weight:500">Generate from this project's equipment:</span>
-          <button class="btn btn-primary btn-sm" onclick="generateRoomSpec()">Room-by-Room Spec (Word)</button>
-          <span style="font-size:11px;color:var(--text-3)">Builds a draft from placed equipment and the category/sub-category specification text.</span>
+          <button class="btn btn-primary btn-sm" onclick="generateCsiSpec()">Full Specification (CSI, Word)</button>
+          <button class="btn btn-secondary btn-sm" onclick="generateRoomSpec()">Room-by-Room Schedule (Word)</button>
+          <span style="font-size:11px;color:var(--text-3)">CSI builds General / Products / Execution per system, with the room schedule as an annex.</span>
         </div>
         <div class="spec-doc-bar" id="spec-doc-bar"></div>
         <div class="spec-layout">
@@ -1335,11 +1336,12 @@
 
 <!-- SYSTEM GROUP MODAL -->
 <div class="modal-overlay" id="sg-modal-overlay">
-  <div class="modal" style="max-width:440px">
+  <div class="modal" style="max-width:600px">
     <div class="modal-header"><div class="modal-title" id="sg-modal-title">Add System Group</div><button class="btn-icon" onclick="closeSgModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-body">
-      <div class="form-row form-row-2"><div><label>Group Name <span class="required">*</span></label><input type="text" id="sg-name" placeholder="e.g. Loudspeakers"></div><div><label>Code <span class="required">*</span></label><input type="text" id="sg-code" placeholder="e.g. SPK" maxlength="8" oninput="this.value=this.value.toUpperCase()"></div></div>
-      <div class="form-group"><label>Sort Order</label><input type="number" id="sg-order" placeholder="0" min="0"></div>
+      <div class="form-row form-row-3"><div><label>Group Name <span class="required">*</span></label><input type="text" id="sg-name" placeholder="e.g. Audio Visual System"></div><div><label>Code <span class="required">*</span></label><input type="text" id="sg-code" placeholder="e.g. AV" maxlength="8" oninput="this.value=this.value.toUpperCase()"></div><div><label>Sort Order</label><input type="number" id="sg-order" placeholder="0" min="0"></div></div>
+      <div style="margin-top:4px"><label>General (CSI Part 1) <span class="optional">scope and overview of this system; one point per line</span></label><textarea id="sg-general" rows="4" style="width:100%;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);resize:vertical"></textarea></div>
+      <div style="margin-top:8px"><label>Execution (CSI Part 3) <span class="optional">installation, testing, commissioning and training; one point per line</span></label><textarea id="sg-execution" rows="4" style="width:100%;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);resize:vertical"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeSgModal()">Cancel</button><button class="btn btn-primary" onclick="saveSystemGroup()" id="sg-save-btn">Save Group</button></div>
   </div>
@@ -3871,13 +3873,13 @@ async function moveSgItem(id,direction){
   try{await Promise.all(systemGroups.map((g,i)=>dbUpdate('system_groups',g.id,{sort_order:i+1})));}
   catch(e){showToast('Could not save order','error');loadSystemGroups();}
 }
-function openSystemGroupModal(){editingSgId=null;document.getElementById('sg-modal-title').textContent='Add System Group';document.getElementById('sg-save-btn').textContent='Save Group';document.getElementById('sg-name').value='';document.getElementById('sg-code').value='';document.getElementById('sg-order').value=systemGroups.length;document.getElementById('sg-modal-overlay').classList.add('open');}
-function openEditSgModal(id){const g=systemGroups.find(g=>g.id===id);if(!g)return;editingSgId=id;document.getElementById('sg-modal-title').textContent='Edit System Group';document.getElementById('sg-save-btn').textContent='Save Changes';document.getElementById('sg-name').value=g.name||'';document.getElementById('sg-code').value=g.code||'';document.getElementById('sg-order').value=g.sort_order||0;document.getElementById('sg-modal-overlay').classList.add('open');}
+function openSystemGroupModal(){editingSgId=null;document.getElementById('sg-modal-title').textContent='Add System Group';document.getElementById('sg-save-btn').textContent='Save Group';document.getElementById('sg-name').value='';document.getElementById('sg-code').value='';document.getElementById('sg-order').value=systemGroups.length;document.getElementById('sg-general').value='';document.getElementById('sg-execution').value='';document.getElementById('sg-modal-overlay').classList.add('open');}
+function openEditSgModal(id){const g=systemGroups.find(g=>g.id===id);if(!g)return;editingSgId=id;document.getElementById('sg-modal-title').textContent='Edit System Group';document.getElementById('sg-save-btn').textContent='Save Changes';document.getElementById('sg-name').value=g.name||'';document.getElementById('sg-code').value=g.code||'';document.getElementById('sg-order').value=g.sort_order||0;document.getElementById('sg-general').value=g.general_text||'';document.getElementById('sg-execution').value=g.execution_text||'';document.getElementById('sg-modal-overlay').classList.add('open');}
 function closeSgModal(){document.getElementById('sg-modal-overlay').classList.remove('open');}
 async function saveSystemGroup(){
   const name=document.getElementById('sg-name').value.trim(),code=document.getElementById('sg-code').value.trim().toUpperCase();
   if(!name){showToast('Please enter a group name','error');return;}if(!code){showToast('Please enter a code','error');return;}
-  const payload={name,code,sort_order:parseInt(document.getElementById('sg-order').value)||0};
+  const payload={name,code,sort_order:parseInt(document.getElementById('sg-order').value)||0,general_text:document.getElementById('sg-general').value.trim()||null,execution_text:document.getElementById('sg-execution').value.trim()||null};
   const btn=document.getElementById('sg-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{
     if(editingSgId){
@@ -7361,6 +7363,79 @@ async function generateRoomSpec(){
     const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
     _downloadDoc(currentProject.name+' - Specification.doc',_buildWordDoc(currentProject.name,today,part1,part2));
     showToast('Specification generated','success');
+  }catch(e){showToast('Generation failed: '+e.message,'error');}
+}
+
+function _wrapWordDoc(title,subtitle,bodyHtml){
+  const styles="<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#222}h1{font-size:16pt;color:#111;border-bottom:2px solid #888;padding-bottom:3px;margin-top:18px}h2{font-size:13pt;color:#111;margin-top:14px}h3{font-size:11.5pt;color:#1a6b3a;margin:8px 0 2px}h4{font-size:11pt;margin:6px 0 2px}ul{margin:3px 0 8px 18px}li{margin:1px 0}p{margin:4px 0}</style>";
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">'+styles+'</head><body>'
+    +'<div style="font-size:22pt;font-weight:700">'+escHtml(title)+'</div><p style="color:#666">'+escHtml(subtitle)+'</p>'+bodyHtml+'</body></html>';
+}
+async function generateCsiSpec(){
+  if(!currentProject){showToast('Open a project first','error');return;}
+  try{
+    const decks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    const deckIds=decks.map(d=>d.id);
+    const rooms=deckIds.length?await dbGet('rooms','deck_id=in.('+deckIds.join(',')+')&order=room_number.asc'):[];
+    const instances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
+    const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id);
+    const pp=await dbGet('project_products','project_id=eq.'+currentProject.id);
+    if(!globalLibrary.length)globalLibrary=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
+    if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
+    if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc');
+    if(!deviceSubcategories.length)deviceSubcategories=await dbGet('device_subcategories','order=sort_order.asc');
+    const frontMatter=await dbGet('spec_section_library','discipline=eq.avit&system_group_id=is.null&order=sort_order.asc');
+
+    const peById={};pe.forEach(e=>peById[e.id]=e);
+    const peByType={};pe.forEach(e=>{if(!peByType[e.device_type_id])peByType[e.device_type_id]=e;});
+    const devByType={};globalLibrary.forEach(d=>devByType[d.device_type_id]=d);
+    const sgByName={};systemGroups.forEach(g=>sgByName[g.name]=g);
+    const exampleFor=(dt)=>{const prod=pp.find(p=>p.device_type_id===dt&&(p.make||p.model));if(prod)return [prod.make,prod.model].filter(Boolean).join(' ');const e=pe.find(p=>p.device_type_id===dt&&(p.make||p.model));return e?[e.make,e.model].filter(Boolean).join(' '):'';};
+    const devList=(types)=>{let h='<ul>';types.sort((a,b)=>(((peByType[a]||{}).description||a)).localeCompare(((peByType[b]||{}).description||b))).forEach(dt=>{const dev=devByType[dt],e=peByType[dt];const desc=(e&&e.description)||(dev&&dev.description)||dt;const ex=exampleFor(dt);h+='<li>'+escHtml(desc)+(ex?' <span style="color:#666">(example: '+escHtml(ex)+')</span>':'');if(dev&&dev.spec_text)h+=_specLinesToHtml(dev.spec_text);h+='</li>';});return h+'</ul>';};
+    const active=instances.filter(i=>i.change_status!=='removed'&&i.room_id);
+    const usedTypes=new Set(active.map(i=>{const e=peById[i.project_equipment_id];return e?e.device_type_id:null;}).filter(Boolean));
+
+    let body='',n=0;
+    // Section 1: General Requirements (shared front matter from the spec library)
+    if(frontMatter.length){
+      n++;body+='<h1>'+n+'. General Requirements</h1>';
+      frontMatter.forEach(fm=>{body+='<h3>'+escHtml(fm.title)+'</h3>'+(fm.content||'');});
+    }
+    // Per system group: General / Products / Execution
+    systemGroups.forEach(g=>{
+      const groupUsed=Array.from(usedTypes).some(dt=>{const e=peByType[dt];return e&&e.system_group===g.name;});
+      if(!groupUsed)return;
+      n++;
+      body+='<h1 style="page-break-before:always">'+n+'. '+escHtml(g.name)+'</h1>';
+      body+='<h2>'+n+'.1 General</h2>'+(g.general_text?_specLinesToHtml(g.general_text):'<p>Refer to Section 1, General Requirements.</p>');
+      body+='<h2>'+n+'.2 Products</h2>';
+      let prod='';
+      deviceCategories.filter(c=>c.system_group_id===g.id).forEach(cat=>{
+        const typesInCat=Array.from(usedTypes).filter(dt=>{const e=peByType[dt];return e&&e.category_code===cat.code;});
+        if(!typesInCat.length)return;
+        prod+='<h3>'+escHtml(cat.name)+'</h3>';
+        if(cat.spec_text)prod+=_specLinesToHtml(cat.spec_text);
+        const usedSub=new Set();
+        deviceSubcategories.filter(s=>s.category_id===cat.id).forEach(sub=>{
+          const t=typesInCat.filter(dt=>{const e=peByType[dt];return e&&e.subcategory_code===sub.code;});
+          if(!t.length)return;usedSub.add(sub.code);
+          prod+='<h4>'+escHtml(sub.name)+'</h4>';if(sub.spec_text)prod+=_specLinesToHtml(sub.spec_text);prod+=devList(t);
+        });
+        const loose=typesInCat.filter(dt=>{const e=peByType[dt];return!e.subcategory_code||!usedSub.has(e.subcategory_code);});
+        if(loose.length)prod+=devList(loose);
+      });
+      body+=prod||'<p>Refer to the equipment schedule in Annex A.</p>';
+      body+='<h2>'+n+'.3 Execution</h2>'+(g.execution_text?_specLinesToHtml(g.execution_text):'<p>Install, test, commission and hand over in accordance with Section 1, General Requirements.</p>');
+    });
+    // Annex A: equipment schedule by room
+    body+='<h1 style="page-break-before:always">Annex A: Equipment Schedule by Room</h1>';
+    let secNum=0,sched='';
+    decks.forEach(deck=>{rooms.filter(r=>r.deck_id===deck.id).forEach(room=>{const ri=active.filter(i=>i.room_id===room.id);if(!ri.length)return;secNum++;sched+='<h2>'+escHtml(secNum+'. '+(room.name||room.room_id||'Room'))+(deck.name?' <span style="font-weight:400;font-size:0.8em;color:#666">('+escHtml(deck.name)+')</span>':'')+'</h2>';const groups={};ri.forEach(i=>{const e=peById[i.project_equipment_id];if(!e)return;const sg=e.system_group||'Other';(groups[sg]=groups[sg]||[]).push({e,qty:i.quantity||1});});const sgNames=systemGroups.map(x=>x.name).filter(nm=>groups[nm]).concat(Object.keys(groups).filter(nm=>!sgByName[nm]));sgNames.forEach(sgName=>{sched+='<h3>'+escHtml(sgName)+'</h3>';const agg={};groups[sgName].forEach(o=>{const k=o.e.device_type_id||o.e.description;if(!agg[k])agg[k]={desc:o.e.description,dt:o.e.device_type_id,qty:0};agg[k].qty+=o.qty;});sched+='<ul>'+Object.values(agg).sort((a,b)=>(a.desc||'').localeCompare(b.desc||'')).map(a=>{const ex=exampleFor(a.dt);return '<li>'+a.qty+' x '+escHtml(a.desc||a.dt||'')+(ex?' <span style="color:#666">(example: '+escHtml(ex)+')</span>':'')+'</li>';}).join('')+'</ul>';});});});
+    body+=sched||'<p>No equipment placed yet.</p>';
+
+    const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+    _downloadDoc(currentProject.name+' - Specification (CSI).doc',_wrapWordDoc(currentProject.name,'AV/IT Specification (CSI format). Generated '+today+'.',body));
+    showToast('CSI specification generated','success');
   }catch(e){showToast('Generation failed: '+e.message,'error');}
 }
 
