@@ -223,10 +223,16 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 
 ## Pending Backlog (Priority Order)
 
-1. ⬜ Export Centre — Word/PDF spec output, formatted Excel/CSV schedules; spec authoring now built, so this is the next logical step
-2. ⬜ CO Document generation — produce a formal Change Order PDF/Word document from a CR's cost schedule (distinct from the tracking already built)
+**Spec generation (current focus)** — CSI Word generator + room-by-room schedule are BUILT and working (see "Spec generation" decisions log). Remaining for this feature:
+1. ⬜ Excel device-schedule annex (proper spreadsheet, not the Word room list) — uses the same placed-equipment data; reuse the Feature Matrix Excel export pattern
+2. ⬜ CSI output polish — cover page, table of contents, formal section numbering
+3. ⬜ Fill gaps — Lighting and Radio category/general/execution text; revisit Security (its taxonomy + content were deferred this session)
+4. ⬜ Product compliance checking (bigger) — tag products (global_products/project_products) with capabilities, then flag a placed product that does not meet a category/sub-category/device requirement. Requirements are currently free-text lines in spec_text; this would promote them to atomic, checkable items.
 
-(Spec Builder authoring — formerly backlog #1 — is now built; see What's Built and the Specification — Detail section.)
+**Other backlog:**
+5. ⬜ CO Document generation — produce a formal Change Order PDF/Word document from a CR's cost schedule (distinct from the tracking already built)
+
+**Where to resume:** spec generation lives in the JS as `generateCsiSpec()` and `generateRoomSpec()` (buttons on the Specification page). Spec text precedence is device type > sub-category > category. Taxonomy: System Group > Category > Sub-category > Device Type.
 
 ---
 
