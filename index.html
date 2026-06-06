@@ -1094,6 +1094,9 @@
     <div class="modal-body">
       <div class="form-row form-row-2"><div><label>Device Type ID <span class="required">*</span></label><input type="text" id="gd-type-id" placeholder="e.g. DISP-65" oninput="this.value=this.value.toUpperCase()"></div><div><label>Description <span class="required">*</span></label><input type="text" id="gd-desc" placeholder='e.g. Display 65"'></div></div>
       <div class="form-row form-row-3"><div><label>System Group</label><select id="gd-group" onchange="filterGdCategories()"><option value="">— Select —</option></select></div><div><label>Category</label><select id="gd-cat"><option value="">— Select —</option></select></div><div><label>Spec Reference</label><input type="text" id="gd-spec" placeholder="e.g. A22"></div></div>
+      <div class="form-section"><div class="form-section-title">Specification Text</div>
+        <div><label>Features &amp; Functions <span class="optional">one per line; used to generate the specification</span></label><textarea id="gd-spec-text" rows="5" placeholder="e.g.&#10;Shall support 4K UHD resolution with HDR10 and HDR10+&#10;Shall receive sources via the AV-over-IP distribution system&#10;Shall be controllable from the room control device" style="width:100%;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);resize:vertical"></textarea></div>
+      </div>
       <div class="form-section"><div class="form-section-title">Power</div>
         <div class="form-row form-row-3"><div><label>Power Supply</label><select id="gd-pwr-type"><option value="">— Select —</option><option value="12V">12V DC</option><option value="24V">24V DC</option><option value="120V">120V AC</option><option value="230V">230V AC</option><option value="100-240V">100–240V AC (Universal)</option><option value="POE-only">POE Only</option><option value="POE+mains">POE + Mains</option></select></div><div><label>Power Draw (W)</label><input type="number" id="gd-power-watts" placeholder="0" min="0"></div><div><label>Heat (BTU)</label><input type="number" id="gd-heat-btu" placeholder="0" min="0"></div></div>
         <div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="gd-ups-protected" style="width:15px;height:15px;accent-color:var(--accent)"> Requires UPS protection</label></div>
@@ -1338,11 +1341,12 @@
 
 <!-- DEVICE CATEGORY MODAL -->
 <div class="modal-overlay" id="dc-modal-overlay">
-  <div class="modal" style="max-width:480px">
+  <div class="modal" style="max-width:560px">
     <div class="modal-header"><div class="modal-title" id="dc-modal-title">Add Category</div><button class="btn-icon" onclick="closeDcModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-body">
       <div class="form-row form-row-2"><div><label>Category Code <span class="required">*</span></label><input type="text" id="dc-code" placeholder="e.g. 01-TV" oninput="this.value=this.value.toUpperCase()"></div><div><label>Category Name <span class="required">*</span></label><input type="text" id="dc-name" placeholder="e.g. Television Displays"></div></div>
       <div class="form-row form-row-2"><div><label>System Group</label><select id="dc-group"><option value="">— Select —</option></select></div><div><label>Sort Order</label><input type="number" id="dc-order" placeholder="0" min="0"></div></div>
+      <div style="margin-top:4px"><label>Specification Text <span class="optional">device-class definition, features &amp; functions; one per line. Used to generate the spec unless a device type overrides it.</span></label><textarea id="dc-spec-text" rows="6" placeholder="e.g.&#10;Displays shall be commercial-grade panels suited to their location and the interior design.&#10;Shall support 4K UHD resolution with HDR10 and HDR10+.&#10;Shall receive sources via the AV-over-IP distribution system.&#10;External displays shall be suitably rated for their environment." style="width:100%;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);resize:vertical"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeDcModal()">Cancel</button><button class="btn btn-primary" onclick="saveDeviceCategory()" id="dc-save-btn">Save Category</button></div>
   </div>
@@ -3971,13 +3975,13 @@ async function populateDcGroupSelect(selectedGroupId){
   const sel=document.getElementById('dc-group');
   sel.innerHTML='<option value="">— Select —</option>'+systemGroups.map(g=>'<option value="'+escHtml(g.id)+'"'+(g.id===selectedGroupId?' selected':'')+'>'+escHtml(g.name)+'</option>').join('');
 }
-function openDcModal(){editingDcId=null;document.getElementById('dc-modal-title').textContent='Add Category';document.getElementById('dc-save-btn').textContent='Save Category';document.getElementById('dc-code').value='';document.getElementById('dc-name').value='';document.getElementById('dc-order').value=deviceCategories.length;populateDcGroupSelect(null);document.getElementById('dc-modal-overlay').classList.add('open');}
-function openEditDcModal(id){const d=deviceCategories.find(d=>d.id===id);if(!d)return;editingDcId=id;document.getElementById('dc-modal-title').textContent='Edit Category';document.getElementById('dc-save-btn').textContent='Save Changes';document.getElementById('dc-code').value=d.code||'';document.getElementById('dc-name').value=d.name||'';document.getElementById('dc-order').value=d.sort_order||0;populateDcGroupSelect(d.system_group_id);document.getElementById('dc-modal-overlay').classList.add('open');}
+function openDcModal(){editingDcId=null;document.getElementById('dc-modal-title').textContent='Add Category';document.getElementById('dc-save-btn').textContent='Save Category';document.getElementById('dc-code').value='';document.getElementById('dc-name').value='';document.getElementById('dc-spec-text').value='';document.getElementById('dc-order').value=deviceCategories.length;populateDcGroupSelect(null);document.getElementById('dc-modal-overlay').classList.add('open');}
+function openEditDcModal(id){const d=deviceCategories.find(d=>d.id===id);if(!d)return;editingDcId=id;document.getElementById('dc-modal-title').textContent='Edit Category';document.getElementById('dc-save-btn').textContent='Save Changes';document.getElementById('dc-code').value=d.code||'';document.getElementById('dc-name').value=d.name||'';document.getElementById('dc-spec-text').value=d.spec_text||'';document.getElementById('dc-order').value=d.sort_order||0;populateDcGroupSelect(d.system_group_id);document.getElementById('dc-modal-overlay').classList.add('open');}
 function closeDcModal(){document.getElementById('dc-modal-overlay').classList.remove('open');}
 async function saveDeviceCategory(){
   const code=document.getElementById('dc-code').value.trim().toUpperCase(),name=document.getElementById('dc-name').value.trim();
   if(!code){showToast('Please enter a category code','error');return;}if(!name){showToast('Please enter a category name','error');return;}
-  const payload={code,name,system_group_id:document.getElementById('dc-group').value||null,sort_order:parseInt(document.getElementById('dc-order').value)||0};
+  const payload={code,name,system_group_id:document.getElementById('dc-group').value||null,sort_order:parseInt(document.getElementById('dc-order').value)||0,spec_text:document.getElementById('dc-spec-text').value.trim()||null};
   const btn=document.getElementById('dc-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{if(editingDcId){await dbUpdate('device_categories',editingDcId,payload);showToast('Category updated','success');}else{await dbInsert('device_categories',payload);showToast('Category added','success');}closeDcModal();loadDeviceCategories();}
   catch(e){showToast('Could not save: '+e.message,'error');}
@@ -4091,7 +4095,7 @@ async function loadCategoryOptions(selectedCode){
 }
 async function openGlobalDeviceModal(){
   editingGlobalId=null;document.getElementById('gd-modal-title').textContent='Add Device Type';document.getElementById('gd-save-btn').textContent='Save Device Type';
-  ['gd-type-id','gd-desc','gd-spec'].forEach(id=>document.getElementById(id).value='');
+  ['gd-type-id','gd-desc','gd-spec','gd-spec-text'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('gd-group').value='';document.getElementById('gd-cat').value='';
   ['gd-lan','gd-poe-ports','gd-spk','gd-spk-watts','gd-power-watts','gd-heat-btu','gd-poe-budget','gd-budget-price'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('gd-poe').value='';
@@ -4110,7 +4114,7 @@ async function openGlobalDeviceModal(){
 async function openEditGlobalDevice(id){
   const d=globalLibrary.find(d=>d.id===id);if(!d)return;editingGlobalId=id;
   document.getElementById('gd-modal-title').textContent='Edit Device Type';document.getElementById('gd-save-btn').textContent='Save Changes';
-  document.getElementById('gd-type-id').value=d.device_type_id||'';document.getElementById('gd-desc').value=d.description||'';document.getElementById('gd-spec').value=d.spec_ref||'';
+  document.getElementById('gd-type-id').value=d.device_type_id||'';document.getElementById('gd-desc').value=d.description||'';document.getElementById('gd-spec').value=d.spec_ref||'';document.getElementById('gd-spec-text').value=d.spec_text||'';
   document.getElementById('gd-lan').value=d.lan_ports||'';document.getElementById('gd-poe-ports').value=d.poe_ports||'';
   document.getElementById('gd-poe').value=d.poe_type||'';
   document.getElementById('gd-poe-budget').value=d.poe_budget_watts||'';
@@ -4136,7 +4140,7 @@ async function saveGlobalDevice(){
   if(!typeId){showToast('Please enter a device type ID','error');return;}if(!desc){showToast('Please enter a description','error');return;}
   const poePorts=parseInt(document.getElementById('gd-poe-ports').value)||0;
   const pwrType=document.getElementById('gd-pwr-type').value||null;
-  const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value||null,system_group:document.getElementById('gd-group').value||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('gd-poe').value||null:null,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,spk_watts:parseFloat(document.getElementById('gd-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('gd-power-watts').value)||null,heat_btu:parseFloat(document.getElementById('gd-heat-btu').value)||null,ups_protected:document.getElementById('gd-ups-protected').checked,network_role:document.getElementById('gd-network-role').value||'none',avip_role:document.getElementById('gd-avip-role').value||'none',audio_role:document.getElementById('gd-audio-role').value||'none',budget_price:parseFloat(document.getElementById('gd-budget-price').value)||null,currency:document.getElementById('gd-currency').value||'USD'};
+  const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value||null,system_group:document.getElementById('gd-group').value||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('gd-poe').value||null:null,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,spk_watts:parseFloat(document.getElementById('gd-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('gd-power-watts').value)||null,heat_btu:parseFloat(document.getElementById('gd-heat-btu').value)||null,ups_protected:document.getElementById('gd-ups-protected').checked,network_role:document.getElementById('gd-network-role').value||'none',avip_role:document.getElementById('gd-avip-role').value||'none',audio_role:document.getElementById('gd-audio-role').value||'none',budget_price:parseFloat(document.getElementById('gd-budget-price').value)||null,currency:document.getElementById('gd-currency').value||'USD',spec_text:document.getElementById('gd-spec-text').value.trim()||null};
   const btn=document.getElementById('gd-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{if(editingGlobalId){await dbUpdate('global_equipment',editingGlobalId,payload);showToast('Device type updated','success');}else{await dbInsert('global_equipment',payload);showToast('Device type added','success');}closeGlobalDeviceModal();loadGlobalLibrary();}
   catch(e){showToast('Could not save: '+e.message,'error');}
