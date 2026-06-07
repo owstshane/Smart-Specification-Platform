@@ -58,10 +58,9 @@ The app is a **single HTML file** (`index.html`) with all CSS and JavaScript inl
 - `change_log` — project_id, area, action, summary, cr_id, changed_by, created_at
 
 ### Specification
-- `spec_documents` — project_id, title, discipline (avit/security/navigation/radio/lighting/combined), doc_code, status, sort_order — **many per project** (one standalone spec per discipline; "combined" spans several)
-- `spec_sections` — document_id, system_group_id (null = preamble/front matter), category_id, library_section_id, title, content (HTML), sort_order, is_auto_pulled. **Grouped by System Group (main section) and Category (sub-section)** from Groups & Categories.
-- `spec_change_log` — document_id, section_id, action (added/modified/removed), description, cr_id, changed_by, created_at
-- `spec_section_library` — discipline, system_group_id, category_id, title, content (HTML), sort_order (global reusable templates, tagged by discipline + system group + category; legacy chapter_name/category_code columns retained but unused)
+- `spec_section_library` — discipline, **position** (front/back), title, content (HTML), sort_order. **Now holds document-level sections only** (system_group_id always null): **Front** sections become "Section 1: General Requirements" (Project Overview, Terminology, etc.); **End** (back) sections are appended after the system sections (Testing/Commissioning, Standards/Codes, Approved Manufacturers, Owner Supply, Special Conditions). The old per-group/category template rows were purged. Managed on Global > Spec Library. (Legacy chapter_name/category_code columns retained but unused.)
+- `project_spec_overrides` — project_id, scope_type ('preamble'/'group_general'/'group_execution'/'category'/'subcategory'/'device'), scope_key (target id/code), content, title_override, **is_custom + parent_type + parent_key + part + sort_order** (reserved for Phase B custom sections), sort_order. **Per-project text overrides**: generation prefers an override over the global/taxonomy text; editing a block in the preview writes here, never touching globals. Unique on (project_id, scope_type, scope_key) where not custom.
+- `spec_documents` / `spec_sections` / `spec_change_log` — **LEGACY, no longer used.** Tables of the retired two-pane authoring editor. Generation reads none of them; the editor JS was deleted. Tables left in place (not dropped) but inert.
 
 ---
 
@@ -127,7 +126,7 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 - ✅ Contract Award — record award against an integrator with ceremony flow; advances project phase to Engineering; shown as tile on Project Info
 - ✅ CR Cost Schedule (Change Orders) — per-CR cost items, CO total, pending queue, Estimated/Agreed states (see detail below)
 - ✅ Pricing — budget_price on project equipment; price_min/price_max/currency on global and project products; shown in Equipment Schedule
-- ✅ Specification — two-pane authoring (section tree + Quill rich-text editor), chapters by system group with auto-numbering, section CRUD + reorder, dirty-state tracking, spec change log, Pull from Spec Library (see detail below)
+- ✅ Specification — the page IS the live, generated CSI spec rendered inline (no editor, no modal). Built from equipment + global taxonomy text + per-project overrides. Every block (preamble, group General/Execution, category, sub-category, device, End sections) has a Standard/Project-override badge + Edit (inline) + Revert. Edits save per-project to `project_spec_overrides`; globals untouched. Download Word + Room-by-Room buttons. (See detail below.)
 - ✅ Global — Device Types, Product Catalogue, System Groups & Categories, Room Templates, Spec Library (standard SMART text templates)
 - ✅ Import / Export — full coverage of all sections, both global and project
 - ✅ Authentication — login/logout, JWT proactive refresh mid-session, retry on 401
@@ -193,47 +192,41 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 
 ## Specification — Detail
 
-### Structure (multi-document, per discipline; sections = System Group + Category)
-- A project has **many specifications** (`spec_documents`), one per discipline (AV/IT, Security, Navigation, Radio, Lighting) or a single "Combined" document. Disciplines list = `SPEC_DISCIPLINES` const in the JS.
-- "Split vs combined" is just how many documents you create.
-- **Within a document, the structure mirrors Groups & Categories:** main sections = **System Groups** (e.g. Central Systems, Audio Visual), each leading with a Scope of Supply overview, then sub-sections = **Categories** (e.g. Equipment Centres, Rack Infrastructure) detailing device types, features and functions. Front matter (Introduction, Key Principles, Owner Supply) sits above as Preamble (sections with no system group).
-- A spec section (`spec_sections`) has `system_group_id` (null = preamble) + optional `category_id` (null = Scope of Supply or a custom sub-section like Safe Areas). Helpers: `specGroupsInUse()`, `specCatsForGroup(gid)`.
-- Document bar at the top switches between the project's specs (`renderSpecDocBar`); New / rename / delete supported.
-- New Specification seeds standard sections from the Spec Library for the chosen discipline (`seedSpecFromLibrary`), copying system_group_id + category_id.
-- **Auto-numbering:** Preamble sections = 1, 2, 3…; then each System Group in use is numbered (taxonomy order), sub-sections `N.M`. Computed at render (`computeSpecNumbers`), never stored.
-- Library "Pull" is discipline-filtered and grouped by System Group; pulling copies system_group_id + category_id.
+### The model: generation is king; the page IS the spec
+- The platform GENERATES the spec from data; it is not an authoring tool. The old two-pane editor (`spec_documents`/`spec_sections`/Quill/library pull) was **retired and its code deleted**.
+- The Specification page renders the assembled CSI spec **inline** (no modal). `loadSpecification()` just calls `previewCsiSpec()`.
+- **Document order:** Section 1 General Requirements (Front library sections) → per System Group in use `N. / N.1 General / N.2 Products / N.3 Execution` → **End** library sections (Testing, Standards, Approved Manufacturers, Owner Supply, Special Conditions) → Annex A (Equipment Schedule by Location: rooms + technical spaces) → Annex B (Rack Zone / Technical Schedule).
+- **Text precedence:** project override (`project_spec_overrides`) > global/taxonomy text. Taxonomy text = device type > sub-category > category for Products; `system_groups.general_text`/`execution_text` for General/Execution; `spec_section_library` for Front/End sections.
+- Auto-numbering is computed at render in `_assembleCsiSpec`; never stored.
 
-### Authoring (Specification page)
-- Two-pane layout: section tree (left) + Quill rich-text editor (right)
-- Quill toolbar: headers (H1–H3), bold/italic/underline, ordered/bullet lists, clean
-- Section CRUD: add (per chapter via + button), delete (confirm), reorder (move up/down within chapter via sort_order swap)
-- Dirty-state tracking: unsaved-changes dot + "Saved ✓" flash; switching sections with unsaved edits prompts discard confirm
-- Content stored as HTML in `spec_sections.content`
+### Edit-in-place (per-project overrides)
+- Every editable block is wrapped in `.spec-block[data-block]` with a registered meta entry (`_specEditBlocks`). The preview decorates each with a **Standard / Project-override** badge + **Edit** + **Revert** (`_decorateSpecBlocks`).
+- `specEditBlock` opens an inline editor; `_specEditMode` picks the widget: **lines** (one-per-line textarea) for taxonomy text, **quill** (rich editor) for prose preamble, **html** (raw HTML textarea) for sections containing a `<table>` (so tables survive). Preamble/End blocks also allow a heading rename (`title_override`).
+- `specSaveBlock` upserts a row in `project_spec_overrides`; `specRevertBlock` deletes it. Both re-run `previewCsiSpec(true)` (scroll preserved). Globals are never modified.
 
-### Spec Change Log
-- Every add/modified/removed action logged to `spec_change_log` (action, description, changed_by, cr_id if a CR is active)
-- Collapsible viewer at the bottom of the Specification page
-
-### Spec Library (Global)
-- `spec_section_library` holds reusable standard SMART text templates (discipline, chapter_name, category_code, title, content, sort_order)
-- Managed on Global > Spec Library with full CRUD + its own Quill editor
-- "Pull from Spec Library" on a project spec imports standard sections in one click (sets `is_auto_pulled`)
+### Spec Library (Global) — now document-level sections only
+- `spec_section_library` holds reusable standard SMART **document-level** sections (system_group_id always null), each with a **position**: **Front** (Section 1 General Requirements) or **End** (after the system sections).
+- Managed on Global > Spec Library: columns Discipline / Position / Title / Preview / Actions; editor has Discipline, Position, Sort Order, Title, Content (Quill). 6 Front + 5 End AV/IT sections seeded (End ones generalised with [placeholders], brand/location specifics removed, no em-dashes; the Approved Manufacturers + Owner Supply tables are editable templates to fill per project via override).
+- Front/End sections are editable in the live preview exactly like any other block (scope_type `preamble`).
 
 ---
 
 ## Pending Backlog (Priority Order)
 
-**Spec generation (current focus)** — CSI Word generator, room-by-room schedule, rack-zone inclusion, Annex B engineering schedule, and an on-screen CSI preview are BUILT and working (see "Spec generation" decisions log). Remaining for this feature:
-1. ⬜ Edit-in-place from the preview — edit the preamble (spec_section_library) and each system group's General/Execution text directly from the preview view; this is the step that finally retires the orphaned rich-text editor (document tabs / section tree / Quill / library pull on the Specification page, which generation does NOT read).
-2. ⬜ Excel device-schedule annex (proper spreadsheet, not the Word room list) — uses the same placed-equipment data; reuse the Feature Matrix Excel export pattern
-3. ⬜ CSI output polish — cover page, table of contents, formal section numbering
-4. ⬜ Fill gaps — Lighting and Radio category/general/execution text; revisit Security (its taxonomy + content were deferred)
-5. ⬜ Product compliance checking (bigger) — tag products (global_products/project_products) with capabilities, then flag a placed product that does not meet a category/sub-category/device requirement. Requirements are currently free-text lines in spec_text; this would promote them to atomic, checkable items.
+**Spec generation** — CSI Word generator, room-by-room schedule, rack-zone inclusion, Annex B, on-screen inline preview, **per-project edit-in-place overrides**, Front/End library sections, and the **dead-editor removal** are all BUILT and working (see decisions log). Remaining:
+1. ⬜ **Phase B — project custom sections** (NEXT): let a project add a brand-new section/category not in the global taxonomy. Table already designed for it (`project_spec_overrides.is_custom` + `parent_type` + `parent_key` + `part` + `sort_order`).
+2. ⬜ Sub-section auto-numbering inside End sections (currently headed sub-blocks, no N.1/N.2); would need a more structured model.
+3. ⬜ Make the project-specific tables (Approved Manufacturers, Owner Supply) data-driven rather than HTML templates.
+4. ⬜ Excel device-schedule annex (proper spreadsheet, not the Word room list) — reuse the Feature Matrix Excel export pattern.
+5. ⬜ CSI output polish — cover page, table of contents, formal section numbering.
+6. ⬜ Fill gaps — Lighting and Radio category/general/execution text; revisit Security (deferred).
+7. ⬜ Product compliance checking (bigger) — tag products with capabilities, flag placements that miss a requirement; promote spec_text lines to atomic checkable items.
+8. ⬜ Orphaned spec CSS cleanup (rules for `.spec-tree/.spec-editor/.spec-doc-tab/.spec-changelog/.spec-chapter` etc. — markup gone, rules inert).
 
 **Other backlog:**
-6. ⬜ CO Document generation — produce a formal Change Order PDF/Word document from a CR's cost schedule (distinct from the tracking already built)
+9. ⬜ CO Document generation — formal Change Order PDF/Word from a CR's cost schedule.
 
-**Where to resume:** spec generation lives in the JS as `_assembleCsiSpec()` (builds the HTML body, shared by export + preview), `generateCsiSpec()` (downloads Word), `previewCsiSpec()` (on-screen modal) and `generateRoomSpec()` — all wired to buttons on the Specification page. Per-zone engineering loads come from the shared `computeZoneLoads()` (also used by the on-screen Zone Summary). Equipment schedule HTML is the shared `_equipScheduleHtml()` / `_groupedEquipList()`. Spec text precedence is device type > sub-category > category. Taxonomy: System Group > Category > Sub-category > Device Type. The disjointed editor decision: keep generation as the single source of truth; preview is king; retire the Quill authoring path once edit-in-place lands.
+**Where to resume:** spec generation lives in the JS as `_assembleCsiSpec()` (builds the HTML body, applies overrides, registers `.spec-block` editable blocks; shared by export + preview), `generateCsiSpec()` (downloads Word), `previewCsiSpec(keepScroll)` (renders inline into the Specification page; `loadSpecification` calls it), `generateRoomSpec()`. Inline editing: `_decorateSpecBlocks` / `specEditBlock` / `specSaveBlock` / `specRevertBlock`, with `_specEditMode` = lines | quill | html. Per-zone engineering loads come from shared `computeZoneLoads()`. Schedule HTML is shared `_equipScheduleHtml()` / `_groupedEquipList()`. Text precedence: project override > device type > sub-category > category. Taxonomy: System Group > Category > Sub-category > Device Type. For SaaS later: tenancy = add `org_id` to the global tables, NOT per-project copies (decided).
 
 ---
 
@@ -263,3 +256,4 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 - **Spec generation Phase 2 done (Jun 2026):** Room-by-Room Word generator built (`generateRoomSpec` in the JS, button on the Specification page). Produces a downloadable `.doc` (HTML-based, opens in Word) from the project's placed equipment: **Part 1** lists each room (deck order) with equipment grouped by System Group, terse "Qty x Description (example: make model)"; **Part 2** is the device specifications, grouped System Group > Category > Sub-category, printing the spec_text (precedence device type > sub-category > category) and the device types in use with example product. Example make/model pulled from project_products then project_equipment. Generation is fully client-side (no backend).
 - **Spec generation Phase 2b: CSI format (Jun 2026):** Decided to follow US **CSI SectionFormat** (Part 1 General, Part 2 Products, Part 3 Execution). Mapping: **General** = system group text (`system_groups.general_text`) + shared front matter (the spec_section_library preamble rows = Section 1 General Requirements); **Products** = the category/sub-category/device-type spec_text (features & functions); **Execution** = `system_groups.execution_text` (install/test/commission/training); **room-by-room schedule** = Annex A. Added `system_groups.general_text` + `execution_text` (editor on the System Group modal). `generateCsiSpec()` outputs Section 1 General Requirements, then per system group in use N.1 General / N.2 Products / N.3 Execution, then Annex A. Both generators (CSI + room-by-room) have buttons on the Specification page. Seeded general/execution text for the 6 AV-side groups (Lighting/Radio/Security blank).
 - **Spec generation Phase 2c: rack zones + Annex B + heat + preview (Jun 2026):** Review of the generators found a correctness hole — both dropped equipment placed in **rack zones** (the schedule filter required `room_id`), so head-end/rack kit and rack-only system groups never appeared. Fixed: the equipment schedule now lists rack zones as **Technical Spaces** alongside rooms (Annex A renamed "Equipment Schedule by **Location**"; same in the room-by-room doc). New **Annex B: Rack Zone / Technical Schedule** in the CSI doc — per-zone engineering loads (LAN/PoE ports req vs avail, PoE budget, amp channels/power, AVoIP, UPS/mains/total power, heat), with a note pointing to the GA drawing for physical locations. Added **heat_btu aggregation** (was on devices but never summed) — new Thermal/Heat Load row on the on-screen Zone Summary and in Annex B. Refactors: extracted shared `computeZoneLoads()` (Zone Summary UI + generator share one calc) and `_equipScheduleHtml()`/`_groupedEquipList()` (de-duped the room/zone schedule HTML); removed dead `_buildWordDoc` + `deviceListHtml`. Also added an **on-screen CSI preview**: split `generateCsiSpec()` into `_assembleCsiSpec()` (returns the body) + a thin downloader, added `previewCsiSpec()` which renders the assembled spec in a Word-styled modal (`.spec-preview-doc`) with a Download Word button. Confirmed: the rich-text editor (spec_documents/spec_sections/Quill/library pull) is orphaned — generation reads NONE of it; left in place for now, to be retired once edit-in-place from the preview lands. Next: edit-in-place from preview; then Excel device-schedule annex; later cover/contents/numbering polish, requirement-items + product compliance.
+- **Spec generation Phase 3: edit-in-place + inline page + library repurpose + dead-code removal (Jun 2026):** The Specification page IS now the live generated spec, rendered inline (no modal, no editor). Added **per-project overrides** (`project_spec_overrides` table): generation applies override > global precedence and wraps each editable unit in `.spec-block`; the preview shows a Standard/Project-override badge with Edit + Revert on every block (preamble, group General/Execution, category, sub-category, device, End sections). `specEditBlock` picks an editor by `_specEditMode`: one-per-line textarea (taxonomy text), Quill (prose preamble), or raw-HTML textarea (sections with a `<table>`, so tables survive); preamble/End blocks can also rename their heading (`title_override`). Saves upsert to `project_spec_overrides`, never touching globals; revert deletes the row. **Spec Library repurposed**: purged the 33 dead per-group/category rows, added a `position` column; it now holds document-level **Front** (Section 1 General Requirements) and **End** sections only, simplified page + editor (Discipline/Position/Title/Content). Seeded 5 generalised standard **End** sections (Testing & Commissioning, Standards & Codes, Approved Manufacturers, Owner Supply, Special Conditions) with [placeholders], brand/location specifics removed, no em-dashes; the two project-specific tables are editable templates. **Decided** (SaaS question): keep the global taxonomy shared and add per-project text via the override layer (NOT per-project taxonomy copies); multi-tenancy later = `org_id` on the globals. **Removed ~26k chars of dead code** — the entire retired two-pane editor + pull/seed cluster (34 functions: renderSpecDocBar, selectSpecDocument, renderSpecTree, the spec_documents/spec_sections CRUD, computeSpecNumbers, the change-log viewer, the library pull modal, specGroupsInUse/specCatsForGroup/slPopulateCats, etc.); `spec_documents`/`spec_sections`/`spec_change_log` tables remain but are inert. Next: Phase B project custom sections (table already has is_custom/parent_type/part columns); then Excel annex, polish, content gaps.
