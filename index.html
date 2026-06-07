@@ -6602,13 +6602,14 @@ async function loadSpecLibrary(){
 function populateSlGroupFilter(){
   const sel=document.getElementById('sl-filter-group');
   if(!sel)return;
-  sel.innerHTML='<option value="">All disciplines</option>'+SPEC_DISCIPLINES.map(d=>'<option value="'+d.code+'">'+escHtml(d.label)+'</option>').join('');
+  sel.innerHTML='<option value="">All</option><option value="__generic">Generic / shared</option>'+SPEC_DISCIPLINES.map(d=>'<option value="'+d.code+'">'+escHtml(d.label)+'</option>').join('');
 }
 
 function renderSpecLibrary(){
   const filter=(document.getElementById('sl-filter-group')||{}).value||'';
   let items=specLibrarySections.filter(s=>!s.system_group_id);
-  if(filter)items=items.filter(s=>(s.discipline||'')===filter);
+  if(filter==='__generic')items=items.filter(s=>!s.discipline);
+  else if(filter)items=items.filter(s=>s.discipline===filter);
   items=items.slice().sort((a,b)=>((a.position||'front')==='back'?1:0)-((b.position||'front')==='back'?1:0)||_byOrder(a,b));
   const count=document.getElementById('sl-count');
   if(count)count.textContent=items.length+' section'+(items.length!==1?'s':'');
@@ -6901,7 +6902,8 @@ async function _assembleCsiSpec(){
     if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
     if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc');
     if(!deviceSubcategories.length)deviceSubcategories=await dbGet('device_subcategories','order=sort_order.asc');
-    const docSections=await dbGet('spec_section_library','discipline=eq.avit&system_group_id=is.null&order=sort_order.asc');
+    // Pull generic (all-discipline) sections plus this spec's discipline (AV/IT for now).
+    const docSections=await dbGet('spec_section_library','system_group_id=is.null&or=(discipline.is.null,discipline.eq.avit)&order=sort_order.asc');
     const frontMatter=docSections.filter(s=>(s.position||'front')!=='back');
     const endSections=docSections.filter(s=>(s.position||'front')==='back');
 
