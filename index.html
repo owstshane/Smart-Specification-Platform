@@ -416,7 +416,14 @@
   .flex { display: flex; } .items-center { align-items: center; } .gap-12 { gap: 12px; }
 
   /* SPEC BUILDER */
-  .spec-inline-scroll { overflow: auto; background: var(--surface2); height: calc(100vh - 160px); padding: 20px 0; }
+  .spec-page-wrap { display: flex; height: calc(100vh - 160px); }
+  .spec-toc { width: 250px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid var(--border); background: var(--surface); padding: 12px 0; }
+  .spec-toc-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); padding: 0 14px 8px; }
+  .spec-toc-link { display: block; padding: 4px 14px; font-size: 12.5px; color: var(--text-2); cursor: pointer; text-decoration: none; border-left: 2px solid transparent; line-height: 1.3; }
+  .spec-toc-link:hover { background: var(--surface2); color: var(--accent); border-left-color: var(--accent); }
+  .spec-toc-link.l1 { font-weight: 600; color: var(--text); margin-top: 6px; }
+  .spec-toc-link.l2 { padding-left: 28px; font-size: 11.5px; color: var(--text-3); }
+  .spec-inline-scroll { flex: 1; overflow: auto; background: var(--surface2); padding: 20px 0; }
   .spec-preview-doc { max-width: 820px; margin: 0 auto; background: #fff; color: #222; font-family: Calibri, Arial, sans-serif; font-size: 14px; line-height: 1.45; padding: 40px 52px; box-shadow: var(--shadow-sm); border-radius: 4px; }
   .spec-preview-doc h1 { font-size: 22px; color: #111; border-bottom: 2px solid #888; padding-bottom: 4px; margin: 26px 0 10px; }
   .spec-preview-doc h2 { font-size: 17px; color: #111; margin: 18px 0 6px; }
@@ -794,8 +801,11 @@
           <button class="btn btn-secondary btn-sm" onclick="generateRoomSpec()">Room-by-Room Schedule (Word)</button>
           <span style="font-size:11px;color:var(--text-3)">Click <strong>Edit</strong> on any block to tailor its text for this project — standard text stays global.</span>
         </div>
-        <div id="spec-preview-scroll" class="spec-inline-scroll">
-          <div id="spec-preview-body" class="spec-preview-doc"></div>
+        <div class="spec-page-wrap">
+          <nav id="spec-toc" class="spec-toc"></nav>
+          <div id="spec-preview-scroll" class="spec-inline-scroll">
+            <div id="spec-preview-body" class="spec-preview-doc"></div>
+          </div>
         </div>
       </div>
 
@@ -6798,9 +6808,25 @@ async function previewCsiSpec(keepScroll){
     _specPreviewData=a;_specEditQuill=null;
     if(body)body.innerHTML=a.body;
     _decorateSpecBlocks();
+    _buildSpecToc();
     if(sc)sc.scrollTop=keepScroll?prevTop:0;
   }catch(e){showToast('Preview failed: '+e.message,'error');if(body)body.innerHTML='<p style="padding:30px;color:var(--red)">Could not build the specification: '+escHtml(e.message)+'</p>';}
 }
+// Build the contents sidebar from the rendered section headings (h1 + h2).
+function _buildSpecToc(){
+  const toc=document.getElementById('spec-toc'),body=document.getElementById('spec-preview-body');
+  if(!toc||!body)return;
+  const heads=body.querySelectorAll('h1, h2');
+  if(!heads.length){toc.innerHTML='';return;}
+  let html='<div class="spec-toc-title">Contents</div>';
+  heads.forEach((h,i)=>{
+    h.id='spec-sec-'+i;
+    const lvl=h.tagName==='H1'?1:2;
+    html+='<a class="spec-toc-link l'+lvl+'" onclick="_specTocGo(\'spec-sec-'+i+'\')">'+escHtml(h.textContent.trim())+'</a>';
+  });
+  toc.innerHTML=html;
+}
+function _specTocGo(id){const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});}
 function downloadSpecFromPreview(){if(!_specPreviewData){showToast('Nothing to download yet','error');return;}const a=_specPreviewData;_downloadDoc(a.filename,_wrapWordDoc(a.title,a.subtitle,a.body));showToast('CSI specification generated','success');}
 // Add an Edit/Revert toolbar + Standard/Override badge to each editable block in the preview only.
 function _decorateSpecBlocks(){
@@ -6853,6 +6879,16 @@ function specRevertBlock(bid){
     try{await dbDelete('project_spec_overrides',m.overrideId);showToast('Reverted to standard','success');await previewCsiSpec(true);}catch(e){showToast('Revert failed: '+e.message,'error');}
   });
 }
+// Hierarchical heading numbers for the main spec body: h1 -> "N.", h2 -> "N.M", h3 -> "N.M.P", h4 deeper.
+function _numberSpecHtml(html){
+  const c=[0,0,0,0];
+  return html.replace(/<h([1-4])([^>]*)>/g,(m,lvl,attrs)=>{
+    const L=parseInt(lvl,10);
+    c[L-1]++;for(let k=L;k<4;k++)c[k]=0;
+    const num=c.slice(0,L).join('.');
+    return '<h'+lvl+attrs+'>'+num+(L===1?'. ':' ');
+  });
+}
 async function _assembleCsiSpec(){
     const decks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
     const deckIds=decks.map(d=>d.id);
@@ -6889,21 +6925,20 @@ async function _assembleCsiSpec(){
     const active=instances.filter(i=>i.change_status!=='removed'&&(i.room_id||i.rack_zone_id));
     const usedTypes=new Set(active.map(i=>{const e=peById[i.project_equipment_id];return e?e.device_type_id:null;}).filter(Boolean));
 
-    let body='',n=0;
-    // Section 1: General Requirements (shared front matter from the spec library)
+    let body='';
+    // Section 1: General Requirements (shared front matter from the spec library). Numbers applied by _numberSpecHtml.
     if(frontMatter.length){
-      n++;body+='<h1>'+n+'. General Requirements</h1>';
-      frontMatter.forEach(fm=>{const o=ovMap['preamble|'+fm.id];const ptitle=(o&&o.title_override)?o.title_override:fm.title;const pcontent=(o&&o.content!=null)?o.content:(fm.content||'');body+=wrapBlock('preamble',fm.id,'Preamble: '+fm.title,fm.content,true,'<h3>'+escHtml(ptitle)+'</h3>'+pcontent,{canRenameTitle:true,titleRaw:ptitle,globalTitle:fm.title});});
+      body+='<h1>General Requirements</h1>';
+      frontMatter.forEach(fm=>{const o=ovMap['preamble|'+fm.id];const ptitle=(o&&o.title_override)?o.title_override:fm.title;const pcontent=(o&&o.content!=null)?o.content:(fm.content||'');body+=wrapBlock('preamble',fm.id,'Preamble: '+fm.title,fm.content,true,'<h2>'+escHtml(ptitle)+'</h2>'+pcontent,{canRenameTitle:true,titleRaw:ptitle,globalTitle:fm.title});});
     }
     // Per system group: General / Products / Execution
     systemGroups.forEach(g=>{
       const groupUsed=Array.from(usedTypes).some(dt=>{const e=peByType[dt];return e&&e.system_group===g.name;});
       if(!groupUsed)return;
-      n++;
-      body+='<h1 style="page-break-before:always">'+n+'. '+escHtml(g.name)+'</h1>';
+      body+='<h1 style="page-break-before:always">'+escHtml(g.name)+'</h1>';
       const gGen=effText('group_general',g.id,g.general_text);
-      body+=wrapBlock('group_general',g.id,'System Group: '+g.name+' — General',g.general_text,false,'<h2>'+n+'.1 General</h2>'+(gGen?_specLinesToHtml(gGen):'<p>Refer to Section 1, General Requirements.</p>'));
-      body+='<h2>'+n+'.2 Products</h2>';
+      body+=wrapBlock('group_general',g.id,'System Group: '+g.name+' — General',g.general_text,false,'<h2>General</h2>'+(gGen?_specLinesToHtml(gGen):'<p>Refer to Section 1, General Requirements.</p>'));
+      body+='<h2>Products</h2>';
       let prod='';
       deviceCategories.filter(c=>c.system_group_id===g.id).forEach(cat=>{
         const typesInCat=Array.from(usedTypes).filter(dt=>{const e=peByType[dt];return e&&e.category_code===cat.code;});
@@ -6923,16 +6958,17 @@ async function _assembleCsiSpec(){
       });
       body+=prod||'<p>Refer to the equipment schedule in Annex A.</p>';
       const gExec=effText('group_execution',g.id,g.execution_text);
-      body+=wrapBlock('group_execution',g.id,'System Group: '+g.name+' — Execution',g.execution_text,false,'<h2>'+n+'.3 Execution</h2>'+(gExec?_specLinesToHtml(gExec):'<p>Install, test, commission and hand over in accordance with Section 1, General Requirements.</p>'));
+      body+=wrapBlock('group_execution',g.id,'System Group: '+g.name+' — Execution',g.execution_text,false,'<h2>Execution</h2>'+(gExec?_specLinesToHtml(gExec):'<p>Install, test, commission and hand over in accordance with Section 1, General Requirements.</p>'));
     });
     // End sections (library, position=back): additional general sections after the system sections.
     endSections.forEach(fm=>{
       const o=ovMap['preamble|'+fm.id];
       const ptitle=(o&&o.title_override)?o.title_override:fm.title;
       const pcontent=(o&&o.content!=null)?o.content:(fm.content||'');
-      n++;
-      body+=wrapBlock('preamble',fm.id,'End Section: '+fm.title,fm.content,true,'<h1 style="page-break-before:always">'+n+'. '+escHtml(ptitle)+'</h1>'+pcontent,{canRenameTitle:true,titleRaw:ptitle,globalTitle:fm.title});
+      body+=wrapBlock('preamble',fm.id,'End Section: '+fm.title,fm.content,true,'<h1 style="page-break-before:always">'+escHtml(ptitle)+'</h1>'+pcontent,{canRenameTitle:true,titleRaw:ptitle,globalTitle:fm.title});
     });
+    // Main body sections get hierarchical numbers; annexes keep their own scheme.
+    body=_numberSpecHtml(body);
     // Annex A: equipment schedule by room and technical space
     body+='<h1 style="page-break-before:always">Annex A: Equipment Schedule by Location</h1>';
     body+=_equipScheduleHtml(decks,rooms,zoneList,active,peById,systemGroups,sgByName,exampleFor)||'<p>No equipment placed yet.</p>';
