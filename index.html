@@ -975,11 +975,12 @@
           <button class="btn btn-primary btn-sm" onclick="openSpecLibSectionModal()" style="margin-left:8px">+ New Section</button>
           <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="sl-count"></div>
         </div>
+        <div style="padding:8px 16px;font-size:12px;color:var(--text-3)">Standard document-level sections. <strong>Front</strong> sections open the spec as Section 1 (General Requirements); <strong>End</strong> sections are appended after the system sections. Per-system features &amp; functions text lives in Groups &amp; Categories / Device Types.</div>
         <div class="equip-table" id="sl-container">
           <table>
             <thead>
               <tr>
-                <th>Discipline</th><th>System Group</th><th>Category</th><th>Title</th><th>Preview</th><th style="text-align:right">Actions</th>
+                <th>Discipline</th><th>Position</th><th>Title</th><th>Preview</th><th style="text-align:right">Actions</th>
               </tr>
             </thead>
             <tbody id="sl-tbody"></tbody>
@@ -7098,7 +7099,7 @@ async function confirmSpecLibPull(){
 
 async function loadSpecLibrary(){
   const container=document.getElementById('sl-tbody');
-  if(container)container.innerHTML='<tr><td colspan="6" style="padding:24px;text-align:center"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr>';
+  if(container)container.innerHTML='<tr><td colspan="5" style="padding:24px;text-align:center"><div class="loading"><div class="spinner"></div> Loading…</div></td></tr>';
   try{
     if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
     if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc');
@@ -7116,21 +7117,20 @@ function populateSlGroupFilter(){
 
 function renderSpecLibrary(){
   const filter=(document.getElementById('sl-filter-group')||{}).value||'';
-  let items=filter?specLibrarySections.filter(s=>(s.discipline||'')===filter):specLibrarySections;
-  items=items.slice().sort(_byOrder);
+  let items=specLibrarySections.filter(s=>!s.system_group_id);
+  if(filter)items=items.filter(s=>(s.discipline||'')===filter);
+  items=items.slice().sort((a,b)=>((a.position||'front')==='back'?1:0)-((b.position||'front')==='back'?1:0)||_byOrder(a,b));
   const count=document.getElementById('sl-count');
   if(count)count.textContent=items.length+' section'+(items.length!==1?'s':'');
   const tbody=document.getElementById('sl-tbody');
   if(!tbody)return;
-  if(!items.length){tbody.innerHTML='<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text-3)">No library sections. Add one to get started.</td></tr>';return;}
+  if(!items.length){tbody.innerHTML='<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text-3)">No sections yet. Add one to get started.</td></tr>';return;}
   tbody.innerHTML=items.map(s=>{
     const preview=s.content?s.content.replace(/<[^>]+>/g,'').substring(0,80)+(s.content.length>80?'…':''):'';
-    const grp=s.system_group_id?(systemGroups.find(g=>g.id===s.system_group_id)||{}).name||'—':'Preamble';
-    const cat=s.category_id?(deviceCategories.find(c=>c.id===s.category_id)||{}).name||'':'';
+    const isEnd=(s.position||'front')==='back';
     return '<tr>'
       +'<td>'+escHtml(specDiscLabel(s.discipline))+'</td>'
-      +'<td>'+escHtml(grp)+'</td>'
-      +'<td>'+(cat?'<span class="category-badge">'+escHtml(cat)+'</span>':'<span style="color:var(--text-3)">—</span>')+'</td>'
+      +'<td><span class="category-badge" style="background:'+(isEnd?'#e7ecff;color:#2b4ad6':'#e6f4ea;color:#1a6b3a')+'">'+(isEnd?'End':'Front')+'</span></td>'
       +'<td style="font-weight:500">'+escHtml(s.title)+'</td>'
       +'<td style="color:var(--text-3);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(preview||'—')+'</td>'
       +'<td><div class="td-actions">'
@@ -7146,23 +7146,20 @@ function openSpecLibSectionModal(id){
   specLibEditId=id||null;
   const s=id?specLibrarySections.find(x=>x.id===id):null;
   const discOpts='<option value="">— Generic / shared —</option>'+SPEC_DISCIPLINES.map(d=>'<option value="'+d.code+'"'+(s&&s.discipline===d.code?' selected':'')+'>'+escHtml(d.label)+'</option>').join('');
-  const grpOpts='<option value="">— Preamble (front matter) —</option>'+systemGroups.slice().sort(_byOrder).map(g=>'<option value="'+escHtml(g.id)+'"'+(s&&s.system_group_id===g.id?' selected':'')+'>'+escHtml(g.name)+'</option>').join('');
-  const html='<div class="form-row form-row-2">'
+  const pos=(s&&s.position)||'front';
+  const posOpts='<option value="front"'+(pos==='front'?' selected':'')+'>Front — opens the spec (Section 1, General Requirements)</option><option value="back"'+(pos==='back'?' selected':'')+'>End — appended after the system sections</option>';
+  const html='<div class="form-row form-row-3">'
     +'<div class="form-group"><label>Discipline</label><select id="sl-disc">'+discOpts+'</select></div>'
-    +'<div class="form-group"><label>System Group <span class="optional">main section</span></label><select id="sl-sg" onchange="slPopulateCats()">'+grpOpts+'</select></div>'
-    +'</div>'
-    +'<div class="form-row form-row-2">'
-    +'<div class="form-group" id="sl-cat-wrap"><label>Category <span class="optional">sub-section</span></label><select id="sl-catsel"></select></div>'
+    +'<div class="form-group"><label>Position</label><select id="sl-position">'+posOpts+'</select></div>'
     +'<div class="form-group"><label>Sort Order</label><input id="sl-order" type="number" value="'+((s?s.sort_order:0)||0)+'"></div>'
     +'</div>'
-    +'<div class="form-group"><label>Section Title <span class="required">*</span></label><input id="sl-title" type="text" placeholder="e.g. Display Equipment" value="'+escHtml(s?s.title||'':'')+'"></div>'
+    +'<div class="form-group"><label>Section Title <span class="required">*</span></label><input id="sl-title" type="text" placeholder="e.g. Introduction" value="'+escHtml(s?s.title||'':'')+'"></div>'
     +'<div class="form-group"><label>Content</label><div id="sl-quill-editor" style="min-height:200px;border:1px solid var(--border-strong);border-radius:var(--radius-sm)"></div></div>';
 
-  openModal('spec-lib-modal',(id?'Edit':'New')+' Library Section',html,
+  openModal('spec-lib-modal',(id?'Edit':'New')+' Section',html,
     '<button class="btn btn-secondary" onclick="closeModal(\'spec-lib-modal\')">Cancel</button>'
     +'<button class="btn btn-primary" onclick="saveSpecLibSection()">Save</button>',
     '720px');
-  slPopulateCats(s?s.category_id:null);
 
   // Init Quill for library editor (reinit each time since modal is rebuilt)
   setTimeout(()=>{
@@ -7187,11 +7184,11 @@ function slPopulateCats(preselect){
 async function saveSpecLibSection(){
   const title=(document.getElementById('sl-title').value||'').trim();
   if(!title){showToast('Title is required','error');return;}
-  const sgEl=document.getElementById('sl-sg'),catEl=document.getElementById('sl-catsel');
   const payload={
     discipline:document.getElementById('sl-disc').value||null,
-    system_group_id:sgEl.value||null,
-    category_id:(sgEl.value&&catEl)?(catEl.value||null):null,
+    system_group_id:null,
+    category_id:null,
+    position:(document.getElementById('sl-position')||{}).value||'front',
     title,
     content:specLibQuill?specLibQuill.root.innerHTML:'',
     sort_order:parseInt(document.getElementById('sl-order').value)||0
@@ -7393,7 +7390,9 @@ async function _assembleCsiSpec(){
     if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
     if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc');
     if(!deviceSubcategories.length)deviceSubcategories=await dbGet('device_subcategories','order=sort_order.asc');
-    const frontMatter=await dbGet('spec_section_library','discipline=eq.avit&system_group_id=is.null&order=sort_order.asc');
+    const docSections=await dbGet('spec_section_library','discipline=eq.avit&system_group_id=is.null&order=sort_order.asc');
+    const frontMatter=docSections.filter(s=>(s.position||'front')!=='back');
+    const endSections=docSections.filter(s=>(s.position||'front')==='back');
 
     const peById={};pe.forEach(e=>peById[e.id]=e);
     const peByType={};pe.forEach(e=>{if(!peByType[e.device_type_id])peByType[e.device_type_id]=e;});
@@ -7450,6 +7449,14 @@ async function _assembleCsiSpec(){
       body+=prod||'<p>Refer to the equipment schedule in Annex A.</p>';
       const gExec=effText('group_execution',g.id,g.execution_text);
       body+=wrapBlock('group_execution',g.id,'System Group: '+g.name+' — Execution',g.execution_text,false,'<h2>'+n+'.3 Execution</h2>'+(gExec?_specLinesToHtml(gExec):'<p>Install, test, commission and hand over in accordance with Section 1, General Requirements.</p>'));
+    });
+    // End sections (library, position=back): additional general sections after the system sections.
+    endSections.forEach(fm=>{
+      const o=ovMap['preamble|'+fm.id];
+      const ptitle=(o&&o.title_override)?o.title_override:fm.title;
+      const pcontent=(o&&o.content!=null)?o.content:(fm.content||'');
+      n++;
+      body+=wrapBlock('preamble',fm.id,'End Section: '+fm.title,fm.content,true,'<h1 style="page-break-before:always">'+n+'. '+escHtml(ptitle)+'</h1>'+pcontent,{canRenameTitle:true,titleRaw:ptitle,globalTitle:fm.title});
     });
     // Annex A: equipment schedule by room and technical space
     body+='<h1 style="page-break-before:always">Annex A: Equipment Schedule by Location</h1>';
