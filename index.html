@@ -441,6 +441,7 @@
   .spec-empty-chapter { padding: 6px 28px 8px; font-size: 11px; color: var(--text-3); font-style: italic; }
   .spec-preamble-head { padding: 8px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
   .spec-doc-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; }
+  .spec-inline-scroll { overflow: auto; background: var(--surface2); height: calc(100vh - 160px); padding: 20px 0; }
   .spec-preview-doc { max-width: 820px; margin: 0 auto; background: #fff; color: #222; font-family: Calibri, Arial, sans-serif; font-size: 14px; line-height: 1.45; padding: 40px 52px; box-shadow: var(--shadow-sm); border-radius: 4px; }
   .spec-preview-doc h1 { font-size: 22px; color: #111; border-bottom: 2px solid #888; padding-bottom: 4px; margin: 26px 0 10px; }
   .spec-preview-doc h2 { font-size: 17px; color: #111; margin: 18px 0 6px; }
@@ -851,60 +852,14 @@
       <!-- SPECIFICATION -->
       <div id="page-specification" class="hidden">
         <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--text-2);font-weight:500">Generate from this project's equipment:</span>
-          <button class="btn btn-primary btn-sm" onclick="previewCsiSpec()">Preview Specification (CSI)</button>
-          <button class="btn btn-secondary btn-sm" onclick="generateCsiSpec()">Full Specification (CSI, Word)</button>
+          <span style="font-size:12px;color:var(--text-2);font-weight:500">Specification (generated live from this project's equipment):</span>
+          <button class="btn btn-secondary btn-sm" onclick="previewCsiSpec()">↻ Refresh</button>
+          <button class="btn btn-primary btn-sm" onclick="downloadSpecFromPreview()">Download Word (CSI)</button>
           <button class="btn btn-secondary btn-sm" onclick="generateRoomSpec()">Room-by-Room Schedule (Word)</button>
-          <span style="font-size:11px;color:var(--text-3)">CSI builds General / Products / Execution per system, with the room schedule as an annex.</span>
+          <span style="font-size:11px;color:var(--text-3)">Click <strong>Edit</strong> on any block to tailor its text for this project — standard text stays global.</span>
         </div>
-        <div class="spec-doc-bar" id="spec-doc-bar"></div>
-        <div class="spec-layout">
-          <div class="spec-tree-pane">
-            <div class="spec-tree-header">
-              <span class="spec-tree-header-title">Sections</span>
-              <button class="btn btn-secondary btn-sm" onclick="openSpecLibraryPullModal()" title="Pull section from library">
-                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                Library
-              </button>
-              <button class="btn btn-primary btn-sm" onclick="openAddSpecSectionModal(null)">+ Add</button>
-            </div>
-            <div class="spec-tree-scroll" id="spec-tree-scroll"></div>
-          </div>
-          <div class="spec-editor-pane" id="spec-editor-pane">
-            <div class="spec-editor-empty" id="spec-editor-empty">
-              <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-              <div style="font-size:13px;font-weight:500">Select a section to edit</div>
-              <div style="font-size:12px">or add a new section using the tree on the left</div>
-            </div>
-            <div class="spec-editor-form" id="spec-editor-form" style="display:none">
-              <div class="spec-editor-header">
-                <span class="spec-editor-num" id="spec-editor-num">&#8212;</span>
-                <input id="spec-editor-title" class="spec-editor-title-inp" type="text" placeholder="Section title&#8230;" oninput="specMarkDirty()">
-              </div>
-              <div class="spec-quill-wrap" id="spec-quill-wrap">
-                <div id="spec-quill-editor"></div>
-              </div>
-              <div class="spec-editor-footer">
-                <div class="spec-dirty-dot" id="spec-dirty-dot" style="display:none" title="Unsaved changes"></div>
-                <button class="btn btn-primary btn-sm" onclick="saveSpecSection()">Save</button>
-                <button class="btn btn-secondary btn-sm" onclick="cancelSpecEdit()">Discard</button>
-                <span id="spec-saved-msg" style="font-size:11px;color:var(--green);margin-left:4px;display:none">&#10003; Saved</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="spec-changelog-wrap" id="spec-changelog-wrap">
-          <button class="spec-changelog-toggle" onclick="toggleSpecChangelog()">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
-            <span class="spec-changelog-toggle-title">Specification Change Log</span>
-            <span id="spec-changelog-count" style="font-size:11px;color:var(--text-3)"></span>
-          </button>
-          <div id="spec-changelog-body" style="display:none;overflow-x:auto">
-            <table class="spec-cl-table">
-              <thead><tr><th>Date</th><th>Action</th><th>Section</th><th>Changed by</th><th>CR</th></tr></thead>
-              <tbody id="spec-changelog-tbody"></tbody>
-            </table>
-          </div>
+        <div id="spec-preview-scroll" class="spec-inline-scroll">
+          <div id="spec-preview-body" class="spec-preview-doc"></div>
         </div>
       </div>
 
@@ -1371,22 +1326,6 @@
       <div style="margin-top:8px"><label>Execution (CSI Part 3) <span class="optional">installation, testing, commissioning and training; one point per line</span></label><textarea id="sg-execution" rows="4" style="width:100%;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);resize:vertical"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeSgModal()">Cancel</button><button class="btn btn-primary" onclick="saveSystemGroup()" id="sg-save-btn">Save Group</button></div>
-  </div>
-</div>
-
-<!-- SPEC PREVIEW MODAL -->
-<div class="modal-overlay" id="spec-preview-overlay">
-  <div class="modal" style="max-width:960px;width:100%;height:88vh;display:flex;flex-direction:column">
-    <div class="modal-header">
-      <div class="modal-title" id="spec-preview-title">Specification Preview</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-primary btn-sm" onclick="downloadSpecFromPreview()">Download Word</button>
-        <button class="btn-icon" onclick="closeSpecPreview()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-      </div>
-    </div>
-    <div class="modal-body" id="spec-preview-scroll" style="overflow:auto;flex:1;background:var(--surface2)">
-      <div id="spec-preview-body" class="spec-preview-doc"></div>
-    </div>
   </div>
 </div>
 
@@ -1860,7 +1799,7 @@ function showPage(page){
   else if(page==='product-catalogue'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Product';btn.onclick=openProductModal;btn.style.display='';}
   else if(page==='global-templates'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Template';btn.onclick=openGlobalTemplateModal;btn.style.display='';}
   else if(page==='system-groups'){updateSgTabBtn();btn.style.display='';}
-  else if(page==='specification'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Section';btn.onclick=()=>openAddSpecSectionModal(null);btn.style.display='';}
+  else if(page==='specification'){btn.style.display='none';}
   else if(page==='spec-library'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Library Section';btn.onclick=openSpecLibSectionModal;btn.style.display='';}
   else btn.style.display='none';
   if(page==='dashboard')loadProjects();
@@ -6701,19 +6640,10 @@ function specDiscLabel(code){const d=SPEC_DISCIPLINES.find(x=>x.code===code);ret
 
 async function loadSpecification(){
   if(!currentProject)return;
-  renderSpecTree('<div class="loading"><div class="spinner"></div> Loading…</div>');
-  try{
-    if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
-    if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc');
-    specDocuments=await dbGet('spec_documents','project_id=eq.'+currentProject.id+'&order=sort_order.asc,created_at.asc');
-    renderSpecDocBar();
-    if(specDocuments.length){
-      await selectSpecDocument(specDocuments[0].id);
-    }else{
-      specDocument=null;specSections=[];specChangeLog=[];
-      renderSpecTree();renderSpecChangelog();showSpecEmpty();
-    }
-  }catch(e){renderSpecTree('<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>');showToast('Failed to load specification: '+e.message,'error');}
+  // The Specification page is now the live, editable CSI preview (generated from
+  // equipment + global text + per-project overrides). The old document/section
+  // Quill editor has been retired; generation reads none of it.
+  await previewCsiSpec();
 }
 
 function renderSpecDocBar(){
@@ -7392,19 +7322,18 @@ async function generateCsiSpec(){
 let _specPreviewData=null,_specEditBlocks={},_specEditQuill=null;
 async function previewCsiSpec(keepScroll){
   if(!currentProject){showToast('Open a project first','error');return;}
+  const sc=document.getElementById('spec-preview-scroll');const prevTop=sc?sc.scrollTop:0;
+  const body=document.getElementById('spec-preview-body');
   try{
-    const sc=document.getElementById('spec-preview-scroll');const prevTop=sc?sc.scrollTop:0;
+    if(body)body.innerHTML='<div class="loading" style="padding:40px"><div class="spinner"></div> Building specification…</div>';
     const a=await _assembleCsiSpec();
     _specPreviewData=a;_specEditQuill=null;
-    document.getElementById('spec-preview-title').textContent=a.title+' — Preview';
-    document.getElementById('spec-preview-body').innerHTML=a.body;
+    if(body)body.innerHTML=a.body;
     _decorateSpecBlocks();
-    document.getElementById('spec-preview-overlay').classList.add('open');
     if(sc)sc.scrollTop=keepScroll?prevTop:0;
-  }catch(e){showToast('Preview failed: '+e.message,'error');}
+  }catch(e){showToast('Preview failed: '+e.message,'error');if(body)body.innerHTML='<p style="padding:30px;color:var(--red)">Could not build the specification: '+escHtml(e.message)+'</p>';}
 }
-function closeSpecPreview(){document.getElementById('spec-preview-overlay').classList.remove('open');}
-function downloadSpecFromPreview(){if(!_specPreviewData)return;const a=_specPreviewData;_downloadDoc(a.filename,_wrapWordDoc(a.title,a.subtitle,a.body));showToast('CSI specification generated','success');}
+function downloadSpecFromPreview(){if(!_specPreviewData){showToast('Nothing to download yet','error');return;}const a=_specPreviewData;_downloadDoc(a.filename,_wrapWordDoc(a.title,a.subtitle,a.body));showToast('CSI specification generated','success');}
 // Add an Edit/Revert toolbar + Standard/Override badge to each editable block in the preview only.
 function _decorateSpecBlocks(){
   const cont=document.getElementById('spec-preview-body');if(!cont)return;
