@@ -444,6 +444,7 @@
   .spec-badge { font-family: 'Inter', Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
   .spec-badge.std { background: var(--border); color: var(--text-2); }
   .spec-badge.ov { background: #fde9c8; color: #9a5b00; }
+  .spec-badge.custom { background: #e7ecff; color: #2b4ad6; }
   .spec-block-btn { font-family: 'Inter', Arial, sans-serif; font-size: 11px; font-weight: 600; padding: 2px 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--accent); border-radius: var(--radius-sm); cursor: pointer; }
   .spec-block-btn:hover { border-color: var(--accent); }
   .spec-block-btn.revert { color: var(--red); }
@@ -799,6 +800,8 @@
           <button class="btn btn-secondary btn-sm" onclick="previewCsiSpec()">↻ Refresh</button>
           <button class="btn btn-primary btn-sm" onclick="downloadSpecFromPreview()">Download Word (CSI)</button>
           <button class="btn btn-secondary btn-sm" onclick="generateRoomSpec()">Room-by-Room Schedule (Word)</button>
+          <button class="btn btn-secondary btn-sm" onclick="addCustomSection('front')">+ Front section</button>
+          <button class="btn btn-secondary btn-sm" onclick="addCustomSection('end')">+ End section</button>
           <span style="font-size:11px;color:var(--text-3)">Click <strong>Edit</strong> on any block to tailor its text for this project — standard text stays global.</span>
         </div>
         <div class="spec-page-wrap">
@@ -6835,11 +6838,11 @@ function _decorateSpecBlocks(){
   cont.querySelectorAll('.spec-block[data-block]').forEach(el=>{
     const bid=el.getAttribute('data-block');const m=_specEditBlocks[bid];if(!m)return;
     if(el.querySelector(':scope > .spec-block-bar'))return;
-    const bar=document.createElement('div');bar.className='spec-block-bar'+(m.overridden?' ov':'');
-    bar.innerHTML='<span class="spec-block-label">'+escHtml(m.label)+'</span>'
-      +'<span class="spec-badge '+(m.overridden?'ov':'std')+'">'+(m.overridden?'Project override':'Standard')+'</span>'
+    const bar=document.createElement('div');bar.className='spec-block-bar'+((m.overridden||m.isCustom)?' ov':'');
+    const badge=m.isCustom?'<span class="spec-badge custom">Custom</span>':'<span class="spec-badge '+(m.overridden?'ov':'std')+'">'+(m.overridden?'Project override':'Standard')+'</span>';
+    bar.innerHTML='<span class="spec-block-label">'+escHtml(m.label)+'</span>'+badge
       +'<button class="spec-block-btn" onclick="specEditBlock(\''+bid+'\')">Edit</button>'
-      +(m.overridden?'<button class="spec-block-btn revert" onclick="specRevertBlock(\''+bid+'\')">Revert</button>':'');
+      +(m.isCustom?'<button class="spec-block-btn revert" onclick="specDeleteCustom(\''+bid+'\')">Delete</button>':(m.overridden?'<button class="spec-block-btn revert" onclick="specRevertBlock(\''+bid+'\')">Revert</button>':''));
     el.insertBefore(bar,el.firstChild);
   });
 }
@@ -6878,6 +6881,24 @@ function specRevertBlock(bid){
   const m=_specEditBlocks[bid];if(!m||!m.overrideId)return;
   openConfirm('Revert to standard','Discard this project’s custom text for "'+m.label+'" and use the standard text again?',async()=>{
     try{await dbDelete('project_spec_overrides',m.overrideId);showToast('Reverted to standard','success');await previewCsiSpec(true);}catch(e){showToast('Revert failed: '+e.message,'error');}
+  });
+}
+// Project custom sections (Phase B): add a project-only section at the front or end.
+async function addCustomSection(part){
+  if(!currentProject){showToast('Open a project first','error');return;}
+  const key='custom-'+Date.now();
+  try{
+    await dbInsert('project_spec_overrides',{project_id:currentProject.id,scope_type:'custom',scope_key:key,is_custom:true,part:part,title_override:'New section',content:'',sort_order:Date.now()%1000000});
+    await previewCsiSpec(true);
+    const bid=Object.keys(_specEditBlocks).find(b=>_specEditBlocks[b].sk===key);
+    if(bid){const el=document.querySelector('.spec-block[data-block="'+bid+'"]');if(el)el.scrollIntoView({block:'center'});specEditBlock(bid);}
+    showToast('Custom section added — give it a title and content','success');
+  }catch(e){showToast('Could not add section: '+e.message,'error');}
+}
+function specDeleteCustom(bid){
+  const m=_specEditBlocks[bid];if(!m||!m.overrideId)return;
+  openConfirm('Delete section','Delete the custom section "'+(m.titleRaw||'Untitled')+'" from this project? This cannot be undone.',async()=>{
+    try{await dbDelete('project_spec_overrides',m.overrideId);showToast('Section deleted','success');await previewCsiSpec(true);}catch(e){showToast('Delete failed: '+e.message,'error');}
   });
 }
 // Hierarchical heading numbers for the main spec body: h1 -> "N.", h2 -> "N.M", h3 -> "N.M.P", h4 deeper.
@@ -6922,6 +6943,9 @@ async function _assembleCsiSpec(){
       _specEditBlocks[bid]=Object.assign({st,sk,label,raw:(o&&o.content!=null?o.content:(globalText||'')),isHtml,overrideId:o?o.id:null,overridden:!!(o&&(o.content!=null||o.title_override))},extra||{});
       return '<div class="spec-block" data-block="'+bid+'">'+innerHtml+'</div>';
     };
+    // Project-only custom sections (is_custom rows). Editable + deletable; top-level numbered.
+    const customs=overrides.filter(o=>o.is_custom).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+    const renderCustoms=(part)=>{let h='';customs.filter(c=>(c.part||'end')===part).forEach(c=>{const bid='b'+(++_bseq);const title=c.title_override||'Untitled section';_specEditBlocks[bid]={st:'custom',sk:c.scope_key,label:'Custom Section: '+title,raw:c.content||'',isHtml:true,overrideId:c.id,overridden:true,isCustom:true,canRenameTitle:true,titleRaw:title};h+='<div class="spec-block" data-block="'+bid+'"><h1 style="page-break-before:always">'+escHtml(title)+'</h1>'+(c.content||'<p style="color:#999">(empty — click Edit to add content)</p>')+'</div>';});return h;};
     // Part 2 (Products): device types are itemised when they have effective text (global or project override).
     const devOverrides=(types)=>{let h='';types.slice().sort((a,b)=>(((peByType[a]||{}).description||a)).localeCompare(((peByType[b]||{}).description||b))).forEach(dt=>{const dev=devByType[dt],e=peByType[dt];const gtext=(dev&&dev.spec_text)||'';const etext=effText('device',dt,gtext);if(etext||ovMap['device|'+dt]){const desc=(e&&e.description)||(dev&&dev.description)||dt;h+=wrapBlock('device',dt,'Device: '+desc,gtext,false,'<p style="font-weight:600;margin:6px 0 2px">'+escHtml(desc)+'</p>'+(etext?_specLinesToHtml(etext):''));}});return h;};
     const active=instances.filter(i=>i.change_status!=='removed'&&(i.room_id||i.rack_zone_id));
@@ -6933,6 +6957,7 @@ async function _assembleCsiSpec(){
       body+='<h1>General Requirements</h1>';
       frontMatter.forEach(fm=>{const o=ovMap['preamble|'+fm.id];const ptitle=(o&&o.title_override)?o.title_override:fm.title;const pcontent=(o&&o.content!=null)?o.content:(fm.content||'');body+=wrapBlock('preamble',fm.id,'Preamble: '+fm.title,fm.content,true,'<h2>'+escHtml(ptitle)+'</h2>'+pcontent,{canRenameTitle:true,titleRaw:ptitle,globalTitle:fm.title});});
     }
+    body+=renderCustoms('front');
     // Per system group: General / Products / Execution
     systemGroups.forEach(g=>{
       const groupUsed=Array.from(usedTypes).some(dt=>{const e=peByType[dt];return e&&e.system_group===g.name;});
@@ -6969,6 +6994,7 @@ async function _assembleCsiSpec(){
       const pcontent=(o&&o.content!=null)?o.content:(fm.content||'');
       body+=wrapBlock('preamble',fm.id,'End Section: '+fm.title,fm.content,true,'<h1 style="page-break-before:always">'+escHtml(ptitle)+'</h1>'+pcontent,{canRenameTitle:true,titleRaw:ptitle,globalTitle:fm.title});
     });
+    body+=renderCustoms('end');
     // Main body sections get hierarchical numbers; annexes keep their own scheme.
     body=_numberSpecHtml(body);
     // Annex A: equipment schedule by room and technical space
