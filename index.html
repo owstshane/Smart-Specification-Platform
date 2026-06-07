@@ -452,6 +452,21 @@
   .spec-preview-doc table { border-collapse: collapse; margin: 8px 0 14px; }
   .spec-preview-doc td, .spec-preview-doc th { border: 1px solid #bbb; padding: 4px 10px; font-size: 13px; }
   .spec-preview-doc th { background: #eee; text-align: left; }
+  .spec-preview-doc .spec-block { position: relative; border: 1px solid transparent; border-radius: 6px; padding: 2px 8px; margin: 2px -8px; }
+  .spec-preview-doc .spec-block:hover { border-color: var(--border); background: #fafafa; }
+  .spec-block-bar { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; }
+  .spec-block-label { font-family: 'Inter', Arial, sans-serif; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); }
+  .spec-badge { font-family: 'Inter', Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
+  .spec-badge.std { background: var(--border); color: var(--text-2); }
+  .spec-badge.ov { background: #fde9c8; color: #9a5b00; }
+  .spec-block-btn { font-family: 'Inter', Arial, sans-serif; font-size: 11px; font-weight: 600; padding: 2px 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--accent); border-radius: var(--radius-sm); cursor: pointer; }
+  .spec-block-btn:hover { border-color: var(--accent); }
+  .spec-block-btn.revert { color: var(--red); }
+  .spec-edit-panel { background: var(--surface2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 12px 14px; margin: 4px 0; font-family: 'Inter', Arial, sans-serif; }
+  .spec-edit-head { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); margin-bottom: 8px; }
+  .spec-edit-lbl { display: block; font-size: 11px; font-weight: 600; color: var(--text-2); margin: 8px 0 3px; }
+  .spec-edit-input, .spec-edit-textarea { width: 100%; font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); resize: vertical; box-sizing: border-box; }
+  .spec-edit-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
   .spec-doc-tabs { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
   .spec-doc-tab { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--radius-sm); cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--text-2); font-family: inherit; }
   .spec-doc-tab:hover { border-color: var(--accent); color: var(--text); }
@@ -7374,20 +7389,69 @@ async function generateCsiSpec(){
     showToast('CSI specification generated','success');
   }catch(e){showToast('Generation failed: '+e.message,'error');}
 }
-let _specPreviewData=null;
-async function previewCsiSpec(){
+let _specPreviewData=null,_specEditBlocks={},_specEditQuill=null;
+async function previewCsiSpec(keepScroll){
   if(!currentProject){showToast('Open a project first','error');return;}
   try{
+    const sc=document.getElementById('spec-preview-scroll');const prevTop=sc?sc.scrollTop:0;
     const a=await _assembleCsiSpec();
-    _specPreviewData=a;
+    _specPreviewData=a;_specEditQuill=null;
     document.getElementById('spec-preview-title').textContent=a.title+' — Preview';
     document.getElementById('spec-preview-body').innerHTML=a.body;
-    document.getElementById('spec-preview-scroll').scrollTop=0;
+    _decorateSpecBlocks();
     document.getElementById('spec-preview-overlay').classList.add('open');
+    if(sc)sc.scrollTop=keepScroll?prevTop:0;
   }catch(e){showToast('Preview failed: '+e.message,'error');}
 }
 function closeSpecPreview(){document.getElementById('spec-preview-overlay').classList.remove('open');}
 function downloadSpecFromPreview(){if(!_specPreviewData)return;const a=_specPreviewData;_downloadDoc(a.filename,_wrapWordDoc(a.title,a.subtitle,a.body));showToast('CSI specification generated','success');}
+// Add an Edit/Revert toolbar + Standard/Override badge to each editable block in the preview only.
+function _decorateSpecBlocks(){
+  const cont=document.getElementById('spec-preview-body');if(!cont)return;
+  cont.querySelectorAll('.spec-block[data-block]').forEach(el=>{
+    const bid=el.getAttribute('data-block');const m=_specEditBlocks[bid];if(!m)return;
+    if(el.querySelector(':scope > .spec-block-bar'))return;
+    const bar=document.createElement('div');bar.className='spec-block-bar';
+    bar.innerHTML='<span class="spec-block-label">'+escHtml(m.label)+'</span>'
+      +'<span class="spec-badge '+(m.overridden?'ov':'std')+'">'+(m.overridden?'Project override':'Standard')+'</span>'
+      +'<button class="spec-block-btn" onclick="specEditBlock(\''+bid+'\')">Edit</button>'
+      +(m.overridden?'<button class="spec-block-btn revert" onclick="specRevertBlock(\''+bid+'\')">Revert</button>':'');
+    el.insertBefore(bar,el.firstChild);
+  });
+}
+function specEditBlock(bid){
+  const m=_specEditBlocks[bid];if(!m)return;
+  const el=document.querySelector('.spec-block[data-block="'+bid+'"]');if(!el)return;
+  let editor='';
+  if(m.canRenameTitle)editor+='<label class="spec-edit-lbl">Heading</label><input id="spec-edit-title" class="spec-edit-input" type="text" value="'+escHtml(m.titleRaw||'')+'">';
+  if(m.isHtml)editor+='<label class="spec-edit-lbl">Content</label><div id="spec-edit-quill"></div>';
+  else editor+='<label class="spec-edit-lbl">Content <span style="font-weight:400;color:#888">(one point per line)</span></label><textarea id="spec-edit-text" class="spec-edit-textarea" rows="8">'+escHtml(m.raw||'')+'</textarea>';
+  el.innerHTML='<div class="spec-edit-panel"><div class="spec-edit-head">'+escHtml(m.label)+'</div>'+editor
+    +'<div class="spec-edit-actions"><button class="btn btn-primary btn-sm" onclick="specSaveBlock(\''+bid+'\')">Save</button>'
+    +'<button class="btn btn-secondary btn-sm" onclick="previewCsiSpec(true)">Cancel</button>'
+    +(m.overridden?'<button class="btn btn-secondary btn-sm" style="margin-left:auto;color:var(--red)" onclick="specRevertBlock(\''+bid+'\')">Revert to standard</button>':'')
+    +'</div></div>';
+  if(m.isHtml){_specEditQuill=new Quill('#spec-edit-quill',{theme:'snow',modules:{toolbar:[[{header:[1,2,3,false]}],['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['clean']]}});if(m.raw)_specEditQuill.clipboard.dangerouslyPasteHTML(m.raw);}
+  el.scrollIntoView({block:'center'});
+}
+async function specSaveBlock(bid){
+  const m=_specEditBlocks[bid];if(!m)return;
+  const content=m.isHtml?(_specEditQuill?_specEditQuill.root.innerHTML:''):((document.getElementById('spec-edit-text')||{}).value||'');
+  const payload={content:content,updated_at:new Date().toISOString()};
+  if(m.canRenameTitle){const ti=document.getElementById('spec-edit-title');if(ti)payload.title_override=ti.value.trim()||null;}
+  try{
+    if(m.overrideId)await dbUpdate('project_spec_overrides',m.overrideId,payload);
+    else await dbInsert('project_spec_overrides',Object.assign({project_id:currentProject.id,scope_type:m.st,scope_key:m.sk},payload));
+    showToast('Saved for this project','success');
+    await previewCsiSpec(true);
+  }catch(e){showToast('Save failed: '+e.message,'error');}
+}
+function specRevertBlock(bid){
+  const m=_specEditBlocks[bid];if(!m||!m.overrideId)return;
+  openConfirm('Revert to standard','Discard this project’s custom text for "'+m.label+'" and use the standard text again?',async()=>{
+    try{await dbDelete('project_spec_overrides',m.overrideId);showToast('Reverted to standard','success');await previewCsiSpec(true);}catch(e){showToast('Revert failed: '+e.message,'error');}
+  });
+}
 async function _assembleCsiSpec(){
     const decks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
     const deckIds=decks.map(d=>d.id);
@@ -7407,9 +7471,18 @@ async function _assembleCsiSpec(){
     const devByType={};globalLibrary.forEach(d=>devByType[d.device_type_id]=d);
     const sgByName={};systemGroups.forEach(g=>sgByName[g.name]=g);
     const exampleFor=(dt)=>{const prod=pp.find(p=>p.device_type_id===dt&&(p.make||p.model));if(prod)return [prod.make,prod.model].filter(Boolean).join(' ');const e=pe.find(p=>p.device_type_id===dt&&(p.make||p.model));return e?[e.make,e.model].filter(Boolean).join(' '):'';};
-    // Part 2 (Products) carries requirement text only; quantities/locations live in Annex A.
-    // Only device types with their OWN override text are itemised here.
-    const devOverrides=(types)=>{let h='';types.sort((a,b)=>(((peByType[a]||{}).description||a)).localeCompare(((peByType[b]||{}).description||b))).forEach(dt=>{const dev=devByType[dt],e=peByType[dt];if(dev&&dev.spec_text){const desc=(e&&e.description)||(dev&&dev.description)||dt;h+='<p style="font-weight:600;margin:6px 0 2px">'+escHtml(desc)+'</p>'+_specLinesToHtml(dev.spec_text);}});return h;};
+    // Per-project override layer: project text wins over global; blocks are editable in the preview.
+    const overrides=await dbGet('project_spec_overrides','project_id=eq.'+currentProject.id);
+    const ovMap={};overrides.forEach(o=>{ovMap[o.scope_type+'|'+o.scope_key]=o;});
+    _specEditBlocks={};let _bseq=0;
+    const effText=(st,sk,globalText)=>{const o=ovMap[st+'|'+sk];return o&&o.content!=null?o.content:(globalText||'');};
+    const wrapBlock=(st,sk,label,globalText,isHtml,innerHtml,extra)=>{
+      const o=ovMap[st+'|'+sk];const bid='b'+(++_bseq);
+      _specEditBlocks[bid]=Object.assign({st,sk,label,raw:(o&&o.content!=null?o.content:(globalText||'')),isHtml,overrideId:o?o.id:null,overridden:!!(o&&(o.content!=null||o.title_override))},extra||{});
+      return '<div class="spec-block" data-block="'+bid+'">'+innerHtml+'</div>';
+    };
+    // Part 2 (Products): device types are itemised when they have effective text (global or project override).
+    const devOverrides=(types)=>{let h='';types.slice().sort((a,b)=>(((peByType[a]||{}).description||a)).localeCompare(((peByType[b]||{}).description||b))).forEach(dt=>{const dev=devByType[dt],e=peByType[dt];const gtext=(dev&&dev.spec_text)||'';const etext=effText('device',dt,gtext);if(etext||ovMap['device|'+dt]){const desc=(e&&e.description)||(dev&&dev.description)||dt;h+=wrapBlock('device',dt,'Device: '+desc,gtext,false,'<p style="font-weight:600;margin:6px 0 2px">'+escHtml(desc)+'</p>'+(etext?_specLinesToHtml(etext):''));}});return h;};
     const active=instances.filter(i=>i.change_status!=='removed'&&(i.room_id||i.rack_zone_id));
     const usedTypes=new Set(active.map(i=>{const e=peById[i.project_equipment_id];return e?e.device_type_id:null;}).filter(Boolean));
 
@@ -7417,7 +7490,7 @@ async function _assembleCsiSpec(){
     // Section 1: General Requirements (shared front matter from the spec library)
     if(frontMatter.length){
       n++;body+='<h1>'+n+'. General Requirements</h1>';
-      frontMatter.forEach(fm=>{body+='<h3>'+escHtml(fm.title)+'</h3>'+(fm.content||'');});
+      frontMatter.forEach(fm=>{const o=ovMap['preamble|'+fm.id];const ptitle=(o&&o.title_override)?o.title_override:fm.title;const pcontent=(o&&o.content!=null)?o.content:(fm.content||'');body+=wrapBlock('preamble',fm.id,'Preamble: '+fm.title,fm.content,true,'<h3>'+escHtml(ptitle)+'</h3>'+pcontent,{canRenameTitle:true,titleRaw:ptitle,globalTitle:fm.title});});
     }
     // Per system group: General / Products / Execution
     systemGroups.forEach(g=>{
@@ -7425,25 +7498,29 @@ async function _assembleCsiSpec(){
       if(!groupUsed)return;
       n++;
       body+='<h1 style="page-break-before:always">'+n+'. '+escHtml(g.name)+'</h1>';
-      body+='<h2>'+n+'.1 General</h2>'+(g.general_text?_specLinesToHtml(g.general_text):'<p>Refer to Section 1, General Requirements.</p>');
+      const gGen=effText('group_general',g.id,g.general_text);
+      body+=wrapBlock('group_general',g.id,'System Group: '+g.name+' — General',g.general_text,false,'<h2>'+n+'.1 General</h2>'+(gGen?_specLinesToHtml(gGen):'<p>Refer to Section 1, General Requirements.</p>'));
       body+='<h2>'+n+'.2 Products</h2>';
       let prod='';
       deviceCategories.filter(c=>c.system_group_id===g.id).forEach(cat=>{
         const typesInCat=Array.from(usedTypes).filter(dt=>{const e=peByType[dt];return e&&e.category_code===cat.code;});
         if(!typesInCat.length)return;
-        prod+='<h3>'+escHtml(cat.name)+'</h3>';
-        if(cat.spec_text)prod+=_specLinesToHtml(cat.spec_text);
+        const cText=effText('category',cat.id,cat.spec_text);
+        prod+=wrapBlock('category',cat.id,'Category: '+cat.name,cat.spec_text,false,'<h3>'+escHtml(cat.name)+'</h3>'+(cText?_specLinesToHtml(cText):''));
         const usedSub=new Set();
         deviceSubcategories.filter(s=>s.category_id===cat.id).forEach(sub=>{
           const t=typesInCat.filter(dt=>{const e=peByType[dt];return e&&e.subcategory_code===sub.code;});
           if(!t.length)return;usedSub.add(sub.code);
-          prod+='<h4>'+escHtml(sub.name)+'</h4>';if(sub.spec_text)prod+=_specLinesToHtml(sub.spec_text);prod+=devOverrides(t);
+          const sText=effText('subcategory',sub.id,sub.spec_text);
+          prod+=wrapBlock('subcategory',sub.id,'Sub-category: '+sub.name,sub.spec_text,false,'<h4>'+escHtml(sub.name)+'</h4>'+(sText?_specLinesToHtml(sText):''));
+          prod+=devOverrides(t);
         });
         const loose=typesInCat.filter(dt=>{const e=peByType[dt];return!e.subcategory_code||!usedSub.has(e.subcategory_code);});
         if(loose.length)prod+=devOverrides(loose);
       });
       body+=prod||'<p>Refer to the equipment schedule in Annex A.</p>';
-      body+='<h2>'+n+'.3 Execution</h2>'+(g.execution_text?_specLinesToHtml(g.execution_text):'<p>Install, test, commission and hand over in accordance with Section 1, General Requirements.</p>');
+      const gExec=effText('group_execution',g.id,g.execution_text);
+      body+=wrapBlock('group_execution',g.id,'System Group: '+g.name+' — Execution',g.execution_text,false,'<h2>'+n+'.3 Execution</h2>'+(gExec?_specLinesToHtml(gExec):'<p>Install, test, commission and hand over in accordance with Section 1, General Requirements.</p>'));
     });
     // Annex A: equipment schedule by room and technical space
     body+='<h1 style="page-break-before:always">Annex A: Equipment Schedule by Location</h1>';
