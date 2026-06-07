@@ -416,31 +416,6 @@
   .flex { display: flex; } .items-center { align-items: center; } .gap-12 { gap: 12px; }
 
   /* SPEC BUILDER */
-  .spec-layout { display: grid; grid-template-columns: 310px 1fr; min-height: calc(100vh - 210px); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); overflow: hidden; }
-  .spec-tree-pane { border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--surface2); overflow: hidden; }
-  .spec-tree-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; background: var(--surface); flex-shrink: 0; }
-  .spec-tree-header-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-3); flex: 1; }
-  .spec-tree-scroll { flex: 1; overflow-y: auto; }
-  .spec-chapter-group { border-top: 1px solid var(--border); }
-  .spec-chapter-group:first-child { border-top: none; }
-  .spec-chapter-heading { padding: 8px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
-  .spec-chapter-num { font-family: 'DM Mono', monospace; font-size: 10px; min-width: 18px; }
-  .spec-chapter-label { flex: 1; }
-  .spec-chapter-add-btn { background: none; border: none; cursor: pointer; color: var(--text-3); padding: 2px 5px; border-radius: 3px; font-size: 14px; line-height: 1; font-family: inherit; }
-  .spec-chapter-add-btn:hover { background: var(--border); color: var(--accent); }
-  .spec-section-row { display: flex; align-items: center; gap: 4px; padding: 7px 12px 7px 28px; cursor: pointer; border-left: 3px solid transparent; transition: background 0.1s; }
-  .spec-section-row:hover { background: rgba(0,0,0,0.04); }
-  .spec-section-row.selected { background: var(--accent-light); border-left-color: var(--accent); }
-  .spec-section-num { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-3); flex-shrink: 0; min-width: 34px; }
-  .spec-section-title-tree { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .spec-row-actions { display: flex; gap: 1px; flex-shrink: 0; opacity: 0; }
-  .spec-section-row:hover .spec-row-actions { opacity: 1; }
-  .spec-row-btn { background: none; border: none; cursor: pointer; color: var(--text-3); padding: 3px 5px; border-radius: 3px; line-height: 1; display: flex; align-items: center; }
-  .spec-row-btn:hover { background: rgba(0,0,0,0.08); color: var(--text); }
-  .spec-row-btn.del:hover { background: var(--red-light); color: var(--red); }
-  .spec-empty-chapter { padding: 6px 28px 8px; font-size: 11px; color: var(--text-3); font-style: italic; }
-  .spec-preamble-head { padding: 8px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
-  .spec-doc-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; }
   .spec-inline-scroll { overflow: auto; background: var(--surface2); height: calc(100vh - 160px); padding: 20px 0; }
   .spec-preview-doc { max-width: 820px; margin: 0 auto; background: #fff; color: #222; font-family: Calibri, Arial, sans-serif; font-size: 14px; line-height: 1.45; padding: 40px 52px; box-shadow: var(--shadow-sm); border-radius: 4px; }
   .spec-preview-doc h1 { font-size: 22px; color: #111; border-bottom: 2px solid #888; padding-bottom: 4px; margin: 26px 0 10px; }
@@ -455,7 +430,9 @@
   .spec-preview-doc th { background: #eee; text-align: left; }
   .spec-preview-doc .spec-block { position: relative; border: 1px solid transparent; border-radius: 6px; padding: 2px 8px; margin: 2px -8px; }
   .spec-preview-doc .spec-block:hover { border-color: var(--border); background: #fafafa; }
-  .spec-block-bar { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; }
+  .spec-block-bar { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; opacity: 0; transition: opacity 0.12s; }
+  .spec-preview-doc .spec-block:hover .spec-block-bar { opacity: 1; }
+  .spec-block-bar.ov { opacity: 1; }
   .spec-block-label { font-family: 'Inter', Arial, sans-serif; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); }
   .spec-badge { font-family: 'Inter', Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
   .spec-badge.std { background: var(--border); color: var(--text-2); }
@@ -468,47 +445,6 @@
   .spec-edit-lbl { display: block; font-size: 11px; font-weight: 600; color: var(--text-2); margin: 8px 0 3px; }
   .spec-edit-input, .spec-edit-textarea { width: 100%; font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); resize: vertical; box-sizing: border-box; }
   .spec-edit-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-  .spec-doc-tabs { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
-  .spec-doc-tab { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--radius-sm); cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--text-2); font-family: inherit; }
-  .spec-doc-tab:hover { border-color: var(--accent); color: var(--text); }
-  .spec-doc-tab.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
-  .spec-doc-tab-code { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700; background: var(--border); color: var(--text-2); padding: 1px 5px; border-radius: 3px; }
-  .spec-doc-tab.active .spec-doc-tab-code { background: var(--accent); color: #fff; }
-  .spec-doc-actions { display: flex; align-items: center; gap: 6px; }
-  .spec-chapter-tools { display: flex; align-items: center; gap: 1px; opacity: 0; }
-  .spec-chapter-heading:hover .spec-chapter-tools { opacity: 1; }
-  .spec-add-chapter-btn { display: block; width: calc(100% - 24px); margin: 10px 12px; padding: 7px; border: 1px dashed var(--border-strong); background: none; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-3); font-size: 12px; font-family: inherit; }
-  .spec-add-chapter-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .spec-editor-pane { display: flex; flex-direction: column; overflow: hidden; }
-  .spec-editor-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-3); padding: 40px; }
-  .spec-editor-form { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  .spec-editor-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; background: var(--surface); }
-  .spec-editor-num { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 700; color: var(--text-3); flex-shrink: 0; }
-  .spec-editor-title-inp { flex: 1; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 6px 10px; font-size: 16px; font-weight: 600; font-family: 'DM Sans', sans-serif; color: var(--text); background: transparent; outline: none; min-height: unset; }
-  .spec-editor-title-inp:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px rgba(232,80,10,0.08); }
-  .spec-quill-wrap { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
-  .spec-quill-wrap .ql-toolbar { border-left: none; border-right: none; border-top: none; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .spec-quill-wrap .ql-container { flex: 1; border: none; font-family: 'DM Sans', sans-serif; font-size: 13.5px; }
-  .spec-quill-wrap .ql-editor { min-height: 300px; }
-  .spec-editor-footer { padding: 10px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-shrink: 0; background: var(--surface); }
-  .spec-dirty-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
-  .spec-changelog-wrap { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
-  .spec-changelog-toggle { display: flex; align-items: center; gap: 8px; padding: 12px 16px; cursor: pointer; border: none; background: transparent; width: 100%; font-family: inherit; text-align: left; }
-  .spec-changelog-toggle:hover { background: var(--surface2); }
-  .spec-changelog-toggle-title { font-size: 13px; font-weight: 600; flex: 1; }
-  .spec-cl-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .spec-cl-table th { padding: 8px 12px; background: var(--surface2); border-bottom: 1px solid var(--border); text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); }
-  .spec-cl-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: top; }
-  .spec-cl-table tr:last-child td { border-bottom: none; }
-  .spec-cl-badge-added { color: var(--green); font-weight: 600; }
-  .spec-cl-badge-modified { color: var(--amber); font-weight: 600; }
-  .spec-cl-badge-removed { color: var(--red); font-weight: 600; }
-  .spec-lib-row { display: grid; grid-template-columns: 160px 140px 1fr 80px; gap: 0; border-bottom: 1px solid var(--border); align-items: center; }
-  .spec-lib-row:last-child { border-bottom: none; }
-  .spec-lib-row:hover { background: var(--surface2); }
-  .spec-lib-cell { padding: 10px 12px; font-size: 12px; }
-  .spec-lib-cell.header { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); background: var(--surface2); }
-  .spec-lib-preview { color: var(--text-3); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 </head>
 <body>
@@ -972,12 +908,12 @@
       <div id="page-spec-library" class="hidden">
         <div class="toolbar">
           <select id="sl-filter-group" onchange="renderSpecLibrary()" style="width:auto;padding:8px 11px"><option value="">All disciplines</option></select>
-          <button class="btn btn-primary btn-sm" onclick="openSpecLibSectionModal()" style="margin-left:8px">+ New Section</button>
           <div style="margin-left:auto;font-size:12px;color:var(--text-3)" id="sl-count"></div>
         </div>
         <div style="padding:8px 16px;font-size:12px;color:var(--text-3)">Standard document-level sections. <strong>Front</strong> sections open the spec as Section 1 (General Requirements); <strong>End</strong> sections are appended after the system sections. Per-system features &amp; functions text lives in Groups &amp; Categories / Device Types.</div>
         <div class="equip-table" id="sl-container">
-          <table>
+          <table style="table-layout:fixed;width:100%">
+            <colgroup><col style="width:160px"><col style="width:70px"><col style="width:240px"><col><col style="width:90px"></colgroup>
             <thead>
               <tr>
                 <th>Discipline</th><th>Position</th><th>Title</th><th>Preview</th><th style="text-align:right">Actions</th>
@@ -6872,7 +6808,7 @@ function _decorateSpecBlocks(){
   cont.querySelectorAll('.spec-block[data-block]').forEach(el=>{
     const bid=el.getAttribute('data-block');const m=_specEditBlocks[bid];if(!m)return;
     if(el.querySelector(':scope > .spec-block-bar'))return;
-    const bar=document.createElement('div');bar.className='spec-block-bar';
+    const bar=document.createElement('div');bar.className='spec-block-bar'+(m.overridden?' ov':'');
     bar.innerHTML='<span class="spec-block-label">'+escHtml(m.label)+'</span>'
       +'<span class="spec-badge '+(m.overridden?'ov':'std')+'">'+(m.overridden?'Project override':'Standard')+'</span>'
       +'<button class="spec-block-btn" onclick="specEditBlock(\''+bid+'\')">Edit</button>'
