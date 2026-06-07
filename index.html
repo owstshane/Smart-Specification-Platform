@@ -7316,7 +7316,7 @@ async function generateCsiSpec(){
     showToast('CSI specification generated','success');
   }catch(e){showToast('Generation failed: '+e.message,'error');}
 }
-let _specPreviewData=null,_specEditBlocks={},_specEditQuill=null;
+let _specPreviewData=null,_specEditBlocks={},_specEditQuill=null,_specEditMode='lines';
 async function previewCsiSpec(keepScroll){
   if(!currentProject){showToast('Open a project first','error');return;}
   const sc=document.getElementById('spec-preview-scroll');const prevTop=sc?sc.scrollTop:0;
@@ -7348,21 +7348,25 @@ function _decorateSpecBlocks(){
 function specEditBlock(bid){
   const m=_specEditBlocks[bid];if(!m)return;
   const el=document.querySelector('.spec-block[data-block="'+bid+'"]');if(!el)return;
+  // Tables can't survive the rich editor, so HTML blocks containing a table edit as raw HTML.
+  const hasTable=m.isHtml&&/<table/i.test(m.raw||'');
+  _specEditMode=hasTable?'html':(m.isHtml?'quill':'lines');
   let editor='';
   if(m.canRenameTitle)editor+='<label class="spec-edit-lbl">Heading</label><input id="spec-edit-title" class="spec-edit-input" type="text" value="'+escHtml(m.titleRaw||'')+'">';
-  if(m.isHtml)editor+='<label class="spec-edit-lbl">Content</label><div id="spec-edit-quill"></div>';
+  if(_specEditMode==='quill')editor+='<label class="spec-edit-lbl">Content</label><div id="spec-edit-quill"></div>';
+  else if(_specEditMode==='html')editor+='<label class="spec-edit-lbl">Content <span style="font-weight:400;color:#888">(HTML — this section contains a table; edit the tags directly)</span></label><textarea id="spec-edit-html" class="spec-edit-textarea" rows="16" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">'+escHtml(m.raw||'')+'</textarea>';
   else editor+='<label class="spec-edit-lbl">Content <span style="font-weight:400;color:#888">(one point per line)</span></label><textarea id="spec-edit-text" class="spec-edit-textarea" rows="8">'+escHtml(m.raw||'')+'</textarea>';
   el.innerHTML='<div class="spec-edit-panel"><div class="spec-edit-head">'+escHtml(m.label)+'</div>'+editor
     +'<div class="spec-edit-actions"><button class="btn btn-primary btn-sm" onclick="specSaveBlock(\''+bid+'\')">Save</button>'
     +'<button class="btn btn-secondary btn-sm" onclick="previewCsiSpec(true)">Cancel</button>'
     +(m.overridden?'<button class="btn btn-secondary btn-sm" style="margin-left:auto;color:var(--red)" onclick="specRevertBlock(\''+bid+'\')">Revert to standard</button>':'')
     +'</div></div>';
-  if(m.isHtml){_specEditQuill=new Quill('#spec-edit-quill',{theme:'snow',modules:{toolbar:[[{header:[1,2,3,false]}],['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['clean']]}});if(m.raw)_specEditQuill.clipboard.dangerouslyPasteHTML(m.raw);}
+  if(_specEditMode==='quill'){_specEditQuill=new Quill('#spec-edit-quill',{theme:'snow',modules:{toolbar:[[{header:[1,2,3,false]}],['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['clean']]}});if(m.raw)_specEditQuill.clipboard.dangerouslyPasteHTML(m.raw);}
   el.scrollIntoView({block:'center'});
 }
 async function specSaveBlock(bid){
   const m=_specEditBlocks[bid];if(!m)return;
-  const content=m.isHtml?(_specEditQuill?_specEditQuill.root.innerHTML:''):((document.getElementById('spec-edit-text')||{}).value||'');
+  const content=_specEditMode==='quill'?(_specEditQuill?_specEditQuill.root.innerHTML:''):_specEditMode==='html'?((document.getElementById('spec-edit-html')||{}).value||''):((document.getElementById('spec-edit-text')||{}).value||'');
   const payload={content:content,updated_at:new Date().toISOString()};
   if(m.canRenameTitle){const ti=document.getElementById('spec-edit-title');if(ti)payload.title_override=ti.value.trim()||null;}
   try{
