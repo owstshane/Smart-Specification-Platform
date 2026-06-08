@@ -222,6 +222,7 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 **Done:**
 - ✅ Excel device-schedule annex — `generateDeviceScheduleExcel()` (button on the Specification page) builds a 2-sheet .xlsx via SheetJS: "Device Schedule" (per location + device type, qty aggregated, key specs) + "Summary by Type" (total qty per device type).
 - ✅ CSI cover page + contents page (Word export only) — `_assembleCsiSpec` returns `wordBody` = `_specCoverHtml()` (project title page) + `_specContentsFromBody()` (static contents from numbered h1/h2, annex sub-headings excluded) + body. The Word download paths use `wordBody`; the on-screen preview uses `body`. A live page-numbered Word TOC is left to the user (tip included on the contents page).
+- ✅ Branded Word formatting — central `SPEC_STYLE` config (fonts, colours, heading sizes, A4 page, margins, `logoUrl`) drives `_wrapWordDoc`: A4 + 2cm margins via `@page`, content in a `WordSection1`, repeating header (brand/logo + project) and footer (project + Page field), via the standard Word-HTML mso-element technique. **To brand the cover/header with the real logo:** host the SMART logo (e.g. commit it to the repo) and set `SPEC_STYLE.logoUrl` to its URL. Future "eventual" upgrade for full fidelity (native Word styles, live TOC): generate a true `.docx` (e.g. via a CDN docx library or a Word template) — the content engine is output-agnostic so it reuses everything.
 
 **Other backlog:**
 7. ⬜ CO Document generation — formal Change Order PDF/Word from a CR's cost schedule.
