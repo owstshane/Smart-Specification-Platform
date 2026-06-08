@@ -6839,7 +6839,8 @@ const SPEC_STYLE={
   font:'Calibri, Arial, sans-serif', bodyPt:11, color:'#222', accent:'#1a6b3a',
   h1Pt:16, h2Pt:13, h3Pt:11.5, h4Pt:11,
   pageW:'21cm', pageH:'29.7cm', margin:'2cm 2cm 2cm 2cm',   // A4 portrait, 2cm margins
-  logoUrl:''   // set to a hosted SMART logo URL/data-URI to show it on the cover page + header
+  logoUrl:'',   // hosted SMART wordmark logo URL -> shown in the page header (falls back to text)
+  swoopUrl:''   // hosted SMART swoop logo URL -> shown at the top of the cover page
 };
 function _wrapWordDoc(title,subtitle,bodyHtml){
   const S=SPEC_STYLE;
@@ -7102,22 +7103,28 @@ async function _assembleCsiSpec(){
     body+=annB||'<p>No rack zones with placed equipment.</p>';
 
     const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+    const revs=await dbGet('project_revisions','project_id=eq.'+currentProject.id+'&order=created_at.desc');
+    const revLabel=(revs[0]&&revs[0].revision_number)||'R0.1';
     // wordBody adds a cover page + contents page (Word export only; the on-screen preview uses the sidebar navigator).
-    const wordBody=_specCoverHtml(today)+_specContentsFromBody(body)+body;
+    const wordBody=_specCoverHtml(today,revLabel)+_specContentsFromBody(body)+body;
     return {title:currentProject.name,subtitle:'AV/IT Specification (CSI format). Generated '+today+'.',filename:currentProject.name+' - Specification (CSI).doc',body,wordBody};
 }
-// Cover page for the Word export, from project details.
-function _specCoverHtml(today){
+// Cover page for the Word export. All caps, one item per line, per house style.
+function _specCoverHtml(today,revLabel){
   const p=currentProject||{};
-  const detail=(label,val)=>val?'<tr><td style="border:none;padding:2px 14px 2px 0;color:#666">'+escHtml(label)+'</td><td style="border:none;padding:2px 0;font-weight:600">'+escHtml(String(val))+'</td></tr>':'';
-  return '<div style="page-break-after:always;text-align:center;padding-top:120px">'
-    +(SPEC_STYLE.logoUrl?'<img src="'+SPEC_STYLE.logoUrl+'" style="height:64px;margin-bottom:24px"/><br/>':'')
-    +'<div style="font-size:13pt;letter-spacing:3px;color:#888;text-transform:uppercase">SMART Technology Advisers</div>'
-    +'<div style="font-size:30pt;font-weight:700;margin:40px 0 6px;color:#111">'+escHtml(p.name||'Project')+'</div>'
-    +'<div style="font-size:16pt;color:#444">AV/IT Technical Specification</div>'
-    +'<table style="margin:50px auto 0;font-size:11pt;text-align:left">'
-    +detail('Project code',p.project_code)+detail('Category',p.category)+detail('Type',p.type)+detail('Builder',p.builder)+detail('Length',p.length_metres?p.length_metres+' m':'')+detail('Date',today)
-    +'</table></div>';
+  const line=(txt,style)=>'<div style="'+style+'">'+escHtml(String(txt).toUpperCase())+'</div>';
+  const gap='<div style="height:42px"></div>';
+  const swoop=SPEC_STYLE.swoopUrl?'<img src="'+SPEC_STYLE.swoopUrl+'" style="height:96px;margin-bottom:26px"/><br/>':'';
+  return '<div style="page-break-after:always;text-align:center;padding-top:90px">'
+    +swoop
+    +line(p.name||'Project','font-size:30pt;font-weight:700;color:#111;margin:4px 0')
+    +line('SMART Technology Advisers','font-size:13pt;letter-spacing:3px;color:#888')
+    +gap
+    +line('Technology Specification','font-size:18pt;color:#444;letter-spacing:1px')
+    +gap
+    +line('Revision '+(revLabel||'R0.1'),'font-size:12pt;font-weight:600;color:#333;margin-bottom:4px')
+    +line(today,'font-size:12pt;color:#666')
+    +'</div>';
 }
 // Static contents page built from the numbered section headings (h1/h2) in the assembled body.
 function _specContentsFromBody(html){
