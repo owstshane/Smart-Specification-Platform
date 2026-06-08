@@ -6840,8 +6840,10 @@ const SPEC_STYLE={
   h1Pt:16, h2Pt:13, h3Pt:11.5, h4Pt:11,
   pageW:'21cm', pageH:'29.7cm', margin:'2cm 2cm 2cm 2cm',   // A4 portrait, 2cm margins
   logoUrl:'',   // hosted SMART wordmark logo URL -> shown in the page header (falls back to text)
-  swoopUrl:''   // hosted SMART swoop logo URL -> shown at the top of the cover page
+  swoopUrl:''   // hosted SMART swoop image URL -> overrides the embedded SVG swoop on the cover
 };
+// SMART swoop logo (official SVG, gradient inlined as a fill attribute so there is no nested style block).
+const SPEC_SWOOP_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 141.732283 141.732283" width="110" height="110" style="display:inline-block"><defs><radialGradient id="smartSwooshGrad" cx="-92.445716" cy="-209.351746" fx="-92.445716" fy="-209.351746" r="31.384422" gradientTransform="translate(127.869724 305.755467) rotate(-7.083566) scale(1.320176 1.231429) skewX(-21.238066)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#bfbfbf"/><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#f39200"/></radialGradient></defs><path fill="url(#smartSwooshGrad)" d="M130.07267,73.19994c11.417-41.0634-13.2637-70.1372-55.121099-64.9331C51.373472,11.19944,27.375373,24.38114,8.871473,42.67504c16.0332-12.209,34.568399-20.6455,52.852499-22.9209,41.860399-5.205,66.540098,23.8687,55.123099,64.9341-4.9863,17.9404-16.0381,35.1992-30.390599,49.3799,20.673816-15.7324,37.185499-37.7344,43.616199-60.8682Z"/></svg>';
 function _wrapWordDoc(title,subtitle,bodyHtml){
   const S=SPEC_STYLE;
   const headerBrand=S.logoUrl?'<img src="'+S.logoUrl+'" style="height:26px"/>':'<span style="font-weight:700;letter-spacing:1px;color:#888">SMART TECHNOLOGY ADVISERS</span>';
@@ -7114,7 +7116,7 @@ function _specCoverHtml(today,revLabel){
   const p=currentProject||{};
   const line=(txt,style)=>'<div style="'+style+'">'+escHtml(String(txt).toUpperCase())+'</div>';
   const gap='<div style="height:42px"></div>';
-  const swoop=SPEC_STYLE.swoopUrl?'<img src="'+SPEC_STYLE.swoopUrl+'" style="height:96px;margin-bottom:26px"/><br/>':'';
+  const swoop=(SPEC_STYLE.swoopUrl?'<img src="'+SPEC_STYLE.swoopUrl+'" style="height:96px"/>':SPEC_SWOOP_SVG)+'<br/>';
   return '<div style="page-break-after:always;text-align:center;padding-top:90px">'
     +swoop
     +line(p.name||'Project','font-size:30pt;font-weight:700;color:#111;margin:4px 0')
