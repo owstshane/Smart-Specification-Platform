@@ -6828,15 +6828,39 @@ async function generateRoomSpec(){
 
     // Schedule only: equipment by room. Specifications live in the CSI document.
     const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
-    _downloadDoc(currentProject.name+' - Equipment Schedule.doc',_wrapWordDoc(currentProject.name,'Equipment schedule by room. Generated '+today+'.','<h1>Equipment Schedule by Room</h1>'+part1));
+    const roomTitle='<div style="font-size:22pt;font-weight:700;color:#111">'+escHtml(currentProject.name)+'</div><p style="color:#666">Equipment schedule by room. Generated '+today+'.</p>';
+    _downloadDoc(currentProject.name+' - Equipment Schedule.doc',_wrapWordDoc(currentProject.name,'Equipment schedule by room. Generated '+today+'.',roomTitle+'<h1>Equipment Schedule by Room</h1>'+part1));
     showToast('Schedule generated','success');
   }catch(e){showToast('Generation failed: '+e.message,'error');}
 }
 
+// Central house style for the Word output. Tweak here to restyle every generated document.
+const SPEC_STYLE={
+  font:'Calibri, Arial, sans-serif', bodyPt:11, color:'#222', accent:'#1a6b3a',
+  h1Pt:16, h2Pt:13, h3Pt:11.5, h4Pt:11,
+  pageW:'21cm', pageH:'29.7cm', margin:'2cm 2cm 2cm 2cm',   // A4 portrait, 2cm margins
+  logoUrl:''   // set to a hosted SMART logo URL/data-URI to show it on the cover page + header
+};
 function _wrapWordDoc(title,subtitle,bodyHtml){
-  const styles="<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#222}h1{font-size:16pt;color:#111;border-bottom:2px solid #888;padding-bottom:3px;margin-top:18px}h2{font-size:13pt;color:#111;margin-top:14px}h3{font-size:11.5pt;color:#1a6b3a;margin:8px 0 2px}h4{font-size:11pt;margin:6px 0 2px}ul{margin:3px 0 8px 18px}li{margin:1px 0}p{margin:4px 0}table{border-collapse:collapse;margin:6px 0 12px}td,th{border:1px solid #bbb;padding:3px 9px;font-size:10.5pt}th{background:#eee;text-align:left}</style>";
-  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">'+styles+'</head><body>'
-    +'<div style="font-size:22pt;font-weight:700">'+escHtml(title)+'</div><p style="color:#666">'+escHtml(subtitle)+'</p>'+bodyHtml+'</body></html>';
+  const S=SPEC_STYLE;
+  const headerBrand=S.logoUrl?'<img src="'+S.logoUrl+'" style="height:26px"/>':'<span style="font-weight:700;letter-spacing:1px;color:#888">SMART TECHNOLOGY ADVISERS</span>';
+  const pageField="<!--[if supportFields]><span style='mso-element:field-begin'></span>PAGE<span style='mso-element:field-end'></span><![endif]-->";
+  const styles="<style>"
+    +"@page WordSection1{size:"+S.pageW+" "+S.pageH+";margin:"+S.margin+";mso-header-margin:1.2cm;mso-footer-margin:1.2cm;mso-header:h1;mso-footer:f1;}"
+    +"div.WordSection1{page:WordSection1;}"
+    +"body{font-family:"+S.font+";font-size:"+S.bodyPt+"pt;color:"+S.color+"}"
+    +"h1{font-size:"+S.h1Pt+"pt;color:#111;border-bottom:2px solid #888;padding-bottom:3px;margin-top:18px}"
+    +"h2{font-size:"+S.h2Pt+"pt;color:#111;margin-top:14px}"
+    +"h3{font-size:"+S.h3Pt+"pt;color:"+S.accent+";margin:8px 0 2px}"
+    +"h4{font-size:"+S.h4Pt+"pt;margin:6px 0 2px}"
+    +"ul{margin:3px 0 8px 18px}li{margin:1px 0}p{margin:4px 0}"
+    +"table{border-collapse:collapse;margin:6px 0 12px}td,th{border:1px solid #bbb;padding:3px 9px;font-size:10.5pt}th{background:#eee;text-align:left}"
+    +"p.MsoHeader,p.MsoFooter{margin:0;border:none;font-size:8pt;color:#888}"
+    +"</style>";
+  const header='<div style="mso-element:header" id="h1"><p class=MsoHeader style="border-bottom:1px solid #ccc;padding-bottom:3px">'+headerBrand+'<span style="float:right">'+escHtml(title)+'</span></p></div>';
+  const footer='<div style="mso-element:footer" id="f1"><p class=MsoFooter style="border-top:1px solid #ccc;padding-top:3px;text-align:center">'+escHtml(title)+' &nbsp;&middot;&nbsp; AV/IT Specification &nbsp;&middot;&nbsp; Page '+pageField+'</p></div>';
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">'+styles+'</head><body><div class="WordSection1">'
+    +bodyHtml+footer+header+'</div></body></html>';
 }
 async function generateCsiSpec(){
   if(!currentProject){showToast('Open a project first','error');return;}
@@ -7087,6 +7111,7 @@ function _specCoverHtml(today){
   const p=currentProject||{};
   const detail=(label,val)=>val?'<tr><td style="border:none;padding:2px 14px 2px 0;color:#666">'+escHtml(label)+'</td><td style="border:none;padding:2px 0;font-weight:600">'+escHtml(String(val))+'</td></tr>':'';
   return '<div style="page-break-after:always;text-align:center;padding-top:120px">'
+    +(SPEC_STYLE.logoUrl?'<img src="'+SPEC_STYLE.logoUrl+'" style="height:64px;margin-bottom:24px"/><br/>':'')
     +'<div style="font-size:13pt;letter-spacing:3px;color:#888;text-transform:uppercase">SMART Technology Advisers</div>'
     +'<div style="font-size:30pt;font-weight:700;margin:40px 0 6px;color:#111">'+escHtml(p.name||'Project')+'</div>'
     +'<div style="font-size:16pt;color:#444">AV/IT Technical Specification</div>'
