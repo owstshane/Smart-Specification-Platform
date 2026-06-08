@@ -126,7 +126,7 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 - ✅ Contract Award — record award against an integrator with ceremony flow; advances project phase to Engineering; shown as tile on Project Info
 - ✅ CR Cost Schedule (Change Orders) — per-CR cost items, CO total, pending queue, Estimated/Agreed states (see detail below)
 - ✅ Pricing — budget_price on project equipment; price_min/price_max/currency on global and project products; shown in Equipment Schedule
-- ✅ Specification — the page IS the live, generated CSI spec rendered inline (no editor, no modal). Built from equipment + global taxonomy text + per-project overrides. Every block (preamble, group General/Execution, category, sub-category, device, End sections) has a Standard/Project-override badge + Edit (inline) + Revert. Edits save per-project to `project_spec_overrides`; globals untouched. Download Word + Room-by-Room buttons. (See detail below.)
+- ✅ Specification — the page IS the live, generated CSI spec rendered inline (no editor, no modal). Built from equipment + global taxonomy text + per-project overrides. Every block (preamble, group General/Execution, category, sub-category, device, End sections) has a Standard/Project-override badge + Edit (inline) + Revert. Edits save per-project to `project_spec_overrides`; globals untouched. Buttons: Download Word (CSI), Room-by-Room (Word), Device Schedule (Excel), + Front/End custom section. (See detail below.)
 - ✅ Global — Device Types, Product Catalogue, System Groups & Categories, Room Templates, Spec Library (standard SMART text templates)
 - ✅ Import / Export — full coverage of all sections, both global and project
 - ✅ Authentication — login/logout, JWT proactive refresh mid-session, retry on 401
@@ -215,11 +215,12 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 
 **Spec generation** — CSI Word generator, room-by-room schedule, rack-zone inclusion, Annex B, on-screen inline preview, **per-project edit-in-place overrides**, Front/End library sections, **hierarchical auto-numbering**, **contents-sidebar navigator**, **generic vs discipline-specific library**, hover edit controls, **Phase B project custom sections** (Front/End, add/edit/delete), and full **dead-code/CSS removal** are all BUILT and working (see decisions log). Remaining:
 1. ⬜ Make the project-specific tables (Approved Manufacturers, Owner Supply) data-driven rather than HTML templates.
-2. ⬜ Excel device-schedule annex (proper spreadsheet, not the Word room list) — reuse the Feature Matrix Excel export pattern.
-3. ⬜ CSI output polish — cover page, in-Word table of contents (the on-screen navigator + section numbering are done).
-4. ⬜ Fill gaps — Lighting and Radio category/general/execution text; revisit Security (deferred).
-5. ⬜ Product compliance checking (bigger) — tag products with capabilities, flag placements that miss a requirement; promote spec_text lines to atomic checkable items.
-6. ⬜ Phase B+ — custom sub-sections attached within a specific system group (current custom sections are top-level Front/End only).
+2. ⬜ CSI output polish — cover page, in-Word table of contents (the on-screen navigator + section numbering are done).
+3. ⬜ Fill gaps — Lighting and Radio category/general/execution text; revisit Security (deferred).
+4. ⬜ Product compliance checking (bigger) — tag products with capabilities, flag placements that miss a requirement; promote spec_text lines to atomic checkable items.
+5. ⬜ Phase B+ — custom sub-sections attached within a specific system group (current custom sections are top-level Front/End only).
+
+**Done:** ✅ Excel device-schedule annex — `generateDeviceScheduleExcel()` (button on the Specification page) builds a 2-sheet .xlsx via SheetJS: "Device Schedule" (per location + device type, qty aggregated, key specs) + "Summary by Type" (total qty per device type).
 
 **Other backlog:**
 7. ⬜ CO Document generation — formal Change Order PDF/Word from a CR's cost schedule.
