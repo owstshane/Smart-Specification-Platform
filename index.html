@@ -800,6 +800,7 @@
           <button class="btn btn-secondary btn-sm" onclick="previewCsiSpec()">↻ Refresh</button>
           <button class="btn btn-primary btn-sm" onclick="downloadSpecFromPreview()">Download Word (CSI)</button>
           <button class="btn btn-secondary btn-sm" onclick="generateRoomSpec()">Room-by-Room Schedule (Word)</button>
+          <button class="btn btn-secondary btn-sm" onclick="generateDeviceScheduleExcel()">Device Schedule (Excel)</button>
           <button class="btn btn-secondary btn-sm" onclick="addCustomSection('front')">+ Front section</button>
           <button class="btn btn-secondary btn-sm" onclick="addCustomSection('end')">+ End section</button>
           <span style="font-size:11px;color:var(--text-3)">Click <strong>Edit</strong> on any block to tailor its text for this project — standard text stays global.</span>
@@ -6753,6 +6754,50 @@ function _downloadDoc(filename,html){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();
   setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},150);
+}
+// Excel device-schedule annex: a proper spreadsheet to accompany the spec.
+async function generateDeviceScheduleExcel(){
+  if(!currentProject){showToast('Open a project first','error');return;}
+  try{
+    const decks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    const deckIds=decks.map(d=>d.id);
+    const rooms=deckIds.length?await dbGet('rooms','deck_id=in.('+deckIds.join(',')+')&order=room_number.asc'):[];
+    const zoneList=await dbGet('rack_zones','project_id=eq.'+currentProject.id+'&order=name.asc');
+    const instances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
+    const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id);
+    const pp=await dbGet('project_products','project_id=eq.'+currentProject.id);
+    if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
+    if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc');
+    if(!deviceSubcategories.length)deviceSubcategories=await dbGet('device_subcategories','order=sort_order.asc');
+    const peById={};pe.forEach(e=>peById[e.id]=e);
+    const roomById={};rooms.forEach(r=>roomById[r.id]=r);
+    const zoneById={};zoneList.forEach(z=>zoneById[z.id]=z);
+    const catByCode={};deviceCategories.forEach(c=>catByCode[c.code]=c);
+    const subByCode={};deviceSubcategories.forEach(s=>subByCode[s.code]=s);
+    const sgOrder={};systemGroups.forEach((g,i)=>{sgOrder[g.name]=i;});
+    const ord=(name)=>sgOrder[name]!==undefined?sgOrder[name]:99;
+    const exampleFor=(dt)=>{const prod=pp.find(p=>p.device_type_id===dt&&(p.make||p.model));if(prod)return [prod.make,prod.model].filter(Boolean).join(' ');const e=pe.find(p=>p.device_type_id===dt&&(p.make||p.model));return e?[e.make,e.model].filter(Boolean).join(' '):'';};
+    const active=instances.filter(i=>i.change_status!=='removed'&&(i.room_id||i.rack_zone_id));
+    if(!active.length){showToast('No equipment placed yet','error');return;}
+    // Sheet 1: one row per location + device type, qty aggregated
+    const agg={};
+    active.forEach(i=>{const e=peById[i.project_equipment_id];if(!e)return;const loc=i.room_id?((roomById[i.room_id]||{}).name):((zoneById[i.rack_zone_id]||{}).name);const locName=loc||'(unassigned)';const key=locName+'|'+(e.device_type_id||e.description);if(!agg[key])agg[key]={e,locName,qty:0,install:i.installation_type==='rack-mounted'?'Rack':'Room'};agg[key].qty+=(i.quantity||1);});
+    const rows=[['System Group','Category','Sub-category','Description','Device Type','Qty','Location','Install','Make','Model','Example Product','LAN','PoE','PoE Type','Power (W)','Heat (BTU/h)','Spkr Ch','UPS']];
+    Object.values(agg).sort((a,b)=>ord(a.e.system_group)-ord(b.e.system_group)||(a.e.system_group||'').localeCompare(b.e.system_group||'')||a.locName.localeCompare(b.locName)||(a.e.description||'').localeCompare(b.e.description||'')).forEach(({e,locName,qty,install})=>{
+      const cat=catByCode[e.category_code],sub=subByCode[e.subcategory_code];
+      rows.push([e.system_group||'',cat?cat.name:(e.category_code||''),sub?sub.name:'',e.description||'',e.device_type_id||'',qty,locName,install,e.make||'',e.model||'',exampleFor(e.device_type_id),e.lan_ports||'',e.poe_ports||'',e.poe_type||'',e.power_watts||'',e.heat_btu||'',e.speaker_channels||'',e.ups_protected?'Yes':'']);
+    });
+    // Sheet 2: total quantity per device type across the project
+    const sum={};
+    active.forEach(i=>{const e=peById[i.project_equipment_id];if(!e)return;const k=e.device_type_id||e.description;if(!sum[k])sum[k]={e,qty:0};sum[k].qty+=(i.quantity||1);});
+    const sumRows=[['System Group','Description','Device Type','Total Qty','Example Product']];
+    Object.values(sum).sort((a,b)=>ord(a.e.system_group)-ord(b.e.system_group)||(a.e.description||'').localeCompare(b.e.description||'')).forEach(({e,qty})=>{sumRows.push([e.system_group||'',e.description||'',e.device_type_id||'',qty,exampleFor(e.device_type_id)]);});
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Device Schedule');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sumRows),'Summary by Type');
+    XLSX.writeFile(wb,(currentProject.project_code||currentProject.name||'project')+' - Device Schedule.xlsx');
+    showToast('Device schedule (Excel) generated','success');
+  }catch(e){showToast('Generation failed: '+e.message,'error');}
 }
 async function generateRoomSpec(){
   if(!currentProject){showToast('Open a project first','error');return;}
