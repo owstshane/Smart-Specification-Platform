@@ -6842,7 +6842,7 @@ async function generateCsiSpec(){
   if(!currentProject){showToast('Open a project first','error');return;}
   try{
     const a=await _assembleCsiSpec();
-    _downloadDoc(a.filename,_wrapWordDoc(a.title,a.subtitle,a.body));
+    _downloadDoc(a.filename,_wrapWordDoc(a.title,a.subtitle,a.wordBody||a.body));
     showToast('CSI specification generated','success');
   }catch(e){showToast('Generation failed: '+e.message,'error');}
 }
@@ -6876,7 +6876,7 @@ function _buildSpecToc(){
   toc.innerHTML=html;
 }
 function _specTocGo(id){const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});}
-function downloadSpecFromPreview(){if(!_specPreviewData){showToast('Nothing to download yet','error');return;}const a=_specPreviewData;_downloadDoc(a.filename,_wrapWordDoc(a.title,a.subtitle,a.body));showToast('CSI specification generated','success');}
+function downloadSpecFromPreview(){if(!_specPreviewData){showToast('Nothing to download yet','error');return;}const a=_specPreviewData;_downloadDoc(a.filename,_wrapWordDoc(a.title,a.subtitle,a.wordBody||a.body));showToast('CSI specification generated','success');}
 // Add an Edit/Revert toolbar + Standard/Override badge to each editable block in the preview only.
 function _decorateSpecBlocks(){
   const cont=document.getElementById('spec-preview-body');if(!cont)return;
@@ -7078,7 +7078,32 @@ async function _assembleCsiSpec(){
     body+=annB||'<p>No rack zones with placed equipment.</p>';
 
     const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
-    return {title:currentProject.name,subtitle:'AV/IT Specification (CSI format). Generated '+today+'.',filename:currentProject.name+' - Specification (CSI).doc',body};
+    // wordBody adds a cover page + contents page (Word export only; the on-screen preview uses the sidebar navigator).
+    const wordBody=_specCoverHtml(today)+_specContentsFromBody(body)+body;
+    return {title:currentProject.name,subtitle:'AV/IT Specification (CSI format). Generated '+today+'.',filename:currentProject.name+' - Specification (CSI).doc',body,wordBody};
+}
+// Cover page for the Word export, from project details.
+function _specCoverHtml(today){
+  const p=currentProject||{};
+  const detail=(label,val)=>val?'<tr><td style="border:none;padding:2px 14px 2px 0;color:#666">'+escHtml(label)+'</td><td style="border:none;padding:2px 0;font-weight:600">'+escHtml(String(val))+'</td></tr>':'';
+  return '<div style="page-break-after:always;text-align:center;padding-top:120px">'
+    +'<div style="font-size:13pt;letter-spacing:3px;color:#888;text-transform:uppercase">SMART Technology Advisers</div>'
+    +'<div style="font-size:30pt;font-weight:700;margin:40px 0 6px;color:#111">'+escHtml(p.name||'Project')+'</div>'
+    +'<div style="font-size:16pt;color:#444">AV/IT Technical Specification</div>'
+    +'<table style="margin:50px auto 0;font-size:11pt;text-align:left">'
+    +detail('Project code',p.project_code)+detail('Category',p.category)+detail('Type',p.type)+detail('Builder',p.builder)+detail('Length',p.length_metres?p.length_metres+' m':'')+detail('Date',today)
+    +'</table></div>';
+}
+// Static contents page built from the numbered section headings (h1/h2) in the assembled body.
+function _specContentsFromBody(html){
+  const re=/<h([12])[^>]*>([\s\S]*?)<\/h\1>/g;let m,items='',inAnnex=false;
+  while((m=re.exec(html))){
+    const lvl=m[1];const text=m[2].replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();if(!text)continue;
+    if(lvl==='1')inAnnex=/^Annex\b/i.test(text);
+    if(lvl==='2'&&inAnnex)continue; // skip per-room/zone schedule headings under annexes
+    items+='<div style="margin:'+(lvl==='1'?'7px 0 1px;font-weight:700;color:#111':'1px 0 1px 26px;color:#444')+'">'+escHtml(text)+'</div>';
+  }
+  return '<div style="page-break-after:always"><div style="font-size:18pt;font-weight:700;border-bottom:2px solid #888;padding-bottom:3px;margin-bottom:12px">Contents</div>'+items+'<p style="color:#999;font-size:9pt;margin-top:14px">Tip: insert a live Word table of contents (References &gt; Table of Contents) for page numbers.</p></div>';
 }
 
 // ── EVENT LISTENERS ──
