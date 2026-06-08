@@ -215,12 +215,13 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 
 **Spec generation** — CSI Word generator, room-by-room schedule, rack-zone inclusion, Annex B, on-screen inline preview, **per-project edit-in-place overrides**, Front/End library sections, **hierarchical auto-numbering**, **contents-sidebar navigator**, **generic vs discipline-specific library**, hover edit controls, **Phase B project custom sections** (Front/End, add/edit/delete), and full **dead-code/CSS removal** are all BUILT and working (see decisions log). Remaining:
 1. ⬜ Make the project-specific tables (Approved Manufacturers, Owner Supply) data-driven rather than HTML templates.
-2. ⬜ CSI output polish — cover page, in-Word table of contents (the on-screen navigator + section numbering are done).
-3. ⬜ Fill gaps — Lighting and Radio category/general/execution text; revisit Security (deferred).
-4. ⬜ Product compliance checking (bigger) — tag products with capabilities, flag placements that miss a requirement; promote spec_text lines to atomic checkable items.
-5. ⬜ Phase B+ — custom sub-sections attached within a specific system group (current custom sections are top-level Front/End only).
+2. ⬜ Fill gaps — Lighting and Radio category/general/execution text; revisit Security (deferred).
+3. ⬜ Product compliance checking (bigger) — tag products with capabilities, flag placements that miss a requirement; promote spec_text lines to atomic checkable items.
+4. ⬜ Phase B+ — custom sub-sections attached within a specific system group (current custom sections are top-level Front/End only).
 
-**Done:** ✅ Excel device-schedule annex — `generateDeviceScheduleExcel()` (button on the Specification page) builds a 2-sheet .xlsx via SheetJS: "Device Schedule" (per location + device type, qty aggregated, key specs) + "Summary by Type" (total qty per device type).
+**Done:**
+- ✅ Excel device-schedule annex — `generateDeviceScheduleExcel()` (button on the Specification page) builds a 2-sheet .xlsx via SheetJS: "Device Schedule" (per location + device type, qty aggregated, key specs) + "Summary by Type" (total qty per device type).
+- ✅ CSI cover page + contents page (Word export only) — `_assembleCsiSpec` returns `wordBody` = `_specCoverHtml()` (project title page) + `_specContentsFromBody()` (static contents from numbered h1/h2, annex sub-headings excluded) + body. The Word download paths use `wordBody`; the on-screen preview uses `body`. A live page-numbered Word TOC is left to the user (tip included on the contents page).
 
 **Other backlog:**
 7. ⬜ CO Document generation — formal Change Order PDF/Word from a CR's cost schedule.
