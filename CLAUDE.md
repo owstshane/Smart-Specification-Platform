@@ -235,6 +235,7 @@ AVoIP role is a simple demand/supply headcount in Zone Summary — no port-level
 ---
 
 ## Important Decisions Log
+- **Supabase keep-alive (Jun 2026):** Free-tier Supabase auto-pauses after 7 days idle. A GitHub Actions cron (`.github/workflows/supabase-keepalive.yml`) pings `/auth/v1/health` every 3 days (public anon key, no secrets) to keep it active; verified working. Caveats: an *already-paused* project must be restored once from the dashboard (the ping can't un-pause it); GitHub disables scheduled workflows after 60 days with no repo commits; the proper long-term fix is the Pro plan (no auto-pause).
 - Scope and team managed via project Edit modal (not inline)
 - Pull from Library → modal (not navigate away); individual quickPullToProject also available
 - Layout & Zones consolidates Decks+Rooms+Rack Zones into one page with 3 tabs
