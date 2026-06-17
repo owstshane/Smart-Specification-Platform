@@ -14,16 +14,16 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase REST API
+      - name: Ping Supabase
         run: |
           ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6cG1ncGZ0ZnFpZnJ1eWZrY2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMTA0NTYsImV4cCI6MjA5MDg4NjQ1Nn0.eHJo_C7iC3-S9hPwduNg4VFV4R-ebsweak6wZZwuzK8"
-          URL="https://ezpmgpftfqifruyfkcbs.supabase.co/rest/v1/spec_section_library?select=id&limit=1"
+          URL="https://ezpmgpftfqifruyfkcbs.supabase.co/auth/v1/health"
           echo "Pinging $URL"
-          CODE=$(curl -sS -o /tmp/resp.txt -w "%{http_code}" "$URL" -H "apikey: $ANON" -H "Authorization: Bearer $ANON")
+          CODE=$(curl -sS -o /tmp/resp.txt -w "%{http_code}" "$URL" -H "apikey: $ANON")
           echo "HTTP $CODE"
-          cat /tmp/resp.txt
-          # 200 = active and responded. Any 2xx/4xx still proves a request reached the project.
-          if [ "$CODE" -ge 500 ] || [ "$CODE" -eq 000 ]; then
-            echo "::error::Supabase did not respond healthily (HTTP $CODE) — it may be paused; restore it from the dashboard."
+          cat /tmp/resp.txt; echo
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Supabase health check returned HTTP $CODE — the project may be paused; restore it from the dashboard."
             exit 1
           fi
+          echo "Supabase is active."
