@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SMART Advisers — Specification Platform</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.css" rel="stylesheet" integrity="sha384-cPa8kzsYWhqpAfWOLWYIw3V0BhPi/m3lrd8tBTPxr2NrYCHRVZ7xy1cEoRGOM/03" crossorigin="anonymous">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js" integrity="sha384-QUJ+ckWz1M+a7w0UfG1sEn4pPrbQwSxGm/1TIPyioqXBrwuT9l4f9gdHWLDLbVWI" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" integrity="sha384-Ic7KEGROu37YaruU6NyiYeib7UhjFyDZQ5fzBAji965L75T/4LGk5nzwMEjNGexs" crossorigin="anonymous"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1575,6 +1576,15 @@ let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null, ac
 
 // ── UTILS ──
 function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+// Sanitize generated spec HTML before it hits the live DOM. The spec engine renders stored,
+// user-editable rich text (project_spec_overrides.content / spec_section_library.content) raw so
+// tables and formatting survive — DOMPurify strips any injected <script>/onerror/onclick etc. while
+// keeping that markup. Falls back to the raw string if DOMPurify failed to load (no worse than before).
+function sanitizeSpecHtml(html){
+  if(window.DOMPurify&&DOMPurify.sanitize)return DOMPurify.sanitize(String(html==null?'':html));
+  console.warn('DOMPurify unavailable — spec HTML not sanitized');
+  return html;
+}
 function fmtPrice(price,currency){if(price==null||price===''||isNaN(parseFloat(price)))return null;const n=parseFloat(price);const sym={USD:'$',EUR:'€',GBP:'£'}[currency]||(currency?currency+' ':'');return sym+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
 function fmtPriceRange(pMin,pMax,currency){const lo=fmtPrice(pMin,currency),hi=fmtPrice(pMax,currency);if(!lo&&!hi)return null;if(lo&&hi&&parseFloat(pMin)!==parseFloat(pMax))return lo+' – '+hi;return lo||hi;}
 function formatDate(d){if(!d)return'';const[y,m,day]=d.split('-');return day+'/'+m+'/'+y;}
@@ -3181,7 +3191,7 @@ async function fmToggleDeviceTypeLink(featureId,typeId){
   const isLinked=linked.includes(typeId);
   try{
     if(isLinked){
-      const links=await dbGet('feature_device_types','feature_id=eq.'+featureId+'&device_type_id=eq.'+typeId);
+      const links=await dbGet('feature_device_types','feature_id=eq.'+featureId+'&device_type_id=eq.'+encodeURIComponent(typeId));
       if(links.length)await dbDelete('feature_device_types',links[0].id);
       fmFeatureDeviceTypes[featureId]=(fmFeatureDeviceTypes[featureId]||[]).filter(t=>t!==typeId);
     }else{
@@ -4928,7 +4938,7 @@ async function confirmApplyTemplate(){
             // Ensure in project equipment list
             let peEntry=pe.find(p=>p.device_type_id===item.device_type_id);
             if(!peEntry){
-              const gd=await dbGet('global_equipment','device_type_id=eq.'+item.device_type_id+'&limit=1');
+              const gd=await dbGet('global_equipment','device_type_id=eq.'+encodeURIComponent(item.device_type_id)+'&limit=1');
               if(!gd.length)continue;
               const d=gd[0];
               const newPe=await dbInsert('project_equipment',{project_id:currentProject.id,global_equipment_id:d.id,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,speaker_channels:d.speaker_channels||null,power_types:d.power_types||null,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'});
@@ -6938,7 +6948,7 @@ async function previewCsiSpec(keepScroll){
     if(body)body.innerHTML='<div class="loading" style="padding:40px"><div class="spinner"></div> Building specification…</div>';
     const a=await _assembleCsiSpec();
     _specPreviewData=a;_specEditQuill=null;
-    if(body)body.innerHTML=a.body;
+    if(body)body.innerHTML=sanitizeSpecHtml(a.body);
     _decorateSpecBlocks();
     _buildSpecToc();
     if(sc)sc.scrollTop=keepScroll?prevTop:0;
