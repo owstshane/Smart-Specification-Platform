@@ -1571,10 +1571,10 @@ let projectProducts=[], productModalMode='global'; // 'global' or 'project'
 let pgpItems=[], pgpPulledIds=new Set(), pgpActiveType='all';
 let selectingProductForPeId=null, editingSgId=null, editingDcId=null;
 let currentUser=null, ieImportData=null, ieImportOption='add';
-let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null, activeCRId=null, activeCRType=null;
+let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null, activeCRId=null, activeCRType=null, activeCRProjectId=null;
 
 // ── UTILS ──
-function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function fmtPrice(price,currency){if(price==null||price===''||isNaN(parseFloat(price)))return null;const n=parseFloat(price);const sym={USD:'$',EUR:'€',GBP:'£'}[currency]||(currency?currency+' ':'');return sym+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
 function fmtPriceRange(pMin,pMax,currency){const lo=fmtPrice(pMin,currency),hi=fmtPrice(pMax,currency);if(!lo&&!hi)return null;if(lo&&hi&&parseFloat(pMin)!==parseFloat(pMax))return lo+' – '+hi;return lo||hi;}
 function formatDate(d){if(!d)return'';const[y,m,day]=d.split('-');return day+'/'+m+'/'+y;}
@@ -1774,13 +1774,39 @@ function updateSidebarProject(){
   const closeBtn=document.getElementById('close-project-btn');
   if(closeBtn)closeBtn.style.display=has?'':'none';
 }
+// Clear every project-scoped cache so switching projects never shows — or stamps changes onto — another project's data.
+// Many loaders guard with `if(!x.length)`, so without this they would skip re-fetching and reuse the previous project's arrays.
+// Globals intentionally NOT reset here: allProjects, globalLibrary, globalProducts, systemGroups, deviceCategories,
+// deviceSubcategories, specLibrarySections (these are shared/global, not per-project).
+function resetProjectCaches(){
+  currentDecks=[];currentRooms=[];currentZones=[];
+  projectEquipment=[];placedEquipment=[];projectProducts=[];
+  ccCRs=[];ccRevisions=[];ccLog=[];crCostItems={};expandedCRId=null;
+  projectTeam=[];projectIntegrators=[];projectAward=null;
+  fmCategories=[];fmFeatures=[];fmRooms=[];fmDecks=[];fmMatrix=[];fmInstances=[];fmFeatureDeviceTypes={};
+  rmInstances=[];rmTypeDetails=[];
+  roomTemplates=[];templateItems=[];
+  plItems=[];plAlreadyPlaced=[];
+}
 function closeProject(){
   currentProject=null;
+  resetProjectCaches();
+  if(activeCRId)clearActiveCR();
   updateSidebarProject();
   showPage('dashboard');
   loadProjects();
 }
-function openProject(id){currentProject=allProjects.find(p=>p.id===id);if(!currentProject)return;updateSidebarProject();showPage('project-info');}
+function openProject(id){
+  const proj=allProjects.find(p=>p.id===id);
+  if(!proj)return;
+  if(!currentProject||currentProject.id!==proj.id)resetProjectCaches();
+  currentProject=proj;
+  // The active CR is bound to the project it was started under — drop it when switching to a different project
+  // so placements/edits here are never stamped with another project's CR (which would corrupt its change log).
+  if(activeCRId&&activeCRProjectId!==proj.id)clearActiveCR();
+  updateSidebarProject();
+  showPage('project-info');
+}
 function switchDeckRoomTab(tab){
   activeDeckRoomTab=tab;
   document.getElementById('decks-tab-content').classList.toggle('hidden',tab!=='decks');
@@ -5514,7 +5540,7 @@ function renderPlacedEquipment(){
   const c=document.getElementById('placed-equipment-container');
   let allFiltered=placedEquipment.filter(p=>{
     const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
-    const matchQ=!q||(p.device_id||'').toLowerCase().includes(q)||(pe&&pe.description.toLowerCase().includes(q));
+    const matchQ=!q||(p.device_id||'').toLowerCase().includes(q)||(pe&&(pe.description||'').toLowerCase().includes(q));
     if(!matchQ)return false;
     if(activePlacedDeckFilter==='all')return true;
     if(activePlacedDeckFilter==='zone')return!!p.rack_zone_id;
@@ -5943,7 +5969,7 @@ async function onLoginSuccess(){
 async function init(){
   // Restore active CR from session (survives page refresh, cleared on tab close)
   const savedCRId=sessionStorage.getItem('activeCRId');
-  if(savedCRId){activeCRId=savedCRId;activeCRType=sessionStorage.getItem('activeCRType')||null;}
+  if(savedCRId){activeCRId=savedCRId;activeCRType=sessionStorage.getItem('activeCRType')||null;activeCRProjectId=sessionStorage.getItem('activeCRProjectId')||null;}
   document.getElementById('login-overlay').style.display='flex';
   setConn('checking');
   const email=await tryRestoreSession();
@@ -6513,7 +6539,9 @@ function changeBadge(status,crRef){
 
 function setActiveCR(id){
   activeCRId=id;
+  activeCRProjectId=currentProject?currentProject.id:null;
   sessionStorage.setItem('activeCRId',id);
+  if(activeCRProjectId)sessionStorage.setItem('activeCRProjectId',activeCRProjectId);
   const cr=ccCRs.find(c=>c.id===id);
   activeCRType=cr?.type||null;
   if(activeCRType)sessionStorage.setItem('activeCRType',activeCRType);
@@ -6521,8 +6549,8 @@ function setActiveCR(id){
   renderCRs();
 }
 function clearActiveCR(){
-  activeCRId=null;activeCRType=null;
-  sessionStorage.removeItem('activeCRId');sessionStorage.removeItem('activeCRType');
+  activeCRId=null;activeCRType=null;activeCRProjectId=null;
+  sessionStorage.removeItem('activeCRId');sessionStorage.removeItem('activeCRType');sessionStorage.removeItem('activeCRProjectId');
   const b=document.getElementById('active-cr-banner');
   if(b)b.style.display='none';
   if(currentPage==='change-control')renderCRs();
