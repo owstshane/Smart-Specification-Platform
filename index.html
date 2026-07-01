@@ -1691,6 +1691,8 @@ async function doLogin(){
 async function doLogout(){
   try{await fetch(SUPABASE_URL+'/auth/v1/logout',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':getAuthHeader()}});}catch(e){}
   currentUser=null;localStorage.removeItem('smart_session');closeAvatarPopup();setAvatarUser(null);
+  // Purge project state so a different user logging in on a shared device never sees cached data
+  currentProject=null;resetProjectCaches();clearActiveCR();updateSidebarProject();
   document.getElementById('login-overlay').style.display='flex';
 }
 async function tryRestoreSession(){
@@ -2084,7 +2086,7 @@ let pendingAwardPayload=null;
 async function saveAwardContract(){
   const rawVal=document.getElementById('ac-value').value;
   const value=parseFloat(rawVal);
-  if(rawVal===''||isNaN(value)||value<0){alert('Please enter a valid contract value.');return;}
+  if(rawVal===''||isNaN(value)||value<0){showToast('Please enter a valid contract value.','error');return;}
   pendingAwardPayload={
     project_id:currentProject.id,
     integrator_id:document.getElementById('ac-integrator').value||null,
@@ -2143,7 +2145,7 @@ async function doSaveAward(payload,advancePhase){
     const intName=projectIntegrators.find(i=>i.id===payload.integrator_id)?.company_name||'contractor';
     logChange('project','update','Contract awarded to '+intName+' – '+fmtPrice(payload.contract_value,payload.currency));
     showToast('Contract award recorded','success');
-  }catch(e){console.error('doSaveAward error',e);alert('Error saving contract award: '+(e.message||e));}
+  }catch(e){console.error('doSaveAward error',e);showToast('Error saving contract award: '+(e.message||e),'error');}
 }
 // ── CR COST ITEMS ──
 async function loadCRCostItems(crId){
@@ -2162,13 +2164,13 @@ function cancelAddCostItem(crId){
 }
 async function saveCostItem(crId){
   const desc=document.getElementById('ci-desc-'+crId)?.value.trim();
-  if(!desc){alert('Description is required.');return;}
+  if(!desc){showToast('Description is required.','error');return;}
   const qty=parseFloat(document.getElementById('ci-qty-'+crId)?.value||'1');
   const price=parseFloat(document.getElementById('ci-price-'+crId)?.value||'0');
   const itemType=document.getElementById('ci-type-'+crId)?.value||'equipment';
   const notes=document.getElementById('ci-notes-'+crId)?.value.trim()||null;
-  if(isNaN(qty)||qty<0){alert('Invalid quantity.');return;}
-  if(isNaN(price)||price<0){alert('Invalid unit price.');return;}
+  if(isNaN(qty)||qty<0){showToast('Invalid quantity.','error');return;}
+  if(isNaN(price)||price<0){showToast('Invalid unit price.','error');return;}
   const payload={cr_id:crId,item_type:itemType,description:desc,quantity:qty,unit_price:price,notes,sort_order:(crCostItems[crId]||[]).length};
   try{
     const rows=await dbInsert('cr_cost_items',payload);
@@ -2180,7 +2182,7 @@ async function saveCostItem(crId){
     await dbUpdate('change_requests',crId,{co_total_value:total,co_currency:currency,priced_at:new Date().toISOString()});
     if(cr){cr.co_total_value=total;cr.co_currency=currency;cr.priced_at=new Date().toISOString();}
     renderCRs();
-  }catch(e){console.error('saveCostItem error',e);alert('Error saving cost item: '+(e.message||e));}
+  }catch(e){console.error('saveCostItem error',e);showToast('Error saving cost item: '+(e.message||e),'error');}
 }
 async function deleteCostItem(itemId,crId){
   openConfirm('Remove Cost Item','Remove this line from the cost schedule? This cannot be undone.',async()=>{
@@ -2193,7 +2195,7 @@ async function deleteCostItem(itemId,crId){
       const cr=ccCRs.find(c=>c.id===crId);
       if(cr){cr.co_total_value=total||null;cr.co_currency=total?currency:null;}
       renderCRs();
-    }catch(e){console.error('deleteCostItem error',e);alert('Error removing cost item: '+(e.message||e));}
+    }catch(e){console.error('deleteCostItem error',e);showToast('Error removing cost item: '+(e.message||e),'error');}
   });
 }
 // ── COST PROMPT (placement cost linking) ──
@@ -2217,10 +2219,10 @@ async function confirmCostPrompt(){
   if(!costPromptData)return;
   const {crId,isRemoval}=costPromptData;
   const desc=document.getElementById('cp-desc').value.trim();
-  if(!desc){alert('Please enter a description.');return;}
+  if(!desc){showToast('Please enter a description.','error');return;}
   const absQty=parseFloat(document.getElementById('cp-qty').value||'1');
   const absPrice=parseFloat(document.getElementById('cp-price').value||'0');
-  if(isNaN(absQty)||absQty<=0||isNaN(absPrice)||absPrice<0){alert('Please enter valid quantity and price.');return;}
+  if(isNaN(absQty)||absQty<=0||isNaN(absPrice)||absPrice<0){showToast('Please enter valid quantity and price.','error');return;}
   // Credits use negative quantity so line_value comes out negative
   const qty=isRemoval?-absQty:absQty;
   const payload={
@@ -2240,7 +2242,7 @@ async function confirmCostPrompt(){
     await dbUpdate('change_requests',crId,{co_total_value:total,co_currency:currency,priced_at:new Date().toISOString()});
     if(cr){cr.co_total_value=total;cr.co_currency=currency;}
     showToast((isRemoval?'Credit':'Cost item')+' added to '+((ccCRs.find(c=>c.id===crId))?.cr_number||'CR'),'success');
-  }catch(e){console.error('confirmCostPrompt error',e);alert('Error adding cost item: '+(e.message||e));}
+  }catch(e){console.error('confirmCostPrompt error',e);showToast('Error adding cost item: '+(e.message||e),'error');}
 }
 // Helper: CO total excluding pending items
 function computeCOTotal(crId){
@@ -2273,8 +2275,8 @@ async function saveResolvePending(itemId,crId){
   const desc=document.getElementById('rp-desc-'+itemId)?.value.trim();
   const qty=parseFloat(document.getElementById('rp-qty-'+itemId)?.value||'1');
   const price=parseFloat(document.getElementById('rp-price-'+itemId)?.value||'0');
-  if(!desc){alert('Description is required.');return;}
-  if(isNaN(qty)||isNaN(price)){alert('Invalid quantity or price.');return;}
+  if(!desc){showToast('Description is required.','error');return;}
+  if(isNaN(qty)||isNaN(price)){showToast('Invalid quantity or price.','error');return;}
   try{
     const rows=await dbUpdate('cr_cost_items',itemId,{item_type:type,description:desc,quantity:qty,unit_price:price,notes:null});
     const idx=(crCostItems[crId]||[]).findIndex(i=>i.id===itemId);
@@ -2284,7 +2286,7 @@ async function saveResolvePending(itemId,crId){
     await dbUpdate('change_requests',crId,{co_total_value:total,co_currency:currency,priced_at:new Date().toISOString()});
     const cr=ccCRs.find(c=>c.id===crId);if(cr){cr.co_total_value=total;cr.co_currency=currency;}
     resolvingPendingId=null;renderCRs();showToast('Cost item saved','success');
-  }catch(e){console.error('saveResolvePending error',e);alert('Error saving: '+(e.message||e));}
+  }catch(e){console.error('saveResolvePending error',e);showToast('Error saving: '+(e.message||e),'error');}
 }
 // Agree cost schedule
 function openAgreeCostScheduleForm(crId){
@@ -2303,7 +2305,7 @@ function closeAgreeCostScheduleForm(crId){
 }
 async function saveAgreeCostSchedule(crId){
   const name=document.getElementById('agree-name-'+crId)?.value.trim();
-  if(!name){alert('Please enter who agreed the cost schedule.');return;}
+  if(!name){showToast('Please enter who agreed the cost schedule.','error');return;}
   const date=document.getElementById('agree-date-'+crId)?.value||new Date().toISOString().split('T')[0];
   try{
     await dbUpdate('change_requests',crId,{co_agreed_by:name,co_agreed_date:date});
@@ -2311,7 +2313,7 @@ async function saveAgreeCostSchedule(crId){
     if(cr){cr.co_agreed_by=name;cr.co_agreed_date=date;}
     logChange('change-control','update','Cost schedule agreed by '+name+' for '+(cr?.cr_number||'CR'));
     showToast('Cost schedule agreed','success');renderCRs();
-  }catch(e){console.error('saveAgreeCostSchedule error',e);alert('Error: '+(e.message||e));}
+  }catch(e){console.error('saveAgreeCostSchedule error',e);showToast('Error: '+(e.message||e),'error');}
 }
 // Helper: look up price AND its source label for a project_equipment record
 function lookupEquipmentPriceInfo(pe){
@@ -4339,7 +4341,7 @@ async function selectProduct(productId){
   const oldPrice=lookupEquipmentPrice(pe);
   try{
     const update={global_product_id:productId,make:p.make,model:p.model,lan_ports:p.lan_ports,speaker_channels:p.speaker_channels,poe_type:p.poe_type,power_types:p.power_types,poe_ports:p.poe_ports,poe_budget_watts:p.poe_budget_watts||null,power_watts:p.power_watts||null,spk_watts:p.spk_watts||null};
-    if(activeCRId){update.change_status='modified';update.change_cr_id=activeCRId;update.change_cr_ref=activeCRRef();}
+    stampChange(update,'modified');
     await dbUpdate('project_equipment',selectingProductForPeId,update);
     showToast(p.make+' '+p.model+' selected','success');
     closeSelectProductModal();
@@ -5304,7 +5306,7 @@ async function quickPullToProject(globalId){
   const d=globalLibrary.find(d=>d.id===globalId);if(!d)return;
   try{
     const qpPayload={project_id:currentProject.id,global_equipment_id:globalId,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,poe_budget_watts:d.poe_budget_watts||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,power_watts:d.power_watts||null,ups_protected:d.ups_protected||false,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'};
-    if(activeCRId){qpPayload.change_status='added';qpPayload.change_cr_id=activeCRId;qpPayload.change_cr_ref=activeCRRef();}
+    stampChange(qpPayload,'added');
     await dbInsert('project_equipment',qpPayload);
     showToast(d.device_type_id+' added to project','success');
     logChange('equipment','added','Pulled '+d.device_type_id+' to Device Types');
@@ -5380,7 +5382,7 @@ async function confirmPullFromLibrary(){
     for(const item of pglItems){
       const d=globalLibrary.find(d=>d.id===item.id);if(!d)continue;
       const bpPayload={project_id:currentProject.id,global_equipment_id:d.id,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'};
-      if(activeCRId){bpPayload.change_status='added';bpPayload.change_cr_id=activeCRId;bpPayload.change_cr_ref=activeCRRef();}
+      stampChange(bpPayload,'added');
       await dbInsert('project_equipment',bpPayload);
     }
     const count=pglItems.length;
@@ -5502,7 +5504,7 @@ async function savePeItem(){
       comments:document.getElementById('pe-comments').value.trim()||null
     });
     const typeId=document.getElementById('pe-type-id').value.trim().toUpperCase()||'device';
-    if(activeCRId)await dbUpdate('project_equipment',editingPeId,{change_status:'modified',change_cr_id:activeCRId,change_cr_ref:activeCRRef()});
+    if(activeCRId)await dbUpdate('project_equipment',editingPeId,stampChange({},'modified'));
     showToast('Updated','success');logChange('equipment','updated','Updated '+typeId+' in Device Types');
     closePeModal();loadProjectEquipment();
     // Prompt for cost delta if budget price changed under a formal CR
@@ -5686,7 +5688,7 @@ function confirmDeletePlaced(id,name){
   openConfirm('Remove Placement',msg,async()=>{
     try{
       if(activeCRId){
-        await dbUpdate('equipment_instances',id,{change_status:'removed',change_cr_id:activeCRId,change_cr_ref:activeCRRef()});
+        await dbUpdate('equipment_instances',id,stampChange({},'removed'));
         showToast(name+' marked as Removed','success');
         // Prompt for credit line if under a formal CR
         if(activeCRType==='formal'){
@@ -5862,7 +5864,7 @@ async function savePlacement(){
           rack_zone_id:locType==='zone'?locId:null,
           installation_type:item.install
         };
-        if(activeCRId){instPayload.change_status='added';instPayload.change_cr_id=activeCRId;instPayload.change_cr_ref=activeCRRef();}
+        stampChange(instPayload,'added');
         payloads.push(instPayload);
       }
     }
@@ -6555,6 +6557,15 @@ function activeCRRef(){
   if(!activeCRId)return null;
   const cr=ccCRs.find(c=>c.id===activeCRId);
   return cr?cr.cr_number:null;
+}
+// Stamp the CR audit fields (status + cr id + cr ref) onto a save payload when a CR is active;
+// no-op otherwise. Centralises the three fields so they always move in lockstep. Returns the payload.
+function stampChange(payload,status){
+  if(!activeCRId)return payload;
+  payload.change_status=status;
+  payload.change_cr_id=activeCRId;
+  payload.change_cr_ref=activeCRRef();
+  return payload;
 }
 // Returns a small inline badge HTML for change_status + cr_ref
 function changeBadge(status,crRef){
