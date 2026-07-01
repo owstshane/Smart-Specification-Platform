@@ -2413,10 +2413,10 @@ function modalRenderScope(scope){
   document.getElementById('modal-scope-list').innerHTML=allD.map(d=>'<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" '+(scope.includes(d)?'checked':'')+' onchange="modalToggleScope(\''+escHtml(d)+'\')" style="width:14px;height:14px;accent-color:var(--accent)"><span>'+escHtml(d)+'</span></label>').join('');
 }
 function modalToggleScope(discipline){
-  // Read current state from checkboxes directly rather than currentProject
-  const checked=Array.from(document.querySelectorAll('#modal-scope-list input[type=checkbox]:checked')).map(cb=>cb.closest('label').querySelector('span').textContent.trim());
-  let scope=[...checked];
-  if(scope.includes(discipline))scope=scope.filter(s=>s!==discipline);else scope.push(discipline);
+  // The checkbox onchange fires AFTER the browser has already applied the tick/untick,
+  // so the DOM already reflects the intended state — read it as-is, do NOT toggle again
+  // (toggling here would undo the user's click, making the checkbox appear unresponsive).
+  const scope=Array.from(document.querySelectorAll('#modal-scope-list input[type=checkbox]:checked')).map(cb=>cb.closest('label').querySelector('span').textContent.trim());
   // Update currentProject if editing, otherwise just re-render
   if(currentProject&&editingProjectId)currentProject={...currentProject,scope};
   modalRenderScope(scope);
@@ -6274,8 +6274,12 @@ async function saveCR(){
   if(!title){showToast('Title is required','error');return;}
   const type=document.getElementById('cr-type').value;
   const prefix=type==='internal'?'IC':'CR';
-  const sameType=ccCRs.filter(c=>c.type===type).length;
-  const num=prefix+'-'+String(sameType+1).padStart(3,'0');
+  // Base the next number on the highest existing suffix, NOT the count — otherwise deleting
+  // a CR (e.g. CR-002) makes the next one reuse an existing number (CR-003 -> CR-003 again).
+  // NOTE: still a best-effort client-side guess; two users creating a CR at once can collide.
+  // A DB sequence / unique constraint on (project_id, cr_number) is the real fix.
+  const maxNum=ccCRs.filter(c=>c.type===type).reduce((m,c)=>{const n=parseInt(String(c.cr_number||'').replace(/^\D+/,''),10)||0;return n>m?n:m;},0);
+  const num=prefix+'-'+String(maxNum+1).padStart(3,'0');
   try{
     await dbInsert('change_requests',{project_id:currentProject.id,cr_number:num,title,
       type:document.getElementById('cr-type').value,status:'draft',
@@ -6313,10 +6317,16 @@ async function closeCR(id){
   catch(e){showToast('Failed: '+e.message,'error');}
 }
 async function rejectCR(id){
-  openConfirm('Reject CR','Reject this CR? All item statuses (Added/Modified/Removed) logged against it will be cleared back to baseline.',async()=>{
+  openConfirm('Reject CR','Reject this CR? Items ADDED under it will be removed; items it modified or marked removed will revert to baseline.',async()=>{
   try{
     await dbUpdate('change_requests',id,{status:'rejected'});
-    // Clear change tracking on all items linked to this CR
+    // Items ADDED under this CR were never part of the baseline — delete them, not just un-tag them
+    // (otherwise a rejected addition silently becomes permanent baseline data).
+    // Delete children before parents for FK safety: instances -> project_equipment -> rooms.
+    await supaFetch('DELETE','equipment_instances',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
+    await supaFetch('DELETE','project_equipment',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
+    await supaFetch('DELETE','rooms',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
+    // Remaining linked rows were MODIFIED or marked REMOVED — clear their change tracking to revert to baseline.
     const clear={change_status:null,change_cr_id:null,change_cr_ref:null};
     await supaFetch('PATCH','equipment_instances',clear,null,'change_cr_id=eq.'+id);
     await supaFetch('PATCH','project_equipment',clear,null,'change_cr_id=eq.'+id);
@@ -6324,7 +6334,7 @@ async function rejectCR(id){
     // Stop logging to this CR if it was active
     if(activeCRId===id)clearActiveCR();
     await loadChangeControl();
-    showToast('CR rejected — item statuses cleared','success');
+    showToast('CR rejected — additions removed, other changes reverted','success');
   }catch(e){showToast('Failed: '+e.message,'error');}
   },'Reject','btn-danger');
 }
