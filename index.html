@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SMART Advisers — Specification Platform</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.css" rel="stylesheet" integrity="sha384-cPa8kzsYWhqpAfWOLWYIw3V0BhPi/m3lrd8tBTPxr2NrYCHRVZ7xy1cEoRGOM/03" crossorigin="anonymous">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js" integrity="sha384-QUJ+ckWz1M+a7w0UfG1sEn4pPrbQwSxGm/1TIPyioqXBrwuT9l4f9gdHWLDLbVWI" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" integrity="sha384-Ic7KEGROu37YaruU6NyiYeib7UhjFyDZQ5fzBAji965L75T/4LGk5nzwMEjNGexs" crossorigin="anonymous"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js" integrity="sha384-QUJ+ckWz1M+a7w0UfG1sEn4pPrbQwSxGm/1TIPyioqXBrwuT9l4f9gdHWLDLbVWI" crossorigin="anonymous"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" integrity="sha384-Ic7KEGROu37YaruU6NyiYeib7UhjFyDZQ5fzBAji965L75T/4LGk5nzwMEjNGexs" crossorigin="anonymous"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1977,10 +1977,13 @@ function renderProjectInfo(){
 async function loadProjectStats(projectId){
   try{
     const decks=await dbGet('decks','project_id=eq.'+projectId+'&order=deck_order.asc');
-    const rooms=decks.length?await dbGet('rooms','deck_id=in.('+decks.map(d=>d.id).join(',')+')'+'&select=id'):[];
-    const zones=await dbGet('rack_zones','project_id=eq.'+projectId+'&select=id');
-    const peTypes=await dbGet('project_equipment','project_id=eq.'+projectId+'&select=id');
-    const placed=await dbGet('equipment_instances','project_id=eq.'+projectId+'&select=id');
+    // rooms depends on decks; the rest are independent — fetch them all in parallel (5 serial RTTs -> 2)
+    const [rooms,zones,peTypes,placed]=await Promise.all([
+      decks.length?dbGet('rooms','deck_id=in.('+decks.map(d=>d.id).join(',')+')&select=id'):Promise.resolve([]),
+      dbGet('rack_zones','project_id=eq.'+projectId+'&select=id'),
+      dbGet('project_equipment','project_id=eq.'+projectId+'&select=id'),
+      dbGet('equipment_instances','project_id=eq.'+projectId+'&select=id')
+    ]);
     const g=id=>document.getElementById(id);
     if(g('pv-decks'))g('pv-decks').textContent=decks.length;
     if(g('pv-rooms'))g('pv-rooms').textContent=rooms.length;
@@ -5057,7 +5060,8 @@ function computeZoneLoads(instances, rooms, zones, peLookup){
 }
 function renderZoneSummary(instances){
   const c=document.getElementById('zone-summary-container');
-  const zones=computeZoneLoads(instances,currentRooms,currentZones,id=>projectEquipment.find(e=>e.id===id));
+  const peById={};projectEquipment.forEach(e=>{peById[e.id]=e;});
+  const zones=computeZoneLoads(instances,currentRooms,currentZones,id=>peById[id]);
   const statusIcon=(d,s)=>{if(!s)return'';if(d>s)return' <span style="color:#e53e3e">&#9888;</span>';if(d>s*0.8)return' <span style="color:#dd6b20">~</span>';return' <span style="color:#38a169">&#10003;</span>';};
   const sectionHdr=label=>'<tr><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);padding:10px 12px 4px;background:var(--surface2)">'+label+'</td></tr>';
   const thStyle='padding:8px 12px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);background:var(--surface2);border-bottom:1px solid var(--border)';
@@ -5548,13 +5552,17 @@ function setPlacedDeckFilter(f){activePlacedDeckFilter=f;renderPlacedDeckTabs();
 function renderPlacedEquipment(){
   const q=(document.getElementById('pl-search')||{}).value?.toLowerCase().trim()||'';
   const c=document.getElementById('placed-equipment-container');
+  // O(1) lookups instead of a linear .find per row over projectEquipment/currentRooms/currentZones
+  const peById={};projectEquipment.forEach(e=>{peById[e.id]=e;});
+  const roomById={};currentRooms.forEach(r=>{roomById[r.id]=r;});
+  const zoneById={};currentZones.forEach(z=>{zoneById[z.id]=z;});
   let allFiltered=placedEquipment.filter(p=>{
-    const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
+    const pe=peById[p.project_equipment_id];
     const matchQ=!q||(p.device_id||'').toLowerCase().includes(q)||(pe&&(pe.description||'').toLowerCase().includes(q));
     if(!matchQ)return false;
     if(activePlacedDeckFilter==='all')return true;
     if(activePlacedDeckFilter==='zone')return!!p.rack_zone_id;
-    const room=currentRooms.find(r=>r.id===p.room_id);
+    const room=roomById[p.room_id];
     return room&&room.deck_id===activePlacedDeckFilter;
   });
   const removedCount=allFiltered.filter(p=>p.change_status==='removed').length;
@@ -5579,9 +5587,9 @@ function renderPlacedEquipment(){
   // Accumulate totals per currency
   const totals={};
   const itemRow=p=>{
-    const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
-    const room=currentRooms.find(r=>r.id===p.room_id);
-    const zone=currentZones.find(z=>z.id===p.rack_zone_id);
+    const pe=peById[p.project_equipment_id];
+    const room=roomById[p.room_id];
+    const zone=zoneById[p.rack_zone_id];
     const loc=room?escHtml(room.name):zone?escHtml(zone.name):dash;
     const install=p.installation_type==='rack-mounted'?'<span class="category-badge">Rack</span>':'<span style="font-size:11px;color:var(--text-3)">Room</span>';
     const isRemoved=p.change_status==='removed';
@@ -7052,17 +7060,22 @@ function _numberSpecHtml(html){
 async function _assembleCsiSpec(){
     const decks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
     const deckIds=decks.map(d=>d.id);
-    const rooms=deckIds.length?await dbGet('rooms','deck_id=in.('+deckIds.join(',')+')&order=room_number.asc'):[];
-    const zoneList=await dbGet('rack_zones','project_id=eq.'+currentProject.id+'&order=name.asc');
-    const instances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
-    const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id);
-    const pp=await dbGet('project_products','project_id=eq.'+currentProject.id);
-    if(!globalLibrary.length)globalLibrary=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
-    if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
-    if(!deviceCategories.length)deviceCategories=await dbGet('device_categories','order=sort_order.asc');
-    if(!deviceSubcategories.length)deviceSubcategories=await dbGet('device_subcategories','order=sort_order.asc');
-    // Pull generic (all-discipline) sections plus this spec's discipline (AV/IT for now).
-    const docSections=await dbGet('spec_section_library','system_group_id=is.null&or=(discipline.is.null,discipline.eq.avit)&order=sort_order.asc');
+    // rooms depends on decks; everything else is independent — fetch in parallel (~12 serial RTTs -> 2).
+    // Cached globals (globalLibrary/systemGroups/…) skip the network via already-resolved promises.
+    const [rooms,zoneList,instances,pe,pp,glib,sg,dc,dsc,docSections]=await Promise.all([
+      deckIds.length?dbGet('rooms','deck_id=in.('+deckIds.join(',')+')&order=room_number.asc'):Promise.resolve([]),
+      dbGet('rack_zones','project_id=eq.'+currentProject.id+'&order=name.asc'),
+      dbGet('equipment_instances','project_id=eq.'+currentProject.id),
+      dbGet('project_equipment','project_id=eq.'+currentProject.id),
+      dbGet('project_products','project_id=eq.'+currentProject.id),
+      globalLibrary.length?Promise.resolve(globalLibrary):dbGet('global_equipment','order=system_group.asc,device_type_id.asc'),
+      systemGroups.length?Promise.resolve(systemGroups):dbGet('system_groups','order=sort_order.asc,name.asc'),
+      deviceCategories.length?Promise.resolve(deviceCategories):dbGet('device_categories','order=sort_order.asc'),
+      deviceSubcategories.length?Promise.resolve(deviceSubcategories):dbGet('device_subcategories','order=sort_order.asc'),
+      // Generic (all-discipline) sections plus this spec's discipline (AV/IT for now).
+      dbGet('spec_section_library','system_group_id=is.null&or=(discipline.is.null,discipline.eq.avit)&order=sort_order.asc')
+    ]);
+    globalLibrary=glib;systemGroups=sg;deviceCategories=dc;deviceSubcategories=dsc;
     const frontMatter=docSections.filter(s=>(s.position||'front')!=='back');
     const endSections=docSections.filter(s=>(s.position||'front')==='back');
 
