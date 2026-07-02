@@ -582,10 +582,12 @@
       <div id="page-decks-rooms" class="hidden">
         <div class="section-tabs">
           <button class="section-tab active" id="tab-btn-decks" onclick="switchDeckRoomTab('decks')">Decks</button>
+          <button class="section-tab" id="tab-btn-floors" onclick="switchDeckRoomTab('floors')" style="display:none">Floors</button>
           <button class="section-tab" id="tab-btn-rooms" onclick="switchDeckRoomTab('rooms')">Rooms</button>
           <button class="section-tab" id="tab-btn-zones" onclick="switchDeckRoomTab('zones')">Rack Zones</button>
         </div>
         <div id="decks-tab-content"><div id="decks-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
+        <div id="floors-tab-content" class="hidden"><div id="floors-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
         <div id="rooms-tab-content" class="hidden">
           <div class="room-search-bar">
             <div class="room-search-wrap"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="room-search-input" placeholder="Search rooms…" oninput="renderRoomsTable()"></div>
@@ -984,10 +986,22 @@
   <div class="modal" style="max-width:480px">
     <div class="modal-header"><div class="modal-title" id="deck-modal-title">Add Deck</div><button class="btn-icon" onclick="closeDeckModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-body">
-      <div class="form-row form-row-2"><div><label>Deck No. <span class="required">*</span></label><input type="number" id="fd-order" placeholder="e.g. 1" min="1"></div><div><label>Deck ID <span class="required">*</span></label><input type="text" id="fd-id" placeholder="e.g. MD" maxlength="6" oninput="this.value=this.value.toUpperCase()"></div></div>
-      <div class="form-group"><label>Deck Name <span class="required">*</span></label><input type="text" id="fd-name" placeholder="e.g. Main Deck"></div>
+      <div class="form-row form-row-2"><div><label id="fd-order-label">Deck No. <span class="required">*</span></label><input type="number" id="fd-order" placeholder="e.g. 1" min="1"></div><div><label id="fd-id-label">Deck ID <span class="required">*</span></label><input type="text" id="fd-id" placeholder="e.g. MD" maxlength="6" oninput="this.value=this.value.toUpperCase()"></div></div>
+      <div class="form-group"><label id="fd-name-label">Deck Name <span class="required">*</span></label><input type="text" id="fd-name" placeholder="e.g. Main Deck"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeDeckModal()">Cancel</button><button class="btn btn-primary" onclick="saveDeck()" id="deck-save-btn">Save Deck</button></div>
+  </div>
+</div>
+
+<!-- FLOOR MODAL -->
+<div class="modal-overlay" id="floor-modal-overlay">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title" id="floor-modal-title">Add Floor</div><button class="btn-icon" onclick="closeFloorModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Building <span class="required">*</span></label><select id="ff-deck"></select></div>
+      <div class="form-row form-row-2"><div><label>Floor Order <span class="required">*</span></label><input type="number" id="ff-order" placeholder="e.g. 1" min="0"></div><div><label>Floor Name <span class="required">*</span></label><input type="text" id="ff-name" placeholder="e.g. Ground Floor"></div></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeFloorModal()">Cancel</button><button class="btn btn-primary" onclick="saveFloor()" id="floor-save-btn">Save Floor</button></div>
   </div>
 </div>
 
@@ -996,7 +1010,8 @@
   <div class="modal" style="max-width:560px">
     <div class="modal-header"><div class="modal-title" id="room-modal-title">Add Room</div><button class="btn-icon" onclick="closeRoomModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-body">
-      <div class="form-row form-row-2"><div><label>Deck <span class="required">*</span></label><select id="fr-deck"></select></div><div><label>Position</label><select id="fr-position"><option value="">— Any —</option><option value="P">Port (P)</option><option value="S">Starboard (S)</option><option value="C">Central (C)</option></select></div></div>
+      <div class="form-row form-row-2"><div><label id="fr-deck-label">Deck <span class="required">*</span></label><select id="fr-deck" onchange="onRoomDeckChange()"></select></div><div><label>Position</label><select id="fr-position"><option value="">— Any —</option><option value="P">Port (P)</option><option value="S">Starboard (S)</option><option value="C">Central (C)</option></select></div></div>
+      <div class="form-group" id="fr-floor-group" style="display:none"><label>Floor</label><select id="fr-floor"></select></div>
       <div class="form-row form-row-3"><div><label>Room No. <span class="required">*</span></label><input type="number" id="fr-number" min="1"></div><div><label>Room ID <span class="optional">optional</span></label><input type="text" id="fr-id" maxlength="8" oninput="this.value=this.value.toUpperCase()"></div><div><label>Frame Number <span class="optional">optional</span></label><input type="text" id="fr-frame"></div></div>
       <div class="form-group"><label>Room Name <span class="required">*</span></label><input type="text" id="fr-name"></div>
       <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="fr-notes" rows="2"></textarea></div>
@@ -1560,6 +1575,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // ── STATE ──
 let allProjects=[], currentProject=null, editingProjectId=null;
 let currentDecks=[], currentRooms=[], editingDeckId=null, editingRoomId=null;
+let currentFloors=[], editingFloorId=null;
 let currentZones=[], editingZoneId=null, assigningZoneId=null;
 let activeRoomFilter='all', roomSortCol='room_number', roomSortDir='asc';
 let activeDeckRoomTab='decks', activeEquipTab='placed', activeSgTab='groups', currentPage='dashboard';
@@ -1791,7 +1807,7 @@ function updateSidebarProject(){
 // Globals intentionally NOT reset here: allProjects, globalLibrary, globalProducts, systemGroups, deviceCategories,
 // deviceSubcategories, specLibrarySections (these are shared/global, not per-project).
 function resetProjectCaches(){
-  currentDecks=[];currentRooms=[];currentZones=[];
+  currentDecks=[];currentFloors=[];currentRooms=[];currentZones=[];
   projectEquipment=[];placedEquipment=[];projectProducts=[];
   ccCRs=[];ccRevisions=[];ccLog=[];crCostItems={};expandedCRId=null;
   projectTeam=[];projectIntegrators=[];projectAward=null;
@@ -1819,21 +1835,34 @@ function openProject(id){
   updateSidebarProject();
   showPage('project-info');
 }
+// A "building" project (any non-Yacht category) uses Building > Floor > Room; a yacht uses Deck > Room.
+function isBuildingProj(){return !!(currentProject&&currentProject.category&&currentProject.category!=='Yacht');}
+function topNoun(cap){return isBuildingProj()?(cap?'Building':'building'):(cap?'Deck':'deck');}
+// Relabel the Layout tabs + show/hide the Floors tab to match the project type.
+function applyLayoutTerms(){
+  const b=isBuildingProj();
+  const tb=document.getElementById('tab-btn-decks');if(tb)tb.textContent=topNoun(true)+'s';
+  const ft=document.getElementById('tab-btn-floors');if(ft)ft.style.display=b?'':'none';
+  if(!b&&activeDeckRoomTab==='floors')activeDeckRoomTab='decks';
+}
 function switchDeckRoomTab(tab){
   activeDeckRoomTab=tab;
-  document.getElementById('decks-tab-content').classList.toggle('hidden',tab!=='decks');
-  document.getElementById('rooms-tab-content').classList.toggle('hidden',tab!=='rooms');
-  document.getElementById('zones-tab-content').classList.toggle('hidden',tab!=='zones');
-  document.getElementById('tab-btn-decks').classList.toggle('active',tab==='decks');
-  document.getElementById('tab-btn-rooms').classList.toggle('active',tab==='rooms');
-  document.getElementById('tab-btn-zones').classList.toggle('active',tab==='zones');
-  updateDecksRoomsBtn();if(tab==='decks')loadDecks();else if(tab==='rooms')loadRooms();else loadRackZones();
+  applyLayoutTerms();
+  ['decks','floors','rooms','zones'].forEach(t=>{
+    const el=document.getElementById(t+'-tab-content');if(el)el.classList.toggle('hidden',t!==tab);
+    const btn=document.getElementById('tab-btn-'+t);if(btn)btn.classList.toggle('active',t===tab);
+  });
+  updateDecksRoomsBtn();
+  if(tab==='decks')loadDecks();else if(tab==='floors')loadFloors();else if(tab==='rooms')loadRooms();else loadRackZones();
 }
 function updateDecksRoomsBtn(){
   const btn=document.getElementById('topbar-btn');if(!btn)return;
-  if(activeDeckRoomTab==='decks'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Deck';btn.onclick=openNewDeckModal;btn.style.display='';}
-  else if(activeDeckRoomTab==='rooms'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Room';btn.onclick=()=>openNewRoomModal(null);btn.style.display='';}
-  else{btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Zone';btn.onclick=openNewZoneModal;btn.style.display='';}
+  applyLayoutTerms();
+  const plus='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> ';
+  if(activeDeckRoomTab==='decks'){btn.innerHTML=plus+'Add '+topNoun(true);btn.onclick=openNewDeckModal;btn.style.display='';}
+  else if(activeDeckRoomTab==='floors'){btn.innerHTML=plus+'Add Floor';btn.onclick=openNewFloorModal;btn.style.display='';}
+  else if(activeDeckRoomTab==='rooms'){btn.innerHTML=plus+'Add Room';btn.onclick=()=>openNewRoomModal(null);btn.style.display='';}
+  else{btn.innerHTML=plus+'Add Zone';btn.onclick=openNewZoneModal;btn.style.display='';}
 }
 
 // ── PROJECTS ──
@@ -1887,7 +1916,7 @@ function renderProjectInfo(){
   const editBtn='<button class="btn btn-secondary btn-sm" onclick="openEditProjectModal(currentProject)"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>';
   const banner='<div class="project-banner"><div class="project-banner-top"><div><div class="project-banner-code">'+escHtml(p.project_code||'')+'</div><div class="project-banner-name">'+escHtml(p.name)+'</div><div class="project-banner-badges">'+tb+sb+pb+'</div></div>'+editBtn+'</div></div>';
   const stats='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:20px 0">'
-    +'<div id="ps-decks" style="cursor:pointer;padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-decks" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Decks</div></div>'
+    +'<div id="ps-decks" style="cursor:pointer;padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-decks" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">'+topNoun(true)+'s</div></div>'
     +'<div id="ps-rooms" style="cursor:pointer;padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-rooms" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Rooms</div></div>'
     +'<div id="ps-zones" style="cursor:pointer;padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-zones" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Rack Zones</div></div>'
     +'<div id="ps-types" style="cursor:pointer;padding:16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);text-align:center"><div id="pv-types" style="font-size:28px;font-weight:700;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Device Types</div></div>'
@@ -2488,7 +2517,7 @@ async function loadDecks(){
 }
 function renderDecks(roomCounts){
   const c=document.getElementById('decks-container');
-  if(!currentDecks.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏗️</div><div class="empty-state-title">No decks yet</div><div class="empty-state-text">Add your first deck.</div></div>';return;}
+  if(!currentDecks.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏗️</div><div class="empty-state-title">No '+topNoun()+'s yet</div><div class="empty-state-text">Add your first '+topNoun()+'.</div></div>';return;}
   const up='<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18,15 12,9 6,15"/></svg>';
   const dn='<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg>';
   c.innerHTML='<div class="decks-list">'+currentDecks.map((d,i)=>{
@@ -2516,8 +2545,9 @@ async function moveDeck(id,direction){
   try{await Promise.all(currentDecks.map((d,i)=>dbUpdate('decks',d.id,{deck_order:i+1})));}
   catch(e){showToast('Could not save order','error');loadDecks();}
 }
-function openNewDeckModal(){editingDeckId=null;document.getElementById('deck-modal-title').textContent='Add Deck';document.getElementById('deck-save-btn').textContent='Save Deck';document.getElementById('fd-order').value=currentDecks.length+1;document.getElementById('fd-id').value='';document.getElementById('fd-name').value='';document.getElementById('deck-modal-overlay').classList.add('open');}
-function openEditDeckModal(id){const d=currentDecks.find(d=>d.id===id);if(!d)return;editingDeckId=id;document.getElementById('deck-modal-title').textContent='Edit Deck';document.getElementById('deck-save-btn').textContent='Save Changes';document.getElementById('fd-order').value=d.deck_order||'';document.getElementById('fd-id').value=d.deck_id||'';document.getElementById('fd-name').value=d.name||'';document.getElementById('deck-modal-overlay').classList.add('open');}
+function deckModalLabels(){const T=topNoun(true);const o=document.getElementById('fd-order-label');if(o)o.innerHTML=T+' No. <span class="required">*</span>';const i=document.getElementById('fd-id-label');if(i)i.innerHTML=T+' ID <span class="required">*</span>';const n=document.getElementById('fd-name-label');if(n)n.innerHTML=T+' Name <span class="required">*</span>';}
+function openNewDeckModal(){editingDeckId=null;deckModalLabels();document.getElementById('deck-modal-title').textContent='Add '+topNoun(true);document.getElementById('deck-save-btn').textContent='Save '+topNoun(true);document.getElementById('fd-order').value=currentDecks.length+1;document.getElementById('fd-id').value='';document.getElementById('fd-name').value='';document.getElementById('deck-modal-overlay').classList.add('open');}
+function openEditDeckModal(id){const d=currentDecks.find(d=>d.id===id);if(!d)return;editingDeckId=id;deckModalLabels();document.getElementById('deck-modal-title').textContent='Edit '+topNoun(true);document.getElementById('deck-save-btn').textContent='Save Changes';document.getElementById('fd-order').value=d.deck_order||'';document.getElementById('fd-id').value=d.deck_id||'';document.getElementById('fd-name').value=d.name||'';document.getElementById('deck-modal-overlay').classList.add('open');}
 function closeDeckModal(){document.getElementById('deck-modal-overlay').classList.remove('open');}
 async function saveDeck(){
   const order=parseInt(document.getElementById('fd-order').value),deckId=document.getElementById('fd-id').value.trim().toUpperCase(),name=document.getElementById('fd-name').value.trim();
@@ -2529,11 +2559,86 @@ async function saveDeck(){
 }
 function confirmDeleteDeck(id,name){openConfirm('Delete Deck','Delete "'+name+'"? All rooms on this deck will also be removed.',async()=>{try{await dbDelete('decks',id);showToast('Deck deleted','success');logChange('layout','removed','Removed deck: '+name);loadDecks();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
 
+// ── FLOORS (building projects: Building > Floor > Room) ──
+async function loadFloors(){
+  const c=document.getElementById('floors-container');c.innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try{
+    currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    currentFloors=await dbGet('floors','project_id=eq.'+currentProject.id+'&order=floor_order.asc');
+    let counts={};
+    if(currentFloors.length){const rooms=await dbGet('rooms','floor_id=in.('+currentFloors.map(f=>f.id).join(',')+')&select=floor_id');rooms.forEach(r=>{if(r.floor_id)counts[r.floor_id]=(counts[r.floor_id]||0)+1;});}
+    renderFloors(counts);
+  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+}
+function renderFloors(roomCounts){
+  const c=document.getElementById('floors-container');
+  if(!currentDecks.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏢</div><div class="empty-state-title">No buildings yet</div><div class="empty-state-text">Add a building first, then add its floors.</div></div>';return;}
+  if(!currentFloors.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🏢</div><div class="empty-state-title">No floors yet</div><div class="empty-state-text">Add floors to your buildings.</div></div>';return;}
+  const editS='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  const delS='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg>';
+  let html='';
+  currentDecks.forEach(d=>{
+    const fl=currentFloors.filter(f=>f.deck_id===d.id);
+    if(!fl.length)return;
+    html+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3);margin-bottom:6px">'+escHtml(d.name)+'</div><div class="decks-list">'
+      +fl.map(f=>{
+        const count=(roomCounts&&roomCounts[f.id])||0;
+        return '<div class="deck-row">'
+          +'<div class="deck-order-badge">'+(f.floor_order!=null?f.floor_order:'—')+'</div>'
+          +'<div class="deck-row-name">'+escHtml(f.name)+'</div>'
+          +'<div class="deck-row-count">'+count+' room'+(count!==1?'s':'')+'</div>'
+          +'<div class="row-actions">'
+          +'<button class="btn-icon btn-sm" onclick="openEditFloorModal(\''+f.id+'\')">'+editS+'</button>'
+          +'<button class="btn-icon btn-sm" onclick="confirmDeleteFloor(\''+f.id+'\',\''+escHtml(f.name)+'\')">'+delS+'</button>'
+          +'</div></div>';
+      }).join('')+'</div></div>';
+  });
+  c.innerHTML=html;
+}
+function populateFloorDeckSelect(selectedId){const sel=document.getElementById('ff-deck');if(!sel)return;sel.innerHTML=currentDecks.map(d=>'<option value="'+d.id+'"'+(d.id===selectedId?' selected':'')+'>'+escHtml(d.name)+'</option>').join('');}
+function openNewFloorModal(){
+  if(!currentDecks.length){showToast('Add a building first','error');return;}
+  editingFloorId=null;
+  document.getElementById('floor-modal-title').textContent='Add Floor';
+  document.getElementById('floor-save-btn').textContent='Save Floor';
+  const dId=(activeRoomFilter!=='all'&&currentDecks.find(d=>d.id===activeRoomFilter))?activeRoomFilter:currentDecks[0].id;
+  populateFloorDeckSelect(dId);
+  document.getElementById('ff-order').value=currentFloors.filter(f=>f.deck_id===dId).length+1;
+  document.getElementById('ff-name').value='';
+  document.getElementById('floor-modal-overlay').classList.add('open');
+}
+function openEditFloorModal(id){
+  const f=currentFloors.find(x=>x.id===id);if(!f)return;
+  editingFloorId=id;
+  document.getElementById('floor-modal-title').textContent='Edit Floor';
+  document.getElementById('floor-save-btn').textContent='Save Changes';
+  populateFloorDeckSelect(f.deck_id);
+  document.getElementById('ff-order').value=f.floor_order!=null?f.floor_order:'';
+  document.getElementById('ff-name').value=f.name||'';
+  document.getElementById('floor-modal-overlay').classList.add('open');
+}
+function closeFloorModal(){document.getElementById('floor-modal-overlay').classList.remove('open');}
+async function saveFloor(){
+  const deckId=document.getElementById('ff-deck').value,order=parseInt(document.getElementById('ff-order').value),name=document.getElementById('ff-name').value.trim();
+  if(!deckId){showToast('Please select a building','error');return;}
+  if(!name){showToast('Please enter a floor name','error');return;}
+  const payload={project_id:currentProject.id,deck_id:deckId,name,floor_order:isNaN(order)?0:order};
+  const btn=document.getElementById('floor-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  try{
+    if(editingFloorId){await dbUpdate('floors',editingFloorId,payload);showToast('Floor updated','success');logChange('layout','updated','Updated floor: '+name);}
+    else{await dbInsert('floors',payload);showToast('Floor added','success');logChange('layout','added','Added floor: '+name);}
+    closeFloorModal();loadFloors();
+  }catch(e){showToast('Could not save: '+e.message,'error');}
+  finally{btn.textContent=editingFloorId?'Save Changes':'Save Floor';btn.disabled=false;}
+}
+function confirmDeleteFloor(id,name){openConfirm('Delete Floor','Delete "'+name+'"? Rooms on this floor will be unlinked from it (not deleted).',async()=>{try{await dbDelete('floors',id);showToast('Floor deleted','success');logChange('layout','removed','Removed floor: '+name);loadFloors();}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+
 // ── ROOMS ──
 async function loadRooms(){
   document.getElementById('rooms-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
   try{
     currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    currentFloors=await dbGet('floors','project_id=eq.'+currentProject.id+'&order=floor_order.asc');
     currentRooms=currentDecks.length?await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc'):[];
     currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
     renderDeckFilterTabs();renderRoomsTable();
@@ -2560,16 +2665,17 @@ function renderRoomsTable(){
   });
   if(!filtered.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🚪</div><div class="empty-state-title">No rooms found</div><div class="empty-state-text">'+(q?'No rooms match your search.':activeRoomFilter==='all'?'Add rooms using the button above.':'No rooms on this deck yet.')+'</div></div>';return;}
   const mkH=(label,col)=>'<div class="rooms-table-header-cell" style="cursor:pointer;user-select:none" onclick="setRoomSort(\''+col+'\')">'+label+sortArrow(col)+'</div>';
-  c.innerHTML='<div class="rooms-table"><div class="rooms-table-header">'+mkH('#','room_number')+mkH('ID','room_id')+mkH('Deck','deck_order')+'<div class="rooms-table-header-cell">Name</div><div class="rooms-table-header-cell">Frame</div><div class="rooms-table-header-cell">Pos</div><div class="rooms-table-header-cell">Zone</div><div class="rooms-table-header-cell"></div></div>'
+  c.innerHTML='<div class="rooms-table"><div class="rooms-table-header">'+mkH('#','room_number')+mkH('ID','room_id')+mkH(topNoun(true),'deck_order')+'<div class="rooms-table-header-cell">Name</div><div class="rooms-table-header-cell">Frame</div><div class="rooms-table-header-cell">Pos</div><div class="rooms-table-header-cell">Zone</div><div class="rooms-table-header-cell"></div></div>'
     +filtered.map(r=>{
       const deck=currentDecks.find(d=>d.id===r.deck_id);
+      const floor=isBuildingProj()&&r.floor_id?currentFloors.find(f=>f.id===r.floor_id):null;
       const zone=currentZones.find(z=>z.id===r.rack_zone_id);
       const zoneHtml=zone?'<span style="font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;background:'+zone.colour+'22;color:'+zone.colour+'">'+escHtml(zone.zone_id)+'</span>':'<span style="color:var(--text-3)">—</span>';
       return '<div class="room-table-row">'
         +'<div class="room-cell num">'+(r.room_number||'—')+'</div>'
         +'<div class="room-cell mono">'+escHtml(r.room_id||'—')+'</div>'
         +'<div class="room-cell"><span class="deck-id-pill" style="font-size:10px;padding:1px 6px">'+escHtml(deck?deck.deck_id:'?')+'</span></div>'
-        +'<div class="room-cell" style="font-weight:500">'+escHtml(r.name)+(r.change_status?'<span style="margin-left:6px">'+changeBadge(r.change_status,r.change_cr_ref)+'</span>':'')+'</div>'
+        +'<div class="room-cell" style="font-weight:500">'+escHtml(r.name)+(floor?' <span style="font-size:10px;color:var(--text-3);font-weight:400">· '+escHtml(floor.name)+'</span>':'')+(r.change_status?'<span style="margin-left:6px">'+changeBadge(r.change_status,r.change_cr_ref)+'</span>':'')+'</div>'
         +'<div class="room-cell mono">'+escHtml(r.frame_number||'')+'</div>'
         +'<div class="room-cell">'+(r.position?'<span class="pos-badge">'+r.position+'</span>':'')+'</div>'
         +'<div class="room-cell">'+zoneHtml+'</div>'
@@ -2579,14 +2685,25 @@ function renderRoomsTable(){
         +'</div></div>';
     }).join('')+'</div>';
 }
-function populateDeckSelect(selectedId){const sel=document.getElementById('fr-deck');sel.innerHTML=currentDecks.map(d=>'<option value="'+d.id+'"'+(d.id===selectedId?' selected':'')+'>'+escHtml(d.name)+' ('+escHtml(d.deck_id)+')</option>').join('');}
-function openNewRoomModal(deckId){if(!currentDecks.length){showToast('Please add a deck first','error');return;}editingRoomId=null;document.getElementById('room-modal-title').textContent='Add Room';document.getElementById('room-save-btn').textContent='Save Room';populateDeckSelect(deckId||(activeRoomFilter!=='all'?activeRoomFilter:currentDecks[0].id));document.getElementById('fr-number').value='';document.getElementById('fr-id').value='';document.getElementById('fr-name').value='';document.getElementById('fr-position').value='';document.getElementById('fr-frame').value='';document.getElementById('fr-notes').value='';document.getElementById('room-modal-overlay').classList.add('open');}
-function openEditRoomModal(roomId){const r=currentRooms.find(r=>r.id===roomId);if(!r)return;editingRoomId=roomId;document.getElementById('room-modal-title').textContent='Edit Room';document.getElementById('room-save-btn').textContent='Save Changes';populateDeckSelect(r.deck_id);document.getElementById('fr-number').value=r.room_number||'';document.getElementById('fr-id').value=r.room_id||'';document.getElementById('fr-name').value=r.name||'';document.getElementById('fr-position').value=r.position||'';document.getElementById('fr-frame').value=r.frame_number||'';document.getElementById('fr-notes').value=r.notes||'';document.getElementById('room-modal-overlay').classList.add('open');}
+function populateDeckSelect(selectedId){const sel=document.getElementById('fr-deck');sel.innerHTML=currentDecks.map(d=>'<option value="'+d.id+'"'+(d.id===selectedId?' selected':'')+'>'+escHtml(d.name)+' ('+escHtml(d.deck_id)+')</option>').join('');const lbl=document.getElementById('fr-deck-label');if(lbl)lbl.innerHTML=topNoun(true)+' <span class="required">*</span>';}
+// Floor picker in the room modal (shown only for building projects), scoped to the chosen building.
+function populateFloorSelect(deckId,selectedId){
+  const grp=document.getElementById('fr-floor-group'),sel=document.getElementById('fr-floor');
+  if(!grp||!sel)return;
+  if(!isBuildingProj()){grp.style.display='none';sel.innerHTML='';return;}
+  grp.style.display='';
+  const fl=currentFloors.filter(f=>f.deck_id===deckId);
+  sel.innerHTML='<option value="">— No floor —</option>'+fl.map(f=>'<option value="'+f.id+'"'+(f.id===selectedId?' selected':'')+'>'+escHtml(f.name)+'</option>').join('');
+}
+function onRoomDeckChange(){populateFloorSelect(document.getElementById('fr-deck').value,'');}
+function openNewRoomModal(deckId){if(!currentDecks.length){showToast('Please add a '+topNoun()+' first','error');return;}editingRoomId=null;document.getElementById('room-modal-title').textContent='Add Room';document.getElementById('room-save-btn').textContent='Save Room';const dId=deckId||(activeRoomFilter!=='all'?activeRoomFilter:currentDecks[0].id);populateDeckSelect(dId);populateFloorSelect(dId,'');document.getElementById('fr-number').value='';document.getElementById('fr-id').value='';document.getElementById('fr-name').value='';document.getElementById('fr-position').value='';document.getElementById('fr-frame').value='';document.getElementById('fr-notes').value='';document.getElementById('room-modal-overlay').classList.add('open');}
+function openEditRoomModal(roomId){const r=currentRooms.find(r=>r.id===roomId);if(!r)return;editingRoomId=roomId;document.getElementById('room-modal-title').textContent='Edit Room';document.getElementById('room-save-btn').textContent='Save Changes';populateDeckSelect(r.deck_id);populateFloorSelect(r.deck_id,r.floor_id);document.getElementById('fr-number').value=r.room_number||'';document.getElementById('fr-id').value=r.room_id||'';document.getElementById('fr-name').value=r.name||'';document.getElementById('fr-position').value=r.position||'';document.getElementById('fr-frame').value=r.frame_number||'';document.getElementById('fr-notes').value=r.notes||'';document.getElementById('room-modal-overlay').classList.add('open');}
 function closeRoomModal(){document.getElementById('room-modal-overlay').classList.remove('open');}
 async function saveRoom(){
   const deckId=document.getElementById('fr-deck').value,num=parseInt(document.getElementById('fr-number').value),name=document.getElementById('fr-name').value.trim();
-  if(!deckId){showToast('Please select a deck','error');return;}if(!num){showToast('Please enter a room number','error');return;}if(!name){showToast('Please enter a room name','error');return;}
-  const payload={deck_id:deckId,room_number:num,room_id:document.getElementById('fr-id').value.trim().toUpperCase()||null,name,position:document.getElementById('fr-position').value||null,frame_number:document.getElementById('fr-frame').value.trim()||null,notes:document.getElementById('fr-notes').value.trim()||null};
+  if(!deckId){showToast('Please select a '+topNoun(),'error');return;}if(!num){showToast('Please enter a room number','error');return;}if(!name){showToast('Please enter a room name','error');return;}
+  const floorId=isBuildingProj()?(document.getElementById('fr-floor').value||null):null;
+  const payload={deck_id:deckId,floor_id:floorId,room_number:num,room_id:document.getElementById('fr-id').value.trim().toUpperCase()||null,name,position:document.getElementById('fr-position').value||null,frame_number:document.getElementById('fr-frame').value.trim()||null,notes:document.getElementById('fr-notes').value.trim()||null};
   const btn=document.getElementById('room-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{
     if(activeCRId){payload.change_cr_id=activeCRId;payload.change_cr_ref=activeCRRef();}
