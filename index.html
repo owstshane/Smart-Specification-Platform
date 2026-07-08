@@ -1592,6 +1592,10 @@ let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null, ac
 
 // ── UTILS ──
 function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+// Escapes a value for use inside a single-quoted JS string in an inline onclick handler.
+// escHtml alone is not enough there: the HTML parser decodes &#39; back to a raw quote before
+// the JS runs, so an apostrophe in a name (Owner's Cabin) breaks the handler. Use escHtml(escJs(x)).
+function escJs(s){if(s==null)return'';return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 // Sanitize generated spec HTML before it hits the live DOM. The spec engine renders stored,
 // user-editable rich text (project_spec_overrides.content / spec_section_library.content) raw so
 // tables and formatting survive — DOMPurify strips any injected <script>/onerror/onclick etc. while
@@ -1912,7 +1916,7 @@ function renderProjects(projects){
     return '<div class="project-card" onclick="openProject(\''+p.id+'\')">'
       +'<div class="project-card-actions" onclick="event.stopPropagation()">'
       +'<button class="btn-icon btn-sm" onclick=\'openEditProjectModal('+JSON.stringify(p).replace(/'/g,"&#39;")+')\' title="Edit"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
-      +'<button class="btn-icon btn-sm" onclick="confirmDeleteProject(\''+p.id+'\',\''+escHtml(p.name)+'\')" title="Delete"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+      +'<button class="btn-icon btn-sm" onclick="confirmDeleteProject(\''+p.id+'\',\''+escHtml(escJs(p.name))+'\')" title="Delete"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
       +'</div>'
       +'<div class="project-card-code">'+escHtml(p.project_code||'')+'</div>'
       +'<div class="project-card-name">'+escHtml(p.name)+'</div>'
@@ -2473,7 +2477,7 @@ function openEditProjectModal(p){
 }
 function modalRenderScope(scope){
   const allD=[...DEFAULT_DISCIPLINES,...(scope||[]).filter(s=>!DEFAULT_DISCIPLINES.includes(s))];
-  document.getElementById('modal-scope-list').innerHTML=allD.map(d=>'<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" '+(scope.includes(d)?'checked':'')+' onchange="modalToggleScope(\''+escHtml(d)+'\')" style="width:14px;height:14px;accent-color:var(--accent)"><span>'+escHtml(d)+'</span></label>').join('');
+  document.getElementById('modal-scope-list').innerHTML=allD.map(d=>'<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" '+(scope.includes(d)?'checked':'')+' onchange="modalToggleScope(\''+escHtml(escJs(d))+'\')" style="width:14px;height:14px;accent-color:var(--accent)"><span>'+escHtml(d)+'</span></label>').join('');
 }
 function modalToggleScope(discipline){
   // The checkbox onchange fires AFTER the browser has already applied the tick/untick,
@@ -2552,7 +2556,7 @@ function renderDecks(roomCounts){
       +'<div class="deck-row-count">'+count+' room'+(count!==1?'s':'')+'</div>'
       +'<div class="row-actions">'
       +'<button class="btn-icon btn-sm" onclick="openEditDeckModal(\''+d.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
-      +'<button class="btn-icon btn-sm" onclick="confirmDeleteDeck(\''+d.id+'\',\''+escHtml(d.name)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+      +'<button class="btn-icon btn-sm" onclick="confirmDeleteDeck(\''+d.id+'\',\''+escHtml(escJs(d.name))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
       +'</div></div>';
   }).join('')+'</div>';
 }
@@ -2608,7 +2612,7 @@ function renderFloors(roomCounts){
           +'<div class="deck-row-count">'+count+' room'+(count!==1?'s':'')+'</div>'
           +'<div class="row-actions">'
           +'<button class="btn-icon btn-sm" onclick="openEditFloorModal(\''+f.id+'\')">'+editS+'</button>'
-          +'<button class="btn-icon btn-sm" onclick="confirmDeleteFloor(\''+f.id+'\',\''+escHtml(f.name)+'\')">'+delS+'</button>'
+          +'<button class="btn-icon btn-sm" onclick="confirmDeleteFloor(\''+f.id+'\',\''+escHtml(escJs(f.name))+'\')">'+delS+'</button>'
           +'</div></div>';
       }).join('')+'</div></div>';
   });
@@ -2700,7 +2704,7 @@ function renderRoomsTable(){
         +'<div class="room-cell">'+zoneHtml+'</div>'
         +'<div class="room-cell actions">'
         +'<button class="btn-icon btn-sm" onclick="openEditRoomModal(\''+r.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
-        +'<button class="btn-icon btn-sm" onclick="confirmDeleteRoom(\''+r.id+'\',\''+escHtml(r.name)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
+        +'<button class="btn-icon btn-sm" onclick="confirmDeleteRoom(\''+r.id+'\',\''+escHtml(escJs(r.name))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
         +'</div></div>';
     }).join('')+'</div>';
 }
@@ -2768,7 +2772,7 @@ function renderRackZones(){
       +(rackRoom?'<div class="zone-meta-item"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>'+escHtml(rackRoom.name)+'</div>':'')
       +'<div class="zone-meta-item"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>'+assigned.length+' room'+(assigned.length!==1?'s':'')+'</div>'
       +'</div>'
-      +'<div class="zone-actions"><button class="btn btn-secondary btn-sm" onclick="openAssignModal(\''+z.id+'\')">Assign Rooms</button><button class="btn-icon btn-sm" onclick="openEditZoneModal(\''+z.id+'\')">'+editSvg+'</button><button class="btn-icon btn-sm" onclick="confirmDeleteZone(\''+z.id+'\',\''+escHtml(z.name)+'\')">'+delSvg+'</button></div>'
+      +'<div class="zone-actions"><button class="btn btn-secondary btn-sm" onclick="openAssignModal(\''+z.id+'\')">Assign Rooms</button><button class="btn-icon btn-sm" onclick="openEditZoneModal(\''+z.id+'\')">'+editSvg+'</button><button class="btn-icon btn-sm" onclick="confirmDeleteZone(\''+z.id+'\',\''+escHtml(escJs(z.name))+'\')">'+delSvg+'</button></div>'
       +'</div><div class="zone-rooms-section"><div class="zone-rooms-title">Assigned Rooms ('+assigned.length+')</div><div class="zone-room-chips">'+chips+'</div></div></div>';
   }).join('')+'</div>';
 }
@@ -3242,7 +3246,7 @@ function fmRenderFeatList(){
       html+='<div class="fm-cat-row" draggable="true" ondragstart="fmCatDragStart(event,\''+cat.id+'\')" ondragover="fmCatDragOver(event,\''+cat.id+'\')" ondragleave="fmCatDragLeave(event)" ondrop="fmCatDrop(event,\''+cat.id+'\')" ondragend="fmCatDragEnd()" style="display:flex;align-items:center;gap:4px;padding:5px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">'
         +'<span class="fm-drag-handle" title="Drag to reorder">⠿</span>'
         +'<span style="flex:1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);cursor:pointer" onclick="event.stopPropagation();fmEditCategory(\''+cat.id+'\')" title="Click to rename">'+escHtml(cat.name)+'</span>'
-        +'<button class="btn-icon btn-sm" title="Delete category" onclick="event.stopPropagation();fmDeleteCategory(\''+cat.id+'\',\''+escHtml(cat.name)+'\')">'+del+'</button>'
+        +'<button class="btn-icon btn-sm" title="Delete category" onclick="event.stopPropagation();fmDeleteCategory(\''+cat.id+'\',\''+escHtml(escJs(cat.name))+'\')">'+del+'</button>'
         +'</div>';
     }
     feats.forEach(f=>{html+=fmFeatRow(f,chv,del,cat.id);});
@@ -3265,7 +3269,7 @@ function fmFeatRow(f,chv,del,catId){
     +'<div style="font-size:11px;color:var(--text-3);margin-top:1px">'+(linked.length?linked.length+' device type'+(linked.length!==1?'s':'')+' linked':'No device types linked')+(f.quantity_tracked?' \xb7 <span style="color:var(--accent);font-weight:600">Qty</span>':'')+'</div>'
     +'</div>'
     +(sel?chv:'')
-    +'<button class="btn-icon btn-sm" title="Delete" onclick="event.stopPropagation();fmDeleteFeature(\''+f.id+'\',\''+escHtml(f.name)+'\')">'+del+'</button>'
+    +'<button class="btn-icon btn-sm" title="Delete" onclick="event.stopPropagation();fmDeleteFeature(\''+f.id+'\',\''+escHtml(escJs(f.name))+'\')">'+del+'</button>'
     +'</div>';
 }
 function fmSelectFeature(id){
@@ -3320,7 +3324,7 @@ function fmRenderLinkerList(){
     const pe=projectEquipment.find(p=>p.device_type_id===d);
     const isLinked=linked.includes(d);
     return '<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);'+(isLinked?'background:var(--accent-light)':'')+'">'
-      +'<input type="checkbox" '+(isLinked?'checked':'')+' onchange="fmToggleDeviceTypeLink(\''+escHtml(fmSelectedFeatureId)+'\',\''+escHtml(d)+'\')" style="width:14px;height:14px;accent-color:var(--accent);flex-shrink:0">'
+      +'<input type="checkbox" '+(isLinked?'checked':'')+' onchange="fmToggleDeviceTypeLink(\''+escHtml(escJs(fmSelectedFeatureId))+'\',\''+escHtml(escJs(d))+'\')" style="width:14px;height:14px;accent-color:var(--accent);flex-shrink:0">'
       +'<div style="min-width:0"><div style="font-size:13px;font-weight:500">'+escHtml(d)+'</div>'
       +(pe&&pe.description?'<div style="font-size:11px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pe.description)+'</div>':'')
       +'</div></label>';
@@ -3971,7 +3975,7 @@ function renderSystemGroups(){
       +'<td style="font-weight:500">'+escHtml(g.name)+'</td>'
       +'<td style="width:76px"><div style="display:flex;gap:4px;justify-content:flex-end">'
       +'<button class="btn-icon btn-sm" onclick="openEditSgModal(\''+g.id+'\')">'+ed+'</button>'
-      +'<button class="btn-icon btn-sm" onclick="confirmDeleteSg(\''+g.id+'\',\''+g.name.replace(/'/g,'&#39;')+'\')">'+dl+'</button>'
+      +'<button class="btn-icon btn-sm" onclick="confirmDeleteSg(\''+g.id+'\',\''+escHtml(escJs(g.name))+'\')">'+dl+'</button>'
       +'</div></td></tr>';
   });
   c.innerHTML='<div class="gc-table"><table><thead><tr><th style="width:52px"></th><th style="width:90px">Code</th><th>Group Name</th><th style="width:76px"></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
@@ -4080,7 +4084,7 @@ function renderDeviceCategories(){
       +'<td style="width:96px"><div style="display:flex;gap:4px;justify-content:flex-end">'
       +'<button class="btn-icon btn-sm" title="Add sub-category" style="font-size:16px;line-height:1;font-weight:600" onclick="openSubcatModal(\''+d.id+'\')">+</button>'
       +'<button class="btn-icon btn-sm" onclick="openEditDcModal(\''+d.id+'\')">'+ed+'</button>'
-      +'<button class="btn-icon btn-sm" onclick="confirmDeleteDc(\''+d.id+'\',\''+d.code.replace(/'/g,'&#39;')+'\')">'+dl+'</button>'
+      +'<button class="btn-icon btn-sm" onclick="confirmDeleteDc(\''+d.id+'\',\''+escHtml(escJs(d.code))+'\')">'+dl+'</button>'
       +'</div></td></tr>';
     const subs=subcatsFor(d.id);
     subs.forEach((sc,si)=>{
@@ -4095,7 +4099,7 @@ function renderDeviceCategories(){
         +'<td></td>'
         +'<td><div style="display:flex;gap:4px;justify-content:flex-end">'
         +'<button class="btn-icon btn-sm" onclick="openSubcatModal(\''+d.id+'\',\''+sc.id+'\')">'+ed+'</button>'
-        +'<button class="btn-icon btn-sm" onclick="confirmDeleteSubcat(\''+sc.id+'\',\''+(sc.name||'').replace(/'/g,'&#39;')+'\')">'+dl+'</button>'
+        +'<button class="btn-icon btn-sm" onclick="confirmDeleteSubcat(\''+sc.id+'\',\''+escHtml(escJs(sc.name||''))+'\')">'+dl+'</button>'
         +'</div></td></tr>';
     });
   });
@@ -4244,7 +4248,7 @@ function renderGlobalLibrary(){
       +'<td style="text-align:center;white-space:nowrap">'+(d.speaker_channels||'—')+'</td>'
       +'<td style="font-size:11px;white-space:nowrap">'+(d.power_types&&d.power_types.length?d.power_types.join(', '):'—')+'</td>'
       +(currentProject?'<td>'+(pulledIds.has(d.id)?'<span class="pull-btn pulled">✓ In Project</span>':'<button class="pull-btn" onclick="quickPullToProject(\''+d.id+'\')">+ Pull</button>')+'</td>':'')
-      +'<td class="td-actions"><button class="btn-icon btn-sm" onclick="openEditGlobalDevice(\''+d.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-sm" onclick="confirmDeleteGlobal(\''+d.id+'\',\''+escHtml(d.device_type_id)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button></td>'
+      +'<td class="td-actions"><button class="btn-icon btn-sm" onclick="openEditGlobalDevice(\''+d.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-sm" onclick="confirmDeleteGlobal(\''+d.id+'\',\''+escHtml(escJs(d.device_type_id))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button></td>'
       +'</tr>').join('')+'</tbody></table></div>';
 }
 async function filterGdCategories(){
@@ -4364,7 +4368,7 @@ function renderProductCatalogue(){
       +'<td style="text-align:center">'+(p.power_watts?p.power_watts+'W':'—')+'</td>'
       +'<td style="text-align:center">'+(p.weight_kg?p.weight_kg+'kg':'—')+'</td>'
       +'<td style="text-align:right;font-weight:600;white-space:nowrap">'+(priceStr?escHtml(priceStr):'<span style="color:var(--text-3)">—</span>')+'</td>'
-      +'<td class="td-actions"><button class="btn-icon btn-sm" onclick="openEditProduct(\''+p.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-sm" onclick="confirmDeleteProduct(\''+p.id+'\',\''+escHtml(p.make+' '+p.model)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button></td>'
+      +'<td class="td-actions"><button class="btn-icon btn-sm" onclick="openEditProduct(\''+p.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-sm" onclick="confirmDeleteProduct(\''+p.id+'\',\''+escHtml(escJs(p.make+' '+p.model))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button></td>'
       +'</tr>';}).join('')+'</tbody></table></div>';
 }
 function filterProductDeviceTypes(){
@@ -4590,7 +4594,7 @@ function renderProjectCatalogue(){
         +'<td class="td-actions" style="text-align:right"><div style="display:flex;gap:4px;justify-content:flex-end">'
         +(isGlobal?'<button class="btn-icon btn-sm" title="Refresh specs &amp; price from global" onclick="refreshProjProductSpecs(\''+p.id+'\')">'+svgRefresh+'</button>':'')
         +'<button class="btn-icon btn-sm" title="Edit" onclick="openEditProjProductModal(\''+p.id+'\')">'+svgEdit+'</button>'
-        +'<button class="btn-icon btn-sm" title="Delete" onclick="confirmDeleteProjProduct(\''+p.id+'\',\''+escHtml(p.make+' '+p.model)+'\')">'+svgDel+'</button>'
+        +'<button class="btn-icon btn-sm" title="Delete" onclick="confirmDeleteProjProduct(\''+p.id+'\',\''+escHtml(escJs(p.make+' '+p.model))+'\')">'+svgDel+'</button>'
         +'</div></td>'
         +'</tr>';
     }).join('')+'</tbody></table></div>';
@@ -4676,7 +4680,7 @@ async function openPullGlobalProductsModal(){
 function closePullGlobalProductsModal(){document.getElementById('pull-global-products-modal-overlay').classList.remove('open');}
 function pgpRenderTypePills(){
   const types=['all',...[...new Set(globalProducts.map(p=>p.device_type_id).filter(Boolean))].sort()];
-  document.getElementById('pgp-type-pills').innerHTML=types.map(t=>'<button class="tmpl-group-pill'+(pgpActiveType===t?' active':'')+'" onclick="pgpSetType(\''+escHtml(t)+'\')">'+escHtml(t==='all'?'All':t)+'</button>').join('');
+  document.getElementById('pgp-type-pills').innerHTML=types.map(t=>'<button class="tmpl-group-pill'+(pgpActiveType===t?' active':'')+'" onclick="pgpSetType(\''+escHtml(escJs(t))+'\')">'+escHtml(t==='all'?'All':t)+'</button>').join('');
 }
 function pgpSetType(t){pgpActiveType=t;pgpRenderTypePills();pgpRenderBrowser();}
 function pgpRenderBrowser(){
@@ -4837,7 +4841,7 @@ function renderRoomMatrix(){
   html+='<th style="position:sticky;top:'+r2top+'px;left:0;z-index:5;background:var(--surface2);padding:4px 12px;font-size:10px;color:var(--text-3)">drag cols ↔</th>';
   displayTypes.forEach(t=>{
     const tid=t.device_type_id;
-    html+='<th draggable="true" ondragstart="rmDragColStart(event,\''+escHtml(tid)+'\')" ondragover="rmDragColOver(event,\''+escHtml(tid)+'\')" ondragleave="rmDragColLeave(event)" ondrop="rmDropCol(event,\''+escHtml(tid)+'\')" ondragend="rmDragColEnd()" style="position:sticky;top:'+r2top+'px;z-index:4;cursor:grab;padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)" title="'+escHtml(tid)+' — '+escHtml(t.description)+' (drag to reorder)">'+escHtml(tid)+'</th>';
+    html+='<th draggable="true" ondragstart="rmDragColStart(event,\''+escHtml(escJs(tid))+'\')" ondragover="rmDragColOver(event,\''+escHtml(escJs(tid))+'\')" ondragleave="rmDragColLeave(event)" ondrop="rmDropCol(event,\''+escHtml(escJs(tid))+'\')" ondragend="rmDragColEnd()" style="position:sticky;top:'+r2top+'px;z-index:4;cursor:grab;padding:4px 6px;text-align:center;min-width:54px;max-width:90px;font-size:10px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)" title="'+escHtml(tid)+' — '+escHtml(t.description)+' (drag to reorder)">'+escHtml(tid)+'</th>';
   });
   html+='</tr></thead><tbody>';
   // Room rows, grouped by deck (only decks that have visible rooms after filtering)
@@ -4928,7 +4932,7 @@ function renderRoomTemplates(){
   const svgApply='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>';
   c.innerHTML='<div class="equip-table"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:200px"><col style="width:80px"><col style="width:auto"><col style="width:280px"></colgroup><thead><tr><th>Template Name</th><th>Items</th><th>Device Types</th><th style="text-align:right">Actions</th></tr></thead><tbody>'
     +roomTemplates.map(t=>{const preview=(t.item_summary||'').split('|').filter(Boolean).slice(0,3).map(s=>escHtml(s.trim())).join(', ')+(t.item_count>3?' +more':'');
-      return '<tr><td style="font-weight:500">'+escHtml(t.name)+'</td><td>'+(t.item_count||0)+'</td><td style="color:var(--text-2);font-size:12px">'+(preview||'<span style="color:var(--text-3)">No items</span>')+'</td><td style="text-align:right"><div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn btn-primary btn-sm" onclick="openApplyTemplateModal(\''+t.id+'\')">'+svgApply+' Apply to Rooms</button><button class="btn btn-secondary btn-sm" onclick="openEditTemplateModal(\''+t.id+'\')">'+svgEdit+' Edit</button><button class="btn btn-secondary btn-sm" onclick="confirmDeleteTemplate(\''+t.id+'\',\''+escHtml(t.name)+'\')">'+svgDel+'</button></div></td></tr>';
+      return '<tr><td style="font-weight:500">'+escHtml(t.name)+'</td><td>'+(t.item_count||0)+'</td><td style="color:var(--text-2);font-size:12px">'+(preview||'<span style="color:var(--text-3)">No items</span>')+'</td><td style="text-align:right"><div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn btn-primary btn-sm" onclick="openApplyTemplateModal(\''+t.id+'\')">'+svgApply+' Apply to Rooms</button><button class="btn btn-secondary btn-sm" onclick="openEditTemplateModal(\''+t.id+'\')">'+svgEdit+' Edit</button><button class="btn btn-secondary btn-sm" onclick="confirmDeleteTemplate(\''+t.id+'\',\''+escHtml(escJs(t.name))+'\')">'+svgDel+'</button></div></td></tr>';
     }).join('')+'</tbody></table></div>';
 }
 
@@ -4960,7 +4964,7 @@ function closeTemplateModal(){document.getElementById('template-modal-overlay').
 
 function renderTmplGroupPills(){
   const groups=['all',...new Set(globalLibrary.map(d=>d.system_group).filter(Boolean))];
-  document.getElementById('tmpl-group-pills').innerHTML=groups.map(g=>'<button class="tmpl-group-pill'+(tmplActiveGroup===g?' active':'')+'" onclick="setTmplGroup(\''+escHtml(g)+'\')">'+escHtml(g==='all'?'All':g)+'</button>').join('');
+  document.getElementById('tmpl-group-pills').innerHTML=groups.map(g=>'<button class="tmpl-group-pill'+(tmplActiveGroup===g?' active':'')+'" onclick="setTmplGroup(\''+escHtml(escJs(g))+'\')">'+escHtml(g==='all'?'All':g)+'</button>').join('');
 }
 function setTmplGroup(g){tmplActiveGroup=g;renderTmplGroupPills();renderTmplBrowser();}
 
@@ -4972,7 +4976,7 @@ function renderTmplBrowser(){
   if(q)filtered=filtered.filter(d=>d.device_type_id.toLowerCase().includes(q)||d.description.toLowerCase().includes(q));
   if(!filtered.length){list.innerHTML='<div class="tmpl-empty-panel">No device types found</div>';return;}
   list.innerHTML=filtered.map(d=>{const added=templateItems.find(i=>i.device_type_id===d.device_type_id);
-    return '<div class="tmpl-device-row'+(added?' added':'')+'" onclick="toggleTmplItem(\''+d.device_type_id+'\',\''+escHtml(d.description)+'\')"><input type="checkbox" '+(added?'checked':'')+' onclick="event.stopPropagation();toggleTmplItem(\''+d.device_type_id+'\',\''+escHtml(d.description)+'\')"><div><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(d.device_type_id)+'</div><div style="font-size:11px;color:var(--text-3)">'+escHtml(d.description)+'</div></div></div>';
+    return '<div class="tmpl-device-row'+(added?' added':'')+'" onclick="toggleTmplItem(\''+d.device_type_id+'\',\''+escHtml(escJs(d.description))+'\')"><input type="checkbox" '+(added?'checked':'')+' onclick="event.stopPropagation();toggleTmplItem(\''+d.device_type_id+'\',\''+escHtml(escJs(d.description))+'\')"><div><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(d.device_type_id)+'</div><div style="font-size:11px;color:var(--text-3)">'+escHtml(d.description)+'</div></div></div>';
   }).join('');
 }
 
@@ -4987,7 +4991,7 @@ function renderTmplItemList(){
   const c=document.getElementById('tmpl-item-list');
   document.getElementById('tmpl-selected-header').textContent='Selected Items — '+templateItems.length;
   if(!templateItems.length){c.innerHTML='<div class="tmpl-empty-panel">Tick device types on the left to add them</div>';return;}
-  c.innerHTML=templateItems.map(i=>'<div class="tmpl-item-row"><div class="tmpl-item-info"><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(i.device_type_id)+'</div><div style="font-size:11px;color:var(--text-3)">'+escHtml(i.description)+'</div></div><input type="number" min="1" max="99" value="'+i.quantity+'" style="width:56px;padding:4px 8px;font-size:13px" onchange="updateTemplateItemQty(\''+i.device_type_id+'\',this.value)"><button class="btn-icon btn-sm" onclick="toggleTmplItem(\''+i.device_type_id+'\',\''+escHtml(i.description)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>').join('');
+  c.innerHTML=templateItems.map(i=>'<div class="tmpl-item-row"><div class="tmpl-item-info"><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(i.device_type_id)+'</div><div style="font-size:11px;color:var(--text-3)">'+escHtml(i.description)+'</div></div><input type="number" min="1" max="99" value="'+i.quantity+'" style="width:56px;padding:4px 8px;font-size:13px" onchange="updateTemplateItemQty(\''+i.device_type_id+'\',this.value)"><button class="btn-icon btn-sm" onclick="toggleTmplItem(\''+i.device_type_id+'\',\''+escHtml(escJs(i.description))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>').join('');
 }
 
 async function saveTemplate(){
@@ -5310,7 +5314,7 @@ function renderGlobalTemplates(){
   const svgPull='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
   c.innerHTML='<div class="equip-table"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:200px"><col style="width:80px"><col style="width:auto"><col style="width:280px"></colgroup><thead><tr><th>Template Name</th><th>Items</th><th>Device Types</th><th style="text-align:right">Actions</th></tr></thead><tbody>'
     +items.map(t=>{const preview=(t.item_summary||'').split('|').filter(Boolean).slice(0,4).map(s=>escHtml(s.trim())).join(', ')+(t.item_count>4?' +more':'');
-      return '<tr><td><div style="font-weight:600">'+escHtml(t.name)+'</div>'+(t.description?'<div style="font-size:11px;color:var(--text-3)">'+escHtml(t.description)+'</div>':'')+'</td><td style="text-align:center">'+(t.item_count||0)+'</td><td style="font-size:12px;color:var(--text-2)">'+(preview||'<span style="color:var(--text-3)">No items</span>')+'</td><td style="text-align:right"><div style="display:flex;gap:6px;justify-content:flex-end">'+(currentProject?'<button class="btn btn-primary btn-sm" onclick="openGtPullModal()">'+svgPull+' Pull to Project</button>':'')+'<button class="btn btn-secondary btn-sm" onclick="openEditGlobalTemplate(\''+t.id+'\')">'+svgEdit+' Edit</button><button class="btn btn-secondary btn-sm" onclick="confirmDeleteGlobalTemplate(\''+t.id+'\',\''+escHtml(t.name)+'\')">'+svgDel+'</button></div></td></tr>';
+      return '<tr><td><div style="font-weight:600">'+escHtml(t.name)+'</div>'+(t.description?'<div style="font-size:11px;color:var(--text-3)">'+escHtml(t.description)+'</div>':'')+'</td><td style="text-align:center">'+(t.item_count||0)+'</td><td style="font-size:12px;color:var(--text-2)">'+(preview||'<span style="color:var(--text-3)">No items</span>')+'</td><td style="text-align:right"><div style="display:flex;gap:6px;justify-content:flex-end">'+(currentProject?'<button class="btn btn-primary btn-sm" onclick="openGtPullModal()">'+svgPull+' Pull to Project</button>':'')+'<button class="btn btn-secondary btn-sm" onclick="openEditGlobalTemplate(\''+t.id+'\')">'+svgEdit+' Edit</button><button class="btn btn-secondary btn-sm" onclick="confirmDeleteGlobalTemplate(\''+t.id+'\',\''+escHtml(escJs(t.name))+'\')">'+svgDel+'</button></div></td></tr>';
     }).join('')+'</tbody></table></div>';
 }
 
@@ -5342,7 +5346,7 @@ function closeGlobalTemplateModal(){document.getElementById('gt-modal-overlay').
 
 function renderGtGroupPills(){
   const groups=['all',...new Set(globalLibrary.map(d=>d.system_group).filter(Boolean))];
-  document.getElementById('gt-group-pills').innerHTML=groups.map(g=>'<button class="tmpl-group-pill'+(gtActiveGroup===g?' active':'')+'" onclick="setGtGroup(\''+escHtml(g)+'\')">'+escHtml(g==='all'?'All':g)+'</button>').join('');
+  document.getElementById('gt-group-pills').innerHTML=groups.map(g=>'<button class="tmpl-group-pill'+(gtActiveGroup===g?' active':'')+'" onclick="setGtGroup(\''+escHtml(escJs(g))+'\')">'+escHtml(g==='all'?'All':g)+'</button>').join('');
 }
 function setGtGroup(g){gtActiveGroup=g;renderGtGroupPills();renderGtBrowser();}
 
@@ -5354,7 +5358,7 @@ function renderGtBrowser(){
   if(q)filtered=filtered.filter(d=>d.device_type_id.toLowerCase().includes(q)||d.description.toLowerCase().includes(q));
   if(!filtered.length){list.innerHTML='<div class="tmpl-empty-panel">No device types found</div>';return;}
   list.innerHTML=filtered.map(d=>{const added=gtItems.find(i=>i.device_type_id===d.device_type_id);
-    return '<div class="tmpl-device-row'+(added?' added':'')+'" onclick="toggleGtItem(\''+d.device_type_id+'\',\''+escHtml(d.description)+'\')"><input type="checkbox" '+(added?'checked':'')+' onclick="event.stopPropagation();toggleGtItem(\''+d.device_type_id+'\',\''+escHtml(d.description)+'\')"><div><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(d.device_type_id)+'</div><div style="font-size:11px;color:var(--text-3)">'+escHtml(d.description)+'</div></div></div>';
+    return '<div class="tmpl-device-row'+(added?' added':'')+'" onclick="toggleGtItem(\''+d.device_type_id+'\',\''+escHtml(escJs(d.description))+'\')"><input type="checkbox" '+(added?'checked':'')+' onclick="event.stopPropagation();toggleGtItem(\''+d.device_type_id+'\',\''+escHtml(escJs(d.description))+'\')"><div><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(d.device_type_id)+'</div><div style="font-size:11px;color:var(--text-3)">'+escHtml(d.description)+'</div></div></div>';
   }).join('');
 }
 
@@ -5369,7 +5373,7 @@ function renderGtItemList(){
   const c=document.getElementById('gt-item-list');
   document.getElementById('gt-selected-header').textContent='Selected Items — '+gtItems.length;
   if(!gtItems.length){c.innerHTML='<div class="tmpl-empty-panel">Tick device types on the left to add them</div>';return;}
-  c.innerHTML=gtItems.map(i=>'<div class="tmpl-item-row"><div class="tmpl-item-info"><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(i.device_type_id)+'</div><div style="font-size:11px;color:var(--text-3)">'+escHtml(i.description)+'</div></div><input type="number" min="1" max="99" value="'+i.quantity+'" style="width:56px;padding:4px 8px;font-size:13px" onchange="updateGtItemQty(\''+i.device_type_id+'\',this.value)"><button class="btn-icon btn-sm" onclick="toggleGtItem(\''+i.device_type_id+'\',\''+escHtml(i.description)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>').join('');
+  c.innerHTML=gtItems.map(i=>'<div class="tmpl-item-row"><div class="tmpl-item-info"><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(i.device_type_id)+'</div><div style="font-size:11px;color:var(--text-3)">'+escHtml(i.description)+'</div></div><input type="number" min="1" max="99" value="'+i.quantity+'" style="width:56px;padding:4px 8px;font-size:13px" onchange="updateGtItemQty(\''+i.device_type_id+'\',this.value)"><button class="btn-icon btn-sm" onclick="toggleGtItem(\''+i.device_type_id+'\',\''+escHtml(escJs(i.description))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>').join('');
 }
 
 async function saveGlobalTemplate(){
@@ -5505,7 +5509,7 @@ function closePullLibraryModal(){document.getElementById('pull-library-modal-ove
 
 function pglRenderGroupPills(){
   const groups=['all',...new Set(globalLibrary.map(d=>d.system_group).filter(Boolean))];
-  document.getElementById('pgl-group-pills').innerHTML=groups.map(g=>'<button class="tmpl-group-pill'+(pglActiveGroup===g?' active':'')+'" onclick="setPglGroup(\''+escHtml(g)+'\')">'+escHtml(g==='all'?'All':g)+'</button>').join('');
+  document.getElementById('pgl-group-pills').innerHTML=groups.map(g=>'<button class="tmpl-group-pill'+(pglActiveGroup===g?' active':'')+'" onclick="setPglGroup(\''+escHtml(escJs(g))+'\')">'+escHtml(g==='all'?'All':g)+'</button>').join('');
 }
 
 function setPglGroup(g){pglActiveGroup=g;pglRenderGroupPills();pglRenderBrowser();}
@@ -5520,8 +5524,8 @@ function pglRenderBrowser(){
   list.innerHTML=filtered.map(d=>{
     const added=pglItems.find(i=>i.id===d.id);
     const inProject=pglPulledIds.has(d.id);
-    return '<div class="tmpl-device-row'+(added?' added':'')+(inProject?' added':'')+'" onclick="'+(inProject?'':('pglToggleItem(\''+d.id+'\',\''+escHtml(d.device_type_id)+'\',\''+escHtml(d.description||'')+'\')'))+'\">'
-      +'<input type="checkbox" '+(added||inProject?'checked':'')+' '+(inProject?'disabled':'')+' onclick="event.stopPropagation();'+(inProject?'':('pglToggleItem(\''+d.id+'\',\''+escHtml(d.device_type_id)+'\',\''+escHtml(d.description||'')+'\')'))+'\">'
+    return '<div class="tmpl-device-row'+(added?' added':'')+(inProject?' added':'')+'" onclick="'+(inProject?'':('pglToggleItem(\''+d.id+'\',\''+escHtml(escJs(d.device_type_id))+'\',\''+escHtml(escJs(d.description||''))+'\')'))+'\">'
+      +'<input type="checkbox" '+(added||inProject?'checked':'')+' '+(inProject?'disabled':'')+' onclick="event.stopPropagation();'+(inProject?'':('pglToggleItem(\''+d.id+'\',\''+escHtml(escJs(d.device_type_id))+'\',\''+escHtml(escJs(d.description||''))+'\')'))+'\">'
       +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(d.device_type_id)+'</div>'
       +'<div style="font-size:11px;color:var(--text-3)">'+escHtml(d.description||'')+'</div></div>'
       +(inProject?'<span style="font-size:10px;color:var(--green);font-weight:600">✓ In Project</span>':'')
@@ -5543,7 +5547,7 @@ function pglRenderItemList(){
   c.innerHTML=pglItems.map(i=>'<div class="tmpl-item-row">'
     +'<div class="tmpl-item-info" style="min-width:0"><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(i.typeId)+'</div>'
     +'<div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(i.desc)+'</div></div>'
-    +'<button class="btn-icon btn-sm" style="flex-shrink:0" onclick="pglToggleItem(\''+i.id+'\',\''+escHtml(i.typeId)+'\',\''+escHtml(i.desc)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+    +'<button class="btn-icon btn-sm" style="flex-shrink:0" onclick="pglToggleItem(\''+i.id+'\',\''+escHtml(escJs(i.typeId))+'\',\''+escHtml(escJs(i.desc))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
     +'</div>').join('');
 }
 
@@ -5601,7 +5605,7 @@ function renderProjectEquipment(){
         +'<td><span class="group-badge">'+escHtml(d.system_group||'—')+'</span></td>'
         +'<td>'+(d.make?escHtml(d.make):'<span style="color:var(--text-3);font-style:italic">Not set</span>')+'</td>'
         +'<td>'+escHtml(d.model||'—')+'</td>'
-        +'<td class="td-actions"><button class="pull-btn" onclick="openSelectProductModal(\''+d.id+'\')">Select Product</button><button class="btn-icon btn-sm" onclick="openPeModal(\''+d.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-sm" onclick="confirmDeletePe(\''+d.id+'\',\''+escHtml(d.device_type_id)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button></td>'
+        +'<td class="td-actions"><button class="pull-btn" onclick="openSelectProductModal(\''+d.id+'\')">Select Product</button><button class="btn-icon btn-sm" onclick="openPeModal(\''+d.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-sm" onclick="confirmDeletePe(\''+d.id+'\',\''+escHtml(escJs(d.device_type_id))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button></td>'
         +'</tr>';
     }).join('')+'</tbody></table></div>';
 }
@@ -5771,7 +5775,7 @@ function renderPlacedEquipment(){
     const statusCell=changeBadge(p.change_status,p.change_cr_ref);
     const deleteBtn=isRemoved
       ?'<button class="btn-icon btn-sm" title="Hard delete" onclick="hardDeletePlaced(\''+p.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>'
-      :'<button class="btn-icon btn-sm" onclick="confirmDeletePlaced(\''+p.id+'\',\''+escHtml(p.device_id)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>';
+      :'<button class="btn-icon btn-sm" onclick="confirmDeletePlaced(\''+p.id+'\',\''+escHtml(escJs(p.device_id))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg></button>';
     // Price lookup: product catalogue first, then device type budget price
     const qty=p.quantity||1;
     let unitPrice=null,unitPriceMin=null,unitPriceMax=null,priceCurrency='USD';
@@ -5963,7 +5967,7 @@ function plRefreshItemList(){
 
 function plRenderGroupPills(){
   const groups=['all',...new Set(projectEquipment.map(d=>d.system_group).filter(Boolean))];
-  document.getElementById('pl-group-pills').innerHTML=groups.map(g=>'<button class="tmpl-group-pill'+(plActiveGroup===g?' active':'')+'" onclick="setPlGroup(\''+escHtml(g)+'\')">'+escHtml(g==='all'?'All':g)+'</button>').join('');
+  document.getElementById('pl-group-pills').innerHTML=groups.map(g=>'<button class="tmpl-group-pill'+(plActiveGroup===g?' active':'')+'" onclick="setPlGroup(\''+escHtml(escJs(g))+'\')">'+escHtml(g==='all'?'All':g)+'</button>').join('');
 }
 
 function setPlGroup(g){plActiveGroup=g;plRenderGroupPills();plRenderBrowser();}
@@ -5978,8 +5982,8 @@ function plRenderBrowser(){
   list.innerHTML=filtered.map(d=>{
     const added=plItems.find(i=>i.peId===d.id);
     const already=plAlreadyPlaced.includes(d.id);
-    return '<div class="tmpl-device-row'+(added?' added':'')+'" onclick="plToggleItem(\''+d.id+'\',\''+escHtml(d.device_type_id)+'\',\''+escHtml(d.description)+'\')">'
-      +'<input type="checkbox" '+(added?'checked':'')+' onclick="event.stopPropagation();plToggleItem(\''+d.id+'\',\''+escHtml(d.device_type_id)+'\',\''+escHtml(d.description)+'\')">'
+    return '<div class="tmpl-device-row'+(added?' added':'')+'" onclick="plToggleItem(\''+d.id+'\',\''+escHtml(escJs(d.device_type_id))+'\',\''+escHtml(escJs(d.description))+'\')">'
+      +'<input type="checkbox" '+(added?'checked':'')+' onclick="event.stopPropagation();plToggleItem(\''+d.id+'\',\''+escHtml(escJs(d.device_type_id))+'\',\''+escHtml(escJs(d.description))+'\')">'
       +'<div style="flex:1"><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(d.device_type_id)+'</div>'
       +'<div style="font-size:11px;color:var(--text-3)">'+escHtml(d.description)+'</div></div>'
       +(already?'<span style="font-size:10px;color:var(--text-3);font-style:italic">placed</span>':'')
@@ -6013,7 +6017,7 @@ function plRenderItemList(){
       +'<option value="rack-mounted"'+(i.install==='rack-mounted'?' selected':'')+'>Rack</option>'
     +'</select>'
     +'<input type="number" min="1" max="99" value="'+i.quantity+'" style="width:48px;padding:4px 6px;font-size:13px;flex-shrink:0" onchange="plUpdateQty(\''+i.peId+'\',this.value)">'
-    +'<button class="btn-icon btn-sm" style="flex-shrink:0" onclick="plToggleItem(\''+i.peId+'\',\''+escHtml(i.typeId)+'\',\''+escHtml(i.desc)+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+    +'<button class="btn-icon btn-sm" style="flex-shrink:0" onclick="plToggleItem(\''+i.peId+'\',\''+escHtml(escJs(i.typeId))+'\',\''+escHtml(escJs(i.desc))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
     +'</div>').join('');
 }
 
