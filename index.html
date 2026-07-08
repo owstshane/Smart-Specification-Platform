@@ -1596,14 +1596,20 @@ function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replac
 // escHtml alone is not enough there: the HTML parser decodes &#39; back to a raw quote before
 // the JS runs, so an apostrophe in a name (Owner's Cabin) breaks the handler. Use escHtml(escJs(x)).
 function escJs(s){if(s==null)return'';return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+// Rack zone colours are rendered inside style="" attributes, where escHtml is not enough: a
+// crafted value could break out of the attribute (stored XSS). Only a plain hex colour is
+// accepted; anything else falls back to a neutral grey (or the given fallback).
+function safeColour(c,fallback){return /^#[0-9a-fA-F]{3,8}$/.test(c||'')?c:(fallback||'#6b7280');}
 // Sanitize generated spec HTML before it hits the live DOM. The spec engine renders stored,
 // user-editable rich text (project_spec_overrides.content / spec_section_library.content) raw so
 // tables and formatting survive — DOMPurify strips any injected <script>/onerror/onclick etc. while
-// keeping that markup. Falls back to the raw string if DOMPurify failed to load (no worse than before).
+// keeping that markup. Fails CLOSED: if DOMPurify did not load (CDN blocked/offline), the stored
+// HTML is escaped to plain text rather than injected raw — safety over formatting.
 function sanitizeSpecHtml(html){
   if(window.DOMPurify&&DOMPurify.sanitize)return DOMPurify.sanitize(String(html==null?'':html));
-  console.warn('DOMPurify unavailable — spec HTML not sanitized');
-  return html;
+  console.warn('DOMPurify unavailable — rendering spec content as plain text');
+  showToast('A formatting library did not load, so the spec preview is shown as plain text. Reload the page to restore it.','error');
+  return '<pre style="white-space:pre-wrap;font-family:inherit">'+escHtml(html)+'</pre>';
 }
 function fmtPrice(price,currency){if(price==null||price===''||isNaN(parseFloat(price)))return null;const n=parseFloat(price);const sym={USD:'$',EUR:'€',GBP:'£'}[currency]||(currency?currency+' ':'');return sym+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
 function fmtPriceRange(pMin,pMax,currency){const lo=fmtPrice(pMin,currency),hi=fmtPrice(pMax,currency);if(!lo&&!hi)return null;if(lo&&hi&&parseFloat(pMin)!==parseFloat(pMax))return lo+' – '+hi;return lo||hi;}
@@ -1892,7 +1898,7 @@ function updateDecksRoomsBtn(){
 async function loadProjects(){
   document.getElementById('projects-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading projects…</div>';
   try{allProjects=await dbGet('projects');updateStats(allProjects);renderProjects(allProjects);}
-  catch(e){document.getElementById('projects-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';showToast('Failed to load projects','error');}
+  catch(e){document.getElementById('projects-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';showToast('Failed to load projects','error');}
 }
 function updateStats(p){
   document.getElementById('stat-total').textContent=p.length;
@@ -2536,7 +2542,7 @@ async function loadDecks(){
     let counts={};
     if(currentDecks.length){const rooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')');rooms.forEach(r=>{counts[r.deck_id]=(counts[r.deck_id]||0)+1;});}
     renderDecks(counts);
-  }catch(e){document.getElementById('decks-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){document.getElementById('decks-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 function renderDecks(roomCounts){
   const c=document.getElementById('decks-container');
@@ -2591,7 +2597,7 @@ async function loadFloors(){
     let counts={};
     if(currentFloors.length){const rooms=await dbGet('rooms','floor_id=in.('+currentFloors.map(f=>f.id).join(',')+')&select=floor_id');rooms.forEach(r=>{if(r.floor_id)counts[r.floor_id]=(counts[r.floor_id]||0)+1;});}
     renderFloors(counts);
-  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 function renderFloors(roomCounts){
   const c=document.getElementById('floors-container');
@@ -2665,7 +2671,7 @@ async function loadRooms(){
     currentRooms=currentDecks.length?await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc'):[];
     currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
     renderDeckFilterTabs();renderRoomsTable();
-  }catch(e){document.getElementById('rooms-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){document.getElementById('rooms-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 function renderDeckFilterTabs(){
   const tabs=document.getElementById('deck-filter-tabs');
@@ -2693,7 +2699,7 @@ function renderRoomsTable(){
       const deck=currentDecks.find(d=>d.id===r.deck_id);
       const floor=isBuildingProj()&&r.floor_id?currentFloors.find(f=>f.id===r.floor_id):null;
       const zone=currentZones.find(z=>z.id===r.rack_zone_id);
-      const zoneHtml=zone?'<span style="font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;background:'+zone.colour+'22;color:'+zone.colour+'">'+escHtml(zone.zone_id)+'</span>':'<span style="color:var(--text-3)">—</span>';
+      const zoneHtml=zone?'<span style="font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;background:'+safeColour(zone.colour)+'22;color:'+safeColour(zone.colour)+'">'+escHtml(zone.zone_id)+'</span>':'<span style="color:var(--text-3)">—</span>';
       return '<div class="room-table-row">'
         +'<div class="room-cell num">'+(r.room_number||'—')+'</div>'
         +'<div class="room-cell mono">'+escHtml(r.room_id||'—')+'</div>'
@@ -2751,13 +2757,13 @@ async function loadRackZones(){
     if(!currentDecks.length)currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
     if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
     renderRackZones();
-  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 function renderRackZones(){
   const c=document.getElementById('rack-zones-container');
   if(!currentZones.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">🗄️</div><div class="empty-state-title">No rack zones yet</div><div class="empty-state-text">Create your first rack zone then assign rooms to it.</div></div>';return;}
   c.innerHTML='<div class="zones-list">'+currentZones.map(z=>{
-    const colour=z.colour||'#6b7280',light=colour+'22';
+    const colour=safeColour(z.colour),light=colour+'22';
     const rackRoom=currentRooms.find(r=>r.id===z.rack_room_id);
     const assigned=currentRooms.filter(r=>r.rack_zone_id===z.id);
     const chips=assigned.length?assigned.map(r=>'<span class="zone-room-chip">'+escHtml(r.name)+'</span>').join(''):'<span style="font-size:12px;color:var(--text-3);font-style:italic">No rooms assigned yet</span>';
@@ -2804,7 +2810,7 @@ function openAssignModal(zoneId){
           +'<input type="checkbox" value="'+r.id+'"'+(r.rack_zone_id===zoneId?' checked':'')+(otherZone?' disabled':'')+'>'
           +(r.room_id?'<span class="assign-room-id">'+escHtml(r.room_id)+'</span>':'')
           +'<span class="assign-room-name">'+escHtml(r.name)+'</span>'
-          +(oz?'<span class="assign-zone-badge" style="background:'+oz.colour+'22;color:'+oz.colour+'">'+escHtml(oz.zone_id)+'</span>':'')
+          +(oz?'<span class="assign-zone-badge" style="background:'+safeColour(oz.colour)+'22;color:'+safeColour(oz.colour)+'">'+escHtml(oz.zone_id)+'</span>':'')
           +'</label>';
       }).join('')+'</div>';
   }).join('');
@@ -3725,7 +3731,7 @@ async function ieConfirm(dataset){
         const zoneRows=XLSX.utils.sheet_to_json(wb.Sheets['Zones'],{defval:''});
         for(const r of zoneRows){
           const name=(r['Zone Name']||r['Name']||'').toString().trim();if(!name)continue;
-          const created=await dbInsert('rack_zones',{project_id:currentProject.id,name,zone_id:(r['Zone ID']||'').toString().trim()||null,rack_count:parseInt(r['Rack Count'])||1,colour:r['Colour']||null,notes:r['Notes']||null});
+          const created=await dbInsert('rack_zones',{project_id:currentProject.id,name,zone_id:(r['Zone ID']||'').toString().trim()||null,rack_count:parseInt(r['Rack Count'])||1,colour:safeColour((r['Colour']||'').toString().trim(),'')||null,notes:r['Notes']||null});
           if(created&&created[0])zoneMap[name.toLowerCase()]=created[0].id;
         }
       }
@@ -3954,7 +3960,7 @@ async function loadSystemGroups(){
     if(systemGroups.length===0)await seedSystemGroups();
     systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
     renderSystemGroups();
-  }catch(e){document.getElementById('system-groups-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){document.getElementById('system-groups-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 function renderSystemGroups(){
   const c=document.getElementById('system-groups-container');
@@ -4058,7 +4064,7 @@ async function loadDeviceCategories(){
     const sel=document.getElementById('dc-filter-group');
     sel.innerHTML='<option value="">All system groups</option>'+systemGroups.map(g=>'<option value="'+escHtml(g.id)+'">'+escHtml(g.name)+'</option>').join('');
     renderDeviceCategories();
-  }catch(e){document.getElementById('device-categories-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){document.getElementById('device-categories-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 function renderDeviceCategories(){
   const filter=(document.getElementById('dc-filter-group')||{}).value||'';
@@ -4225,7 +4231,7 @@ async function loadGlobalLibrary(){
     const sel=document.getElementById('gl-filter-group');
     sel.innerHTML='<option value="">All systems</option>'+groups.map(g=>'<option value="'+escHtml(g)+'">'+escHtml(g)+'</option>').join('');
     renderGlobalLibrary();
-  }catch(e){document.getElementById('global-library-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){document.getElementById('global-library-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 function renderGlobalLibrary(){
   const q=(document.getElementById('gl-search')||{}).value?.toLowerCase().trim()||'';
@@ -4345,7 +4351,7 @@ async function loadProductCatalogue(){
     const sel=document.getElementById('pc-filter-type');
     sel.innerHTML='<option value="">All device types</option>'+types.map(t=>'<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>').join('');
     renderProductCatalogue();
-  }catch(e){document.getElementById('product-catalogue-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){document.getElementById('product-catalogue-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 function renderProductCatalogue(){
   const q=(document.getElementById('pc-search')||{}).value?.toLowerCase().trim()||'';
@@ -5130,7 +5136,7 @@ async function loadZoneSummary(){
     const instances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
     if(!currentZones.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-title">No rack zones defined</div><div class="empty-state-text">Add rack zones and assign rooms to them to see the zone summary.</div></div>';return;}
     renderZoneSummary(instances);
-  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 
 function zsToggle(id){
@@ -5283,7 +5289,7 @@ function renderZoneSummary(instances){
     }
     if(t.heat_btu_total){rows+=sectionHdr('Thermal');rows+=countRow('Heat Load',Math.round(t.heat_btu_total)+' BTU/h',null);}
     html+='<div class="zs-card">'
-      +'<div class="zs-card-header" style="border-left:4px solid '+(z.colour||'var(--accent)')+'"><div><div class="zs-card-name">'+escHtml(z.name)+'</div><div class="zs-card-meta">'+zoneRooms.length+' room'+(zoneRooms.length!==1?'s':'')+' · '+(z.rack_count||0)+' rack'+(z.rack_count!==1?'s':'')+'</div></div><div class="zs-device-count">'+t.device_count+' <span>devices</span></div></div>'
+      +'<div class="zs-card-header" style="border-left:4px solid '+safeColour(z.colour,'var(--accent)')+'"><div><div class="zs-card-name">'+escHtml(z.name)+'</div><div class="zs-card-meta">'+zoneRooms.length+' room'+(zoneRooms.length!==1?'s':'')+' · '+(z.rack_count||0)+' rack'+(z.rack_count!==1?'s':'')+'</div></div><div class="zs-device-count">'+t.device_count+' <span>devices</span></div></div>'
       +(rows?'<table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+thStyle+'"></th><th style="'+thStyle+';text-align:right">Required</th><th style="'+thStyle+';text-align:right">Available</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div style="padding:14px 16px;font-size:12px;color:var(--text-3)">No equipment assigned to this zone yet.</div>')
       +'</div>';
   });
@@ -5300,7 +5306,7 @@ async function loadGlobalTemplates(){
   try{
     globalTemplates=await dbGet('global_room_templates','order=sort_order.asc,name.asc');
     renderGlobalTemplates();
-  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 
 function renderGlobalTemplates(){
@@ -5579,7 +5585,7 @@ async function loadProjectEquipment(){
     const sel=document.getElementById('pe-filter-group');
     sel.innerHTML='<option value="">All systems</option>'+groups.map(g=>'<option value="'+escHtml(g)+'">'+escHtml(g)+'</option>').join('');
     renderProjectEquipment();
-  }catch(e){document.getElementById('project-equipment-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){document.getElementById('project-equipment-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 function renderProjectEquipment(){
   const q=(document.getElementById('pe-search')||{}).value?.toLowerCase().trim()||'';
@@ -5717,7 +5723,7 @@ async function loadPlacedEquipment(){
     if(!currentZones.length)currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
     renderPlacedDeckTabs();
     renderPlacedEquipment();
-  }catch(e){document.getElementById('placed-equipment-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+e.message+'</div></div>';}
+  }catch(e){document.getElementById('placed-equipment-container').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
 }
 function renderPlacedDeckTabs(){
   const tabs=document.getElementById('pl-deck-filter-tabs');
