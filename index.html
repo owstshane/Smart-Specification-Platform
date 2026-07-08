@@ -4321,7 +4321,7 @@ async function saveGlobalDevice(){
   if(!typeId){showToast('Please enter a device type ID','error');return;}if(!desc){showToast('Please enter a description','error');return;}
   const poePorts=parseInt(document.getElementById('gd-poe-ports').value)||0;
   const pwrType=document.getElementById('gd-pwr-type').value||null;
-  const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value||null,system_group:document.getElementById('gd-group').value||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('gd-poe').value||null:null,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,spk_watts:parseFloat(document.getElementById('gd-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('gd-power-watts').value)||null,heat_btu:parseFloat(document.getElementById('gd-heat-btu').value)||null,ups_protected:document.getElementById('gd-ups-protected').checked,network_role:document.getElementById('gd-network-role').value||'none',avip_role:document.getElementById('gd-avip-role').value||'none',audio_role:document.getElementById('gd-audio-role').value||'none',budget_price:parseFloat(document.getElementById('gd-budget-price').value)||null,currency:document.getElementById('gd-currency').value||'USD',spec_text:document.getElementById('gd-spec-text').value.trim()||null,subcategory_code:document.getElementById('gd-subcat').value||null};
+  const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value||null,system_group:document.getElementById('gd-group').value||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('gd-poe').value||null:null,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,spk_watts:parseFloat(document.getElementById('gd-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('gd-power-watts').value)||null,poe_budget_watts:parseFloat(document.getElementById('gd-poe-budget').value)||null,heat_btu:parseFloat(document.getElementById('gd-heat-btu').value)||null,ups_protected:document.getElementById('gd-ups-protected').checked,network_role:document.getElementById('gd-network-role').value||'none',avip_role:document.getElementById('gd-avip-role').value||'none',audio_role:document.getElementById('gd-audio-role').value||'none',budget_price:parseFloat(document.getElementById('gd-budget-price').value)||null,currency:document.getElementById('gd-currency').value||'USD',spec_text:document.getElementById('gd-spec-text').value.trim()||null,subcategory_code:document.getElementById('gd-subcat').value||null};
   const btn=document.getElementById('gd-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{if(editingGlobalId){await dbUpdate('global_equipment',editingGlobalId,payload);showToast('Device type updated','success');}else{await dbInsert('global_equipment',payload);showToast('Device type added','success');}closeGlobalDeviceModal();loadGlobalLibrary();}
   catch(e){showToast('Could not save: '+e.message,'error');}
@@ -5080,9 +5080,8 @@ async function confirmApplyTemplate(){
             if(!peEntry){
               const gd=await dbGet('global_equipment','device_type_id=eq.'+encodeURIComponent(item.device_type_id)+'&limit=1');
               if(!gd.length)continue;
-              const d=gd[0];
-              const newPe=await dbInsert('project_equipment',{project_id:currentProject.id,global_equipment_id:d.id,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,speaker_channels:d.speaker_channels||null,power_types:d.power_types||null,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'});
-              peEntry={id:newPe[0].id,device_type_id:d.device_type_id};
+              const newPe=await dbInsert('project_equipment',stampChange(_peFromGlobal(gd[0]),'added'));
+              peEntry={id:newPe[0].id,device_type_id:gd[0].device_type_id};
               pe.push(peEntry);
             }
             // Skip if already placed in this room
@@ -5092,11 +5091,12 @@ async function confirmApplyTemplate(){
             const seq=String(existingInRoom.length+1).padStart(4,'0');
             const roomNum=(currentRooms.find(r=>r.id===roomId)||{}).room_number||'?';
             const deviceId=roomNum+'-'+seq;
-            await dbInsert('equipment_instances',{project_id:currentProject.id,project_equipment_id:peEntry.id,room_id:roomId,quantity:item.quantity||1,device_id:deviceId});
+            await dbInsert('equipment_instances',stampChange({project_id:currentProject.id,project_equipment_id:peEntry.id,room_id:roomId,quantity:item.quantity||1,device_id:deviceId},'added'));
             placed.push({room_id:roomId,project_equipment_id:peEntry.id});
             placed_count++;
           }
         }
+        logChange('equipment','added','Applied room template: placed '+placed_count+' device'+(placed_count!==1?'s':'')+' across '+applyTemplateRoomSelections.size+' room'+(applyTemplateRoomSelections.size!==1?'s':''));
         showToast(placed_count+' device'+(placed_count!==1?'s':'')+' placed across '+applyTemplateRoomSelections.size+' room'+(applyTemplateRoomSelections.size!==1?'s':''),'success');
         closeApplyTemplateModal();
       }catch(e){showToast('Could not apply template: '+e.message,'error');}
@@ -5435,12 +5435,44 @@ async function confirmGtPull(){
   finally{btn.textContent='Pull to Project';btn.disabled=false;}
 }
 
+// Builds the project_equipment payload from a global library device. Single source of truth
+// for every pull path (quick pull, bulk pull modal, template apply) so a device never silently
+// loses engineering data (power, heat, UPS, PoE budget) or its sub-category on the way into a
+// project. Losing those fields under-reports the Zone Summary loads and drops the device out
+// of the spec's sub-category grouping.
+function _peFromGlobal(d){
+  return{
+    project_id:currentProject.id,
+    global_equipment_id:d.id,
+    device_type_id:d.device_type_id,
+    description:d.description,
+    category_code:d.category_code||null,
+    subcategory_code:d.subcategory_code||null,
+    system_group:d.system_group||null,
+    spec_ref:d.spec_ref||null,
+    network_role:d.network_role||'none',
+    avip_role:d.avip_role||'none',
+    audio_role:d.audio_role||'none',
+    lan_ports:d.lan_ports||null,
+    poe_ports:d.poe_ports||null,
+    poe_type:d.poe_type||null,
+    poe_budget_watts:d.poe_budget_watts||null,
+    power_types:d.power_types||null,
+    power_watts:d.power_watts||null,
+    heat_btu:d.heat_btu||null,
+    ups_protected:d.ups_protected||false,
+    speaker_channels:d.speaker_channels||null,
+    spk_watts:d.spk_watts||null,
+    budget_price:d.budget_price||null,
+    currency:d.currency||'USD'
+  };
+}
 // ── QUICK PULL (single device type from global library) ──
 async function quickPullToProject(globalId){
   if(!currentProject){showToast('Please open a project first','error');return;}
   const d=globalLibrary.find(d=>d.id===globalId);if(!d)return;
   try{
-    const qpPayload={project_id:currentProject.id,global_equipment_id:globalId,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,poe_budget_watts:d.poe_budget_watts||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,power_watts:d.power_watts||null,ups_protected:d.ups_protected||false,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'};
+    const qpPayload=_peFromGlobal(d);
     stampChange(qpPayload,'added');
     await dbInsert('project_equipment',qpPayload);
     showToast(d.device_type_id+' added to project','success');
@@ -5516,7 +5548,7 @@ async function confirmPullFromLibrary(){
   try{
     for(const item of pglItems){
       const d=globalLibrary.find(d=>d.id===item.id);if(!d)continue;
-      const bpPayload={project_id:currentProject.id,global_equipment_id:d.id,device_type_id:d.device_type_id,description:d.description,category_code:d.category_code||null,system_group:d.system_group||null,spec_ref:d.spec_ref||null,lan_ports:d.lan_ports||null,poe_ports:d.poe_ports||null,poe_type:d.poe_type||null,speaker_channels:d.speaker_channels||null,spk_watts:d.spk_watts||null,power_types:d.power_types||null,network_role:d.network_role||'none',avip_role:d.avip_role||'none',audio_role:d.audio_role||'none'};
+      const bpPayload=_peFromGlobal(d);
       stampChange(bpPayload,'added');
       await dbInsert('project_equipment',bpPayload);
     }
