@@ -5115,6 +5115,9 @@ async function confirmApplyTemplate(){
       }
       return ++seqByRoom[roomId];
     };
+    // Device IDs are unique per PROJECT (DB-enforced), and room numbers can repeat across decks,
+    // so check candidates against every ID in the project and skip past any collision.
+    const allTplIds=new Set(placed.map(p=>p.device_id).filter(Boolean));
     // Check if any selected room already has equipment
     const roomsWithEquip=[];
     for(const roomId of applyTemplateRoomSelections){
@@ -5139,9 +5142,10 @@ async function confirmApplyTemplate(){
             // Skip if already placed in this room
             if(alreadyPlacedPeIds.includes(peEntry.id))continue;
             // Generate device ID using in-memory room data (no DB round-trip)
-            const seq=String(nextSeqForRoom(roomId)).padStart(4,'0');
             const roomNum=(currentRooms.find(r=>r.id===roomId)||{}).room_number||'?';
-            const deviceId=roomNum+'-'+seq;
+            let deviceId=roomNum+'-'+String(nextSeqForRoom(roomId)).padStart(4,'0');
+            while(allTplIds.has(deviceId))deviceId=roomNum+'-'+String(nextSeqForRoom(roomId)).padStart(4,'0');
+            allTplIds.add(deviceId);
             await dbInsert('equipment_instances',stampChange({project_id:currentProject.id,project_equipment_id:peEntry.id,room_id:roomId,quantity:item.quantity||1,device_id:deviceId},'added'));
             placed.push({room_id:roomId,project_equipment_id:peEntry.id});
             placed_count++;
@@ -6084,12 +6088,17 @@ async function savePlacement(){
     // Sequence from the max existing numeric suffix, NOT the row count: count-based numbering
     // reused device IDs after any deletion, creating duplicates.
     let seqBase=0;existing.forEach(p=>{const m=/-(\d+)$/.exec(p.device_id||'');if(m)seqBase=Math.max(seqBase,parseInt(m[1],10));});
+    // Device IDs are unique per PROJECT (DB-enforced), and room numbers can repeat across decks,
+    // so check candidates against every ID in the project and skip past any collision.
+    const allIds=new Set((await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&select=device_id')).map(r=>r.device_id).filter(Boolean));
     const servesRoom=locType==='zone'?(document.getElementById('pl-serves-room')||{}).value||null:null;
     const payloads=[];
     for(const item of plItems){
       for(let i=0;i<item.quantity;i++){
         seqBase++;
-        const deviceId=(roomNum||'0')+'-'+String(seqBase).padStart(4,'0');
+        let deviceId=(roomNum||'0')+'-'+String(seqBase).padStart(4,'0');
+        while(allIds.has(deviceId)){seqBase++;deviceId=(roomNum||'0')+'-'+String(seqBase).padStart(4,'0');}
+        allIds.add(deviceId);
         const instPayload={
           project_id:currentProject.id,
           project_equipment_id:item.peId,
@@ -6587,18 +6596,10 @@ async function closeCR(id){
 async function rejectCR(id){
   openConfirm('Reject CR','Reject this CR? Items ADDED under it will be removed; items it modified or marked removed will revert to baseline.',async()=>{
   try{
-    await dbUpdate('change_requests',id,{status:'rejected'});
-    // Items ADDED under this CR were never part of the baseline — delete them, not just un-tag them
-    // (otherwise a rejected addition silently becomes permanent baseline data).
-    // Delete children before parents for FK safety: instances -> project_equipment -> rooms.
-    await supaFetch('DELETE','equipment_instances',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
-    await supaFetch('DELETE','project_equipment',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
-    await supaFetch('DELETE','rooms',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
-    // Remaining linked rows were MODIFIED or marked REMOVED — clear their change tracking to revert to baseline.
-    const clear={change_status:null,change_cr_id:null,change_cr_ref:null};
-    await supaFetch('PATCH','equipment_instances',clear,null,'change_cr_id=eq.'+id);
-    await supaFetch('PATCH','project_equipment',clear,null,'change_cr_id=eq.'+id);
-    await supaFetch('PATCH','rooms',clear,null,'change_cr_id=eq.'+id);
+    // One transactional call: deletes rows ADDED under the CR (they were never baseline),
+    // clears the change tracking on everything else it touched, then marks it rejected.
+    // All-or-nothing, so a network drop can never leave the project half-reverted.
+    await supaFetch('POST','rpc/reject_cr',{p_cr_id:id});
     // Stop logging to this CR if it was active
     if(activeCRId===id)clearActiveCR();
     await loadChangeControl();
@@ -6617,30 +6618,11 @@ async function deleteCR(id){
     :'Delete this CR permanently? Equipment and rooms added under it will be deleted, and items it modified will revert to baseline. Its cost schedule will also be deleted. This cannot be undone.';
   openConfirm('Delete CR',msg,async()=>{
   try{
-    if(!isApproved){
-      // Same baseline restore as rejectCR: additions were never baseline, so delete them.
-      // Delete children before parents for FK safety: instances -> project_equipment -> rooms.
-      await supaFetch('DELETE','equipment_instances',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
-      await supaFetch('DELETE','project_equipment',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
-      await supaFetch('DELETE','rooms',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
-      const clear={change_status:null,change_cr_id:null,change_cr_ref:null};
-      await supaFetch('PATCH','equipment_instances',clear,null,'change_cr_id=eq.'+id);
-      await supaFetch('PATCH','project_equipment',clear,null,'change_cr_id=eq.'+id);
-      await supaFetch('PATCH','rooms',clear,null,'change_cr_id=eq.'+id);
-    }else{
-      // Keep the badges (status + CR number text) as the historical record, but unlink the id
-      // so nothing references a deleted row.
-      const unlink={change_cr_id:null};
-      await supaFetch('PATCH','equipment_instances',unlink,null,'change_cr_id=eq.'+id);
-      await supaFetch('PATCH','project_equipment',unlink,null,'change_cr_id=eq.'+id);
-      await supaFetch('PATCH','rooms',unlink,null,'change_cr_id=eq.'+id);
-    }
-    // Child rows referencing the CR: the cost schedule goes with it; log entries are kept but unlinked.
-    await supaFetch('DELETE','cr_cost_items',null,null,'cr_id=eq.'+id);
-    await supaFetch('PATCH','change_log',{cr_id:null},null,'cr_id=eq.'+id);
-    // Stop logging to this CR if it was the active one, BEFORE deleting it.
+    // One transactional call: an unapproved CR's changes are reverted like a rejection; an
+    // approved CR's changes are kept but unlinked. Cost items cascade with the CR; change log
+    // entries are kept and unlinked (both via the table's delete rules).
+    await supaFetch('POST','rpc/delete_cr',{p_cr_id:id});
     if(activeCRId===id)clearActiveCR();
-    await dbDelete('change_requests',id);
     if(expandedCRId===id)expandedCRId=null;
     delete crCostItems[id];
     await loadChangeControl();showToast('CR deleted','success');
