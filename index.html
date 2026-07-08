@@ -2706,12 +2706,11 @@ async function saveRoom(){
   const payload={deck_id:deckId,floor_id:floorId,room_number:num,room_id:document.getElementById('fr-id').value.trim().toUpperCase()||null,name,position:document.getElementById('fr-position').value||null,frame_number:document.getElementById('fr-frame').value.trim()||null,notes:document.getElementById('fr-notes').value.trim()||null};
   const btn=document.getElementById('room-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{
-    if(activeCRId){payload.change_cr_id=activeCRId;payload.change_cr_ref=activeCRRef();}
     if(editingRoomId){
-      if(activeCRId)payload.change_status='modified';
+      stampChange(payload,'modified',currentRooms.find(r=>r.id===editingRoomId));
       await dbUpdate('rooms',editingRoomId,payload);showToast('Room updated','success');logChange('rooms','updated','Updated room: '+name);
     }else{
-      if(activeCRId)payload.change_status='added';
+      stampChange(payload,'added');
       const deck=currentDecks.find(d=>d.id===deckId);await dbInsert('rooms',payload);showToast('Room added','success');logChange('rooms','added','Added room: '+name+(deck?' on '+deck.name:''));
     }
     closeRoomModal();loadRooms();
@@ -4458,7 +4457,7 @@ async function selectProduct(productId){
   const oldPrice=lookupEquipmentPrice(pe);
   try{
     const update={global_product_id:productId,make:p.make,model:p.model,lan_ports:p.lan_ports,speaker_channels:p.speaker_channels,poe_type:p.poe_type,power_types:p.power_types,poe_ports:p.poe_ports,poe_budget_watts:p.poe_budget_watts||null,power_watts:p.power_watts||null,spk_watts:p.spk_watts||null};
-    stampChange(update,'modified');
+    stampChange(update,'modified',pe);
     await dbUpdate('project_equipment',selectingProductForPeId,update);
     showToast(p.make+' '+p.model+' selected','success');
     closeSelectProductModal();
@@ -5621,7 +5620,7 @@ async function savePeItem(){
       comments:document.getElementById('pe-comments').value.trim()||null
     });
     const typeId=document.getElementById('pe-type-id').value.trim().toUpperCase()||'device';
-    if(activeCRId)await dbUpdate('project_equipment',editingPeId,stampChange({},'modified'));
+    if(activeCRId)await dbUpdate('project_equipment',editingPeId,stampChange({},'modified',oldPe));
     showToast('Updated','success');logChange('equipment','updated','Updated '+typeId+' in Device Types');
     closePeModal();loadProjectEquipment();
     // Prompt for cost delta if budget price changed under a formal CR
@@ -5801,15 +5800,23 @@ function renderPlacedEquipment(){
   c.innerHTML='<div class="equip-table"><table>'+thead+'<tbody>'+rows+'</tbody>'+tfoot+'</table></div>';
 }
 function confirmDeletePlaced(id,name){
-  const msg=activeCRId?'Mark device "'+name+'" as Removed? It will be struck through but kept in the record until the CR is closed.':'Remove device "'+name+'" from its location?';
+  const inst=placedEquipment.find(p=>p.id===id);
+  // A device placed under the currently active CR was never part of the baseline, so removing
+  // it again under the same CR deletes it outright rather than marking it Removed (a 'removed'
+  // stamp would survive CR rejection and resurrect equipment that never existed).
+  const addedUnderActiveCR=!!(activeCRId&&inst&&inst.change_status==='added'&&inst.change_cr_id===activeCRId);
+  const msg=activeCRId
+    ?(addedUnderActiveCR
+      ?'Remove device "'+name+'"? It was added under the active CR, so it will be deleted rather than marked Removed.'
+      :'Mark device "'+name+'" as Removed? It will be struck through but kept in the record until the CR is closed.')
+    :'Remove device "'+name+'" from its location?';
   openConfirm('Remove Placement',msg,async()=>{
     try{
-      if(activeCRId){
-        await dbUpdate('equipment_instances',id,stampChange({},'removed'));
+      if(activeCRId&&!addedUnderActiveCR){
+        await dbUpdate('equipment_instances',id,stampChange({},'removed',inst));
         showToast(name+' marked as Removed','success');
         // Prompt for credit line if under a formal CR
         if(activeCRType==='formal'){
-          const inst=placedEquipment.find(p=>p.id===id);
           const pe=inst?projectEquipment.find(e=>e.id===inst.project_equipment_id):null;
           const activeCR=ccCRs.find(c=>c.id===activeCRId);
           const currency=projectAward?.currency||activeCR?.co_currency||'EUR';
@@ -5818,7 +5825,11 @@ function confirmDeletePlaced(id,name){
         }
       }else{
         await dbDelete('equipment_instances',id);
-        showToast('Removed','success');
+        if(addedUnderActiveCR&&activeCRType==='formal'){
+          showToast('Removed. If a cost line was added when this device was placed, remove it from the CR cost schedule.','success');
+        }else{
+          showToast('Removed','success');
+        }
       }
       logChange('equipment','removed','Removed device '+name+' from schedule');
       loadPlacedEquipment();
@@ -6677,9 +6688,17 @@ function activeCRRef(){
 }
 // Stamp the CR audit fields (status + cr id + cr ref) onto a save payload when a CR is active;
 // no-op otherwise. Centralises the three fields so they always move in lockstep. Returns the payload.
-function stampChange(payload,status){
+// Pass the row's existing state as `existing` when updating: a row ADDED under the currently
+// active CR must keep its 'added' provenance when later edited, otherwise rejecting the CR
+// would only un-tag it (rejectCR deletes 'added' rows) and the rejected addition would
+// silently survive as baseline data.
+function stampChange(payload,status,existing){
   if(!activeCRId)return payload;
-  payload.change_status=status;
+  if(existing&&existing.change_status==='added'&&existing.change_cr_id===activeCRId){
+    payload.change_status='added';
+  }else{
+    payload.change_status=status;
+  }
   payload.change_cr_id=activeCRId;
   payload.change_cr_ref=activeCRRef();
   return payload;
@@ -7047,7 +7066,7 @@ function _wrapWordDoc(title,subtitle,bodyHtml){
   const S=SPEC_STYLE;
   const headerBrand=S.logoUrl?'<img src="'+S.logoUrl+'" style="height:26px"/>':SPEC_LOGO_SVG;
   const pageField="<!--[if supportFields]><span style='mso-element:field-begin'></span>PAGE<span style='mso-element:field-end'></span><![endif]-->";
-  const styles="<style>"
+  const styles="\u003cstyle\u003e"
     +"@page WordSection1{size:"+S.pageW+" "+S.pageH+";margin:"+S.margin+";mso-header-margin:1.2cm;mso-footer-margin:1.2cm;mso-title-page:yes;mso-header:h1;mso-footer:f1;mso-first-header:fh1;mso-first-footer:ff1;}"
     +"div.WordSection1{page:WordSection1;}"
     +"body{font-family:"+S.font+";font-size:"+S.bodyPt+"pt;color:"+S.color+"}"
@@ -7058,7 +7077,7 @@ function _wrapWordDoc(title,subtitle,bodyHtml){
     +"ul{margin:3px 0 8px 18px}li{margin:1px 0}p{margin:4px 0}"
     +"table{border-collapse:collapse;margin:6px 0 12px}td,th{border:1px solid #bbb;padding:3px 9px;font-size:10.5pt}th{background:#eee;text-align:left}"
     +"p.MsoHeader,p.MsoFooter{margin:0;border:none;font-size:8pt;color:#888}"
-    +"</style>";
+    +"\u003c/style\u003e";
   // Header (logo, top right) + footer (page number) appear on body pages; first-page (cover) header/footer are empty.
   const header='<div style="mso-element:header" id="h1"><p class=MsoHeader style="text-align:right">'+headerBrand+'</p></div>';
   const footer='<div style="mso-element:footer" id="f1"><p class=MsoFooter style="text-align:center">Page '+pageField+'</p></div>';
