@@ -2836,7 +2836,7 @@ async function loadFeatureMatrix(){
     fmCategories=await dbGet('feature_categories','project_id=eq.'+currentProject.id+'&order=sort_order.asc,name.asc');
     fmFeatures=await dbGet('features','project_id=eq.'+currentProject.id+'&order=sort_order.asc,name.asc');
     fmMatrix=fmFeatures.length&&fmRooms.length?await dbGet('project_feature_matrix','project_id=eq.'+currentProject.id):[];
-    fmInstances=fmRooms.length?await dbGet('equipment_instances','project_id=eq.'+currentProject.id):[];
+    fmInstances=fmRooms.length?(await dbGet('equipment_instances','project_id=eq.'+currentProject.id)).filter(i=>i.change_status!=='removed'):[];
     // Enrich instances with device_type_id (not stored on instances — comes from project_equipment)
     if(fmInstances.length){
       let peData=projectEquipment.length?projectEquipment:await dbGet('project_equipment','project_id=eq.'+currentProject.id);
@@ -3081,7 +3081,7 @@ async function syncFeatureMatrix(){
   if(!fmRooms.length){showToast('No rooms defined for this project','error');return;}
   // Ensure instances are loaded and enriched with device_type_id
   if(!fmInstances.length){
-    fmInstances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
+    fmInstances=(await dbGet('equipment_instances','project_id=eq.'+currentProject.id)).filter(i=>i.change_status!=='removed');
     let peData=projectEquipment.length?projectEquipment:await dbGet('project_equipment','project_id=eq.'+currentProject.id);
     const peById={};peData.forEach(p=>{peById[p.id]=p;});
     fmInstances.forEach(inst=>{const p=peById[inst.project_equipment_id];if(p)inst.device_type_id=p.device_type_id;});
@@ -3139,7 +3139,7 @@ async function exportFeatureMatrix(){
     if(!fmFeatures.length)fmFeatures=await dbGet('features','project_id=eq.'+currentProject.id+'&order=sort_order.asc,name.asc');
     if(fmFeatures.length&&fmRooms.length&&!fmMatrix.length)fmMatrix=await dbGet('project_feature_matrix','project_id=eq.'+currentProject.id);
     if(fmFeatures.length&&fmRooms.length&&!fmInstances.length){
-      fmInstances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
+      fmInstances=(await dbGet('equipment_instances','project_id=eq.'+currentProject.id)).filter(i=>i.change_status!=='removed');
       const peData=projectEquipment.length?projectEquipment:await dbGet('project_equipment','project_id=eq.'+currentProject.id);
       fmInstances.forEach(i=>{const pe=peData.find(p=>p.id===i.project_equipment_id);if(pe)i.device_type_id=pe.device_type_id;});
     }
@@ -3876,7 +3876,9 @@ async function exportEquipmentSchedule(){
     if(!currentZones.length)currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
     if(!placedEquipment.length){showToast('No equipment in schedule','error');return;}
     const rows=[['Device ID','Type','Description','Make','Model','Location','Install Type','LAN Ports','PoE Ports','PoE Type','Speaker Ch','Speaker W','Power W']];
-    placedEquipment.forEach(p=>{
+    // Items soft-removed under a CR stay visible in the app (badges + Show Removed toggle) but
+    // are excluded from the export, matching the generated spec.
+    placedEquipment.filter(p=>p.change_status!=='removed').forEach(p=>{
       const pe=projectEquipment.find(e=>e.id===p.project_equipment_id);
       const room=currentRooms.find(r=>r.id===p.room_id);
       const zone=currentZones.find(z=>z.id===p.rack_zone_id);
@@ -3895,7 +3897,7 @@ async function exportEquipmentMatrix(){
     if(!currentDecks.length)currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
     if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
     if(!projectEquipment.length)projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id);
-    if(!rmInstances.length)rmInstances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
+    if(!rmInstances.length)rmInstances=(await dbGet('equipment_instances','project_id=eq.'+currentProject.id)).filter(i=>i.change_status!=='removed');
     if(!rmTypeDetails.length){
       rmInstances.forEach(i=>{const pe=projectEquipment.find(p=>p.id===i.project_equipment_id);if(pe){i.device_type_id=pe.device_type_id;i.system_group=pe.system_group;i.description=pe.description;}});
       const ids=[...new Set(rmInstances.map(i=>i.device_type_id).filter(Boolean))];
@@ -4750,8 +4752,8 @@ async function loadRoomMatrix(){
     if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
     // Ensure project equipment is loaded (without touching Equipment Schedule DOM)
     if(!projectEquipment.length)projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
-    // Load placed instances
-    rmInstances=await dbGet('equipment_instances','project_id=eq.'+currentProject.id);
+    // Load placed instances (excluding items soft-removed under a CR)
+    rmInstances=(await dbGet('equipment_instances','project_id=eq.'+currentProject.id)).filter(i=>i.change_status!=='removed');
     // Build project_equipment lookup by id
     const peById={};projectEquipment.forEach(pe=>{peById[pe.id]=pe;});
     // Enrich instances with device type info from project_equipment
@@ -5149,6 +5151,9 @@ function computeZoneLoads(instances, rooms, zones, peLookup){
   };});
   const addItem=(list,desc,qty,each)=>{const ex=list.find(i=>i.desc===desc);if(ex){ex.qty+=qty;ex.total+=each*qty;}else list.push({desc,qty,each,total:each*qty});};
   instances.forEach(inst=>{
+    // Soft-removed under a CR: no longer part of the design, so it must not demand or supply
+    // anything (keeps the on-screen Zone Summary consistent with the generated spec's Annex B).
+    if(inst.change_status==='removed')return;
     const pe=peLookup(inst.project_equipment_id);
     if(!pe)return;
     let zoneId=inst.rack_zone_id||null;
