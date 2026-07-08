@@ -5103,7 +5103,18 @@ async function confirmApplyTemplate(){
     if(!tItems.length){showToast('Template has no items','error');btn.textContent='Apply to Rooms';btn.disabled=false;return;}
     // Load existing project equipment and placed equipment
     const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&select=id,device_type_id');
-    const placed=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&select=id,room_id,project_equipment_id');
+    const placed=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&select=id,room_id,project_equipment_id,device_id');
+    // Next device-ID sequence per room from the max existing numeric suffix, NOT the row count:
+    // count-based numbering reused IDs after any deletion, creating duplicates.
+    const seqByRoom={};
+    const nextSeqForRoom=(roomId)=>{
+      if(seqByRoom[roomId]==null){
+        let max=0;
+        placed.filter(p=>p.room_id===roomId).forEach(p=>{const m=/-(\d+)$/.exec(p.device_id||'');if(m)max=Math.max(max,parseInt(m[1],10));});
+        seqByRoom[roomId]=max;
+      }
+      return ++seqByRoom[roomId];
+    };
     // Check if any selected room already has equipment
     const roomsWithEquip=[];
     for(const roomId of applyTemplateRoomSelections){
@@ -5128,8 +5139,7 @@ async function confirmApplyTemplate(){
             // Skip if already placed in this room
             if(alreadyPlacedPeIds.includes(peEntry.id))continue;
             // Generate device ID using in-memory room data (no DB round-trip)
-            const existingInRoom=placed.filter(p=>p.room_id===roomId);
-            const seq=String(existingInRoom.length+1).padStart(4,'0');
+            const seq=String(nextSeqForRoom(roomId)).padStart(4,'0');
             const roomNum=(currentRooms.find(r=>r.id===roomId)||{}).room_number||'?';
             const deviceId=roomNum+'-'+seq;
             await dbInsert('equipment_instances',stampChange({project_id:currentProject.id,project_equipment_id:peEntry.id,room_id:roomId,quantity:item.quantity||1,device_id:deviceId},'added'));
@@ -6071,7 +6081,9 @@ async function savePlacement(){
     const roomNum=room?room.room_number:'0';
     // Load existing instances for this location to generate sequential IDs
     const existing=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+(locType==='room'?'&room_id=eq.'+locId:'&rack_zone_id=eq.'+locId));
-    let seqBase=existing.length;
+    // Sequence from the max existing numeric suffix, NOT the row count: count-based numbering
+    // reused device IDs after any deletion, creating duplicates.
+    let seqBase=0;existing.forEach(p=>{const m=/-(\d+)$/.exec(p.device_id||'');if(m)seqBase=Math.max(seqBase,parseInt(m[1],10));});
     const servesRoom=locType==='zone'?(document.getElementById('pl-serves-room')||{}).value||null:null;
     const payloads=[];
     for(const item of plItems){
