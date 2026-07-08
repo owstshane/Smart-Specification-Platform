@@ -1832,8 +1832,27 @@ function openProject(id){
   // The active CR is bound to the project it was started under — drop it when switching to a different project
   // so placements/edits here are never stamped with another project's CR (which would corrupt its change log).
   if(activeCRId&&activeCRProjectId!==proj.id)clearActiveCR();
+  // Re-validate a restored active CR (page refresh restores it from sessionStorage before any
+  // CR data is loaded): confirm it still exists and is open, and cache its row so the banner
+  // and CR reference work before the Change Control page is visited.
+  if(activeCRId)validateActiveCR();
   updateSidebarProject();
   showPage('project-info');
+}
+async function validateActiveCR(){
+  if(!activeCRId)return;
+  try{
+    const rows=await dbGet('change_requests','id=eq.'+activeCRId);
+    const cr=rows&&rows[0];
+    if(!cr||['closed','rejected'].includes(cr.status)){
+      clearActiveCR();
+      showToast('Stopped logging changes: the active CR is no longer open','info');
+      return;
+    }
+    if(!ccCRs.find(c=>c.id===cr.id))ccCRs.push(cr);
+    if(!activeCRType){activeCRType=cr.type||null;if(activeCRType)sessionStorage.setItem('activeCRType',activeCRType);}
+    showActiveCRBanner();
+  }catch(e){console.warn('Could not validate the active CR',e);}
 }
 // A "building" project (any non-Yacht category) uses Building > Floor > Room; a yacht uses Deck > Room.
 function isBuildingProj(){return !!(currentProject&&currentProject.category&&currentProject.category!=='Yacht');}
@@ -6139,7 +6158,15 @@ async function loadChangeControl(){
     ccRevisions=await dbGet('project_revisions','project_id=eq.'+currentProject.id+'&order=created_at.desc');
     ccLog=await dbGet('change_log','project_id=eq.'+currentProject.id+'&order=created_at.desc&limit=200');
     renderCCStats();
-    if(activeCRId)showActiveCRBanner();
+    // The active CR may have been closed, rejected or deleted elsewhere (another tab or teammate):
+    // stop logging to it rather than stamping changes against a CR that is no longer open.
+    if(activeCRId){
+      const acr=ccCRs.find(c=>c.id===activeCRId);
+      if(!acr||['closed','rejected'].includes(acr.status)){
+        clearActiveCR();
+        showToast('Stopped logging changes: the active CR is no longer open','info');
+      }else showActiveCRBanner();
+    }
     if(activeCCTab==='crs')renderCRs();
     else if(activeCCTab==='revisions')renderRevisions();
     else renderChangeLog();
@@ -6461,7 +6488,12 @@ async function approveCROwner(id){
 }
 
 async function closeCR(id){
-  try{await dbUpdate('change_requests',id,{status:'closed'});await loadChangeControl();showToast('CR closed','success');}
+  try{
+    await dbUpdate('change_requests',id,{status:'closed'});
+    // Stop logging to this CR if it was the active one: a closed CR must not keep collecting changes.
+    if(activeCRId===id)clearActiveCR();
+    await loadChangeControl();showToast('CR closed','success');
+  }
   catch(e){showToast('Failed: '+e.message,'error');}
 }
 async function rejectCR(id){
@@ -6487,10 +6519,42 @@ async function rejectCR(id){
   },'Reject','btn-danger');
 }
 async function deleteCR(id){
-  openConfirm('Delete CR','Delete this CR permanently? This cannot be undone.',async()=>{
+  const cr=ccCRs.find(c=>c.id===id);
+  // An approved/closed CR's changes are already part of the project, so deleting the CR keeps
+  // the equipment and only unlinks it. Deleting an unapproved CR reverts its changes the same
+  // way rejecting it would (otherwise CR-added equipment silently becomes baseline data).
+  const isApproved=!!(cr&&['approved','closed'].includes(cr.status));
+  const msg=isApproved
+    ?'Delete this CR permanently? Its changes are already approved and will be kept, but its cost schedule will be deleted. This cannot be undone.'
+    :'Delete this CR permanently? Equipment and rooms added under it will be deleted, and items it modified will revert to baseline. Its cost schedule will also be deleted. This cannot be undone.';
+  openConfirm('Delete CR',msg,async()=>{
   try{
+    if(!isApproved){
+      // Same baseline restore as rejectCR: additions were never baseline, so delete them.
+      // Delete children before parents for FK safety: instances -> project_equipment -> rooms.
+      await supaFetch('DELETE','equipment_instances',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
+      await supaFetch('DELETE','project_equipment',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
+      await supaFetch('DELETE','rooms',null,null,'change_cr_id=eq.'+id+'&change_status=eq.added');
+      const clear={change_status:null,change_cr_id:null,change_cr_ref:null};
+      await supaFetch('PATCH','equipment_instances',clear,null,'change_cr_id=eq.'+id);
+      await supaFetch('PATCH','project_equipment',clear,null,'change_cr_id=eq.'+id);
+      await supaFetch('PATCH','rooms',clear,null,'change_cr_id=eq.'+id);
+    }else{
+      // Keep the badges (status + CR number text) as the historical record, but unlink the id
+      // so nothing references a deleted row.
+      const unlink={change_cr_id:null};
+      await supaFetch('PATCH','equipment_instances',unlink,null,'change_cr_id=eq.'+id);
+      await supaFetch('PATCH','project_equipment',unlink,null,'change_cr_id=eq.'+id);
+      await supaFetch('PATCH','rooms',unlink,null,'change_cr_id=eq.'+id);
+    }
+    // Child rows referencing the CR: the cost schedule goes with it; log entries are kept but unlinked.
+    await supaFetch('DELETE','cr_cost_items',null,null,'cr_id=eq.'+id);
+    await supaFetch('PATCH','change_log',{cr_id:null},null,'cr_id=eq.'+id);
+    // Stop logging to this CR if it was the active one, BEFORE deleting it.
+    if(activeCRId===id)clearActiveCR();
     await dbDelete('change_requests',id);
     if(expandedCRId===id)expandedCRId=null;
+    delete crCostItems[id];
     await loadChangeControl();showToast('CR deleted','success');
   }catch(e){showToast('Failed: '+e.message,'error');}
   },'Delete','btn-danger');
