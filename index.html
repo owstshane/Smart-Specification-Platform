@@ -1650,7 +1650,16 @@ function prodUpdateNetworkFields(){
 
 // ── DB ──
 let _tokenRefreshPromise=null;
-async function refreshTokenIfNeeded(){
+// Signs the user out locally and shows the login overlay. Used when the session is beyond
+// recovery (refresh token revoked or already rotated away by another tab).
+function forceRelogin(){
+  currentUser=null;localStorage.removeItem('smart_session');
+  currentProject=null;resetProjectCaches();clearActiveCR();updateSidebarProject();
+  setAvatarUser(null);setConn('disconnected');
+  const o=document.getElementById('login-overlay');if(o)o.style.display='flex';
+  showToast('Your session has expired. Please sign in again.','error');
+}
+async function refreshTokenIfNeeded(force){
   if(!currentUser)return;
   // Prevent concurrent refresh attempts — Supabase refresh tokens are single-use
   if(_tokenRefreshPromise){await _tokenRefreshPromise;return;}
@@ -1658,8 +1667,18 @@ async function refreshTokenIfNeeded(){
     const stored=localStorage.getItem('smart_session');
     if(!stored)return;
     const session=JSON.parse(stored);
-    // Refresh if within 5 minutes of expiry (or already expired)
-    if(Date.now()>session.expires_at-300000){
+    // Another tab may have already refreshed and rotated the token: adopt the newer stored
+    // session before deciding, otherwise this tab keeps signing requests with a dead token
+    // and can never recover (the stored expiry looks fine so no refresh is attempted).
+    let adopted=false;
+    if(session.access_token&&session.access_token!==currentUser.access_token){
+      currentUser={...currentUser,access_token:session.access_token,refresh_token:session.refresh_token};
+      adopted=true;
+    }
+    // Refresh if within 5 minutes of expiry (or already expired). A forced call (after a 401)
+    // refreshes even with a fresh-looking expiry, unless adopting the other tab's token above
+    // already gave us a newer one to retry with.
+    if((force&&!adopted)||Date.now()>session.expires_at-300000){
       const refreshToken=session.refresh_token||currentUser.refresh_token;
       if(!refreshToken)return;
       _tokenRefreshPromise=(async()=>{
@@ -1668,6 +1687,16 @@ async function refreshTokenIfNeeded(){
           const data=await res.json();
           currentUser=data;
           localStorage.setItem('smart_session',JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token,expires_at:Date.now()+data.expires_in*1000,email:data.user?.email||session.email}));
+        }else if(res.status===400||res.status===401){
+          // The refresh token is dead. One last chance: another tab may have stored a newer
+          // session while we were trying; otherwise the session is unrecoverable.
+          const latest=localStorage.getItem('smart_session');
+          const ls=latest?JSON.parse(latest):null;
+          if(ls&&ls.access_token&&ls.access_token!==currentUser.access_token){
+            currentUser={...currentUser,access_token:ls.access_token,refresh_token:ls.refresh_token};
+          }else{
+            forceRelogin();
+          }
         }
       })();
       try{await _tokenRefreshPromise;}catch(e){console.warn('Token refresh failed:',e);}
@@ -1682,9 +1711,9 @@ async function supaFetch(method,table,body,id,params){
   if(params)url+=(id?'&':'?')+params;
   const doFetch=()=>fetch(url,{method,headers:{'apikey':SUPABASE_KEY,'Authorization':getAuthHeader(),'Content-Type':'application/json','Prefer':'return=representation'},body:body?JSON.stringify(body):undefined});
   let res=await doFetch();
-  // If JWT expired mid-session, force refresh and retry once
+  // If JWT expired mid-session, force refresh (or adopt another tab's newer token) and retry once
   if(res.status===401){
-    try{await refreshTokenIfNeeded();}catch(e){console.warn('Retry refresh failed:',e);}
+    try{await refreshTokenIfNeeded(true);}catch(e){console.warn('Retry refresh failed:',e);}
     res=await doFetch();
   }
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.message||'HTTP '+res.status);}
