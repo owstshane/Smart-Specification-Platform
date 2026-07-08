@@ -313,23 +313,7 @@
 
 
   /* IMPORT/EXPORT */
-  .ie-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
-  .ie-section-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-  .ie-section-sub { font-size: 13px; color: var(--text-3); margin-bottom: 20px; }
-  .ie-upload-area { border: 2px dashed var(--border-strong); border-radius: var(--radius); padding: 32px; text-align: center; cursor: pointer; transition: all 0.15s; margin-bottom: 16px; }
-  .ie-upload-area:hover, .ie-upload-area.dragover { border-color: var(--accent); background: var(--accent-light); }
-  .ie-upload-text { font-size: 13px; color: var(--text-2); margin-bottom: 4px; font-weight: 500; }
-  .ie-upload-sub { font-size: 12px; color: var(--text-3); }
   .ie-preview { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
-  .ie-preview-header { padding: 14px 18px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .ie-preview-title { font-size: 13px; font-weight: 600; }
-  .ie-preview-table { overflow-x: auto; max-height: 360px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .ie-preview-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .ie-preview-table th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); background: var(--surface2); position: sticky; top: 0; border-bottom: 1px solid var(--border); }
-  .ie-preview-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
-  .ie-preview-table tr.row-error td { background: var(--red-light); color: var(--red); }
-  .ie-error-badge { display: inline-flex; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; background: var(--red-light); color: var(--red); }
-  .ie-ok-badge { display: inline-flex; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; background: var(--green-light); color: var(--green); }
   .ie-import-options { display: flex; gap: 12px; margin-bottom: 16px; }
   .ie-option { flex: 1; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 14px; cursor: pointer; transition: all 0.15s; }
   .ie-option.selected { border-color: var(--accent); background: var(--accent-light); }
@@ -1587,7 +1571,7 @@ let editingGlobalId=null, editingPeId=null, editingProductId=null, editingPlaceI
 let projectProducts=[], productModalMode='global'; // 'global' or 'project'
 let pgpItems=[], pgpPulledIds=new Set(), pgpActiveType='all';
 let selectingProductForPeId=null, editingSgId=null, editingDcId=null;
-let currentUser=null, ieImportData=null, ieImportOption='add';
+let currentUser=null;
 let ccCRs=[], ccRevisions=[], ccLog=[], activeCCTab='crs', expandedCRId=null, activeCRId=null, activeCRType=null, activeCRProjectId=null;
 
 // ── UTILS ──
@@ -1723,6 +1707,9 @@ const dbGet=(t,p)=>supaFetch('GET',t,null,null,p||'order=created_at.desc');
 const dbInsert=(t,b)=>supaFetch('POST',t,b);
 const dbUpdate=(t,id,b)=>supaFetch('PATCH',t,b,id);
 const dbDelete=(t,id)=>supaFetch('DELETE',t,null,id);
+// Filtered bulk delete in ONE request (PostgREST requires an explicit filter; use
+// 'id=not.is.null' to clear a whole table). Replaces row-by-row delete loops.
+const dbDeleteWhere=(t,params)=>supaFetch('DELETE',t,null,null,params);
 
 // ── AUTH ──
 function getAuthHeader(){return currentUser?'Bearer '+currentUser.access_token:'Bearer '+SUPABASE_KEY;}
@@ -3591,67 +3578,14 @@ function ieResetPanel(panel){
     drz:['ie-file-drz','ie-upload-drz','ie-preview-drz']
   }[panel];
   if(ids){const el=document.getElementById(ids[0]);if(el)el.value='';const up=document.getElementById(ids[1]);if(up)up.classList.remove('hidden');document.getElementById(ids[2]).classList.add('hidden');}
-  if(panel==='gd'||panel==='gp'||panel==='pe')ieSelectOpt(panel,'add');
-}
-function ieDragOver(e,uploadId){e.preventDefault();document.getElementById(uploadId).classList.add('dragover');}
-function ieDragLeave(uploadId){document.getElementById(uploadId).classList.remove('dragover');}
-function ieDrop(e,dataset){
-  e.preventDefault();
-  const panelMap={'global-devices':'gd','global-products':'gp','project-equipment':'pe','placed-equipment':'placed','decks-rooms-zones':'drz'};
-  const panel=panelMap[dataset];
-  const uploadId={gd:'ie-upload-gd',gp:'ie-upload-gp',pe:'ie-upload-pe',placed:'ie-upload-placed',drz:'ie-upload-drz'}[panel];
-  ieDragLeave(uploadId);
-  const f=e.dataTransfer.files[0];if(f)ieProcessFile(f,dataset);
+  if(panel==='gd'||panel==='gp'||panel==='pe'||panel==='drz')ieSelectOpt(panel,'add');
 }
 function ieFileSelected(e,dataset){const f=e.target.files[0];if(f)ieProcessFile(f,dataset);}
 function ieProcessFile(file,dataset){
   if(!file.name.endsWith('.xlsx')){showToast('Please upload an Excel (.xlsx) file','error');return;}
   const reader=new FileReader();
-  reader.onload=function(e){try{const wb=XLSX.read(e.target.result,{type:'binary'});if(dataset)ieParseFile(wb,dataset);else ieParseWorkbook(wb);}catch(err){showToast('Could not read file: '+err.message,'error');}};
+  reader.onload=function(e){try{const wb=XLSX.read(e.target.result,{type:'binary'});ieParseFile(wb,dataset);}catch(err){showToast('Could not read file: '+err.message,'error');}};
   reader.readAsBinaryString(file);
-}
-function ieParseWorkbook(wb){
-  const roomSheet=wb.Sheets['Rooms'];if(!roomSheet){showToast('Could not find a Rooms sheet','error');return;}
-  const roomRows=XLSX.utils.sheet_to_json(roomSheet);
-  const parsedRooms=roomRows.map((row,i)=>{
-    const deckName=(row['Deck']||row['Deck Name']||'').toString().trim();
-    const matchedDeck=currentDecks.find(d=>d.name.toLowerCase()===deckName.toLowerCase()||(d.deck_id||'').toLowerCase()===deckName.toLowerCase());
-    const errors=[];
-    const name=(row['Room Name']||row['Name']||'').toString().trim();
-    if(!name)errors.push('Missing room name');
-    if(!deckName)errors.push('Missing deck');
-    else if(!matchedDeck)errors.push('Deck "'+deckName+'" not found');
-    return{row:i+2,room_number:parseInt(row['Room No.']||row['Room Number'])||null,room_id:(row['Room ID']||'').toString().toUpperCase()||null,name,deck_name:deckName,deck_id:matchedDeck?matchedDeck.id:null,position:(row['Position']||'').toString().toUpperCase()||null,frame_number:(row['Frame Number']||'').toString().trim()||null,notes:(row['Notes']||'').toString().trim()||null,zone_name:(row['Rack Zone']||'').toString().trim()||null,errors,valid:errors.length===0};
-  });
-  ieImportData=parsedRooms;ieShowPreview(parsedRooms);
-}
-function ieShowPreview(rows){
-  const valid=rows.filter(r=>r.valid).length,invalid=rows.filter(r=>!r.valid).length;
-  const previewEl=document.getElementById('ie-preview');
-  previewEl.innerHTML='<div class="ie-preview-header"><div class="ie-preview-title">Preview — '+rows.length+' rows found</div><div style="display:flex;gap:8px">'+(valid>0?'<span class="ie-ok-badge">✓ '+valid+' valid</span>':'')+(invalid>0?'<span class="ie-error-badge">⚠ '+invalid+' errors</span>':'')+'</div></div>'
-    +'<div class="ie-preview-table"><table><thead><tr><th>Row</th><th>Deck</th><th>#</th><th>Room ID</th><th>Room Name</th><th>Status</th></tr></thead><tbody>'
-    +rows.map(r=>'<tr class="'+(r.valid?'row-ok':'row-error')+'"><td>'+r.row+'</td><td>'+escHtml(r.deck_name)+'</td><td>'+(r.room_number||'—')+'</td><td>'+escHtml(r.room_id||'—')+'</td><td>'+escHtml(r.name)+'</td><td>'+(r.valid?'<span class="ie-ok-badge">✓ OK</span>':'<span class="ie-error-badge">'+r.errors.join(', ')+'</span>')+'</td></tr>').join('')
-    +'</tbody></table></div>';
-  document.getElementById('ie-preview-area').classList.remove('hidden');document.getElementById('ie-upload-area').classList.add('hidden');
-  const btn=document.getElementById('ie-confirm-btn');
-  if(valid===0){btn.disabled=true;btn.textContent='No valid rows to import';}
-  else{btn.disabled=false;btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg> Confirm Import ('+valid+' rooms)';}
-}
-async function ieConfirmImport(){
-  if(!ieImportData)return;const valid=ieImportData.filter(r=>r.valid);if(!valid.length){showToast('No valid rows to import','error');return;}
-  const btn=document.getElementById('ie-confirm-btn');btn.textContent='Importing…';btn.disabled=true;
-  try{
-    if(ieImportOption==='replace'){for(const room of currentRooms){await dbDelete('rooms',room.id);}}
-    for(const r of valid){
-      let rack_zone_id=null;
-      if(r.zone_name){const z=currentZones.find(z=>z.name.toLowerCase()===r.zone_name.toLowerCase()||z.zone_id.toLowerCase()===r.zone_name.toLowerCase());if(z)rack_zone_id=z.id;}
-      await dbInsert('rooms',{room_number:r.room_number,room_id:r.room_id,name:r.name,deck_id:r.deck_id,position:r.position,frame_number:r.frame_number,notes:r.notes,rack_zone_id});
-    }
-    showToast(valid.length+' rooms imported successfully','success');
-    currentRooms=currentDecks.length?await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc'):[];
-    ieReset();
-  }catch(e){showToast('Import failed: '+e.message,'error');}
-  finally{btn.textContent='Confirm Import';btn.disabled=false;}
 }
 function ieParseFile(wb,dataset){
   const panelMap={'global-devices':'gd','global-products':'gp','project-equipment':'pe','placed-equipment':'placed','decks-rooms-zones':'drz'};
@@ -3686,105 +3620,218 @@ async function ieConfirm(dataset){
   const data=ieState[panel].data;
   const opt=ieState[panel].opt;
   if(!data){showToast('No data to import','error');return;}
+  // Reads a cell by any of its historical header names (export and import headers had drifted
+  // apart, silently dropping fields on round-trip).
+  const cell=(r,...keys)=>{for(const k of keys){if(r[k]!==undefined&&r[k]!==null&&r[k]!=='')return r[k];}return '';};
+  // Rows that could not be imported, with the reason. Reported at the end instead of being
+  // silently dropped or half-imported.
+  const skipped=[];
   const run=async()=>{
   try{
-    if(dataset==='global-devices'){
-      const rows=data;
-      if(opt==='replace'){const existing=await dbGet('global_equipment','select=id');for(const r of existing)await dbDelete('global_equipment',r.id);}
-      for(const r of rows){
-        const rec={device_type_id:r['Device Type ID']||r.device_type_id||'',description:r['Description']||r.description||'',category_code:r['Category Code']||r.category_code||'',system_group:r['System Group']||r.system_group||'',spec_ref:r['Spec Ref']||r.spec_ref||null,lan_ports:parseInt(r['LAN Ports']||r.lan_ports)||null,poe_ports:parseInt(r['POE Ports']||r.poe_ports)||null,poe_type:r['POE Type']||r.poe_type||null,speaker_channels:parseInt(r['Speaker Channels']||r.speaker_channels)||null,spk_watts:parseFloat(r['Spk Watts']||r.spk_watts)||null,network_role:r['Network Role']||r.network_role||'none',avip_role:r['AVoIP Role']||r.avip_role||'none',audio_role:r['Audio Role']||r.audio_role||'none',power_watts:parseFloat(r['Power Draw (W)']||r.power_watts)||null,heat_btu:parseFloat(r['Heat (BTU)']||r.heat_btu)||null,ups_protected:(r['UPS Protected']||'').toString().toLowerCase()==='yes'};
-        if(rec.device_type_id&&rec.description)await dbInsert('global_equipment',rec);
-      }
-      showToast('Device types imported','success');
+    if(dataset==='global-devices'||dataset==='project-equipment'){
+      // Same row shape into global_equipment or project_equipment.
+      const isGlobal=dataset==='global-devices';
+      if(!isGlobal&&!currentProject){showToast('No project selected','error');return;}
+      const table=isGlobal?'global_equipment':'project_equipment';
+      if(opt==='replace')await dbDeleteWhere(table,isGlobal?'id=not.is.null':'project_id=eq.'+currentProject.id);
+      // Taxonomy for validation: system_group stores the group NAME; categories/sub-categories their codes.
+      const sgRows=systemGroups.length?systemGroups:await dbGet('system_groups');
+      const [catRows,subRows]=await Promise.all([dbGet('device_categories','select=code'),dbGet('device_subcategories','select=code')]);
+      const groupNames=new Set(sgRows.map(g=>g.name));
+      const catCodes=new Set(catRows.map(c=>c.code));
+      const subCodes=new Set(subRows.map(s=>s.code));
+      // Dedupe against what already exists (and within the file itself).
+      const existing=opt==='replace'?[]:await dbGet(table,(isGlobal?'':'project_id=eq.'+currentProject.id+'&')+'select=device_type_id');
+      const seen=new Set(existing.map(e=>(e.device_type_id||'').toUpperCase()));
+      const recs=[];
+      data.forEach((r,i)=>{
+        const rowNo=i+2;
+        const typeId=(cell(r,'Device Type ID','device_type_id')||'').toString().trim().toUpperCase();
+        const desc=(cell(r,'Description','description')||'').toString().trim();
+        if(!typeId||!desc){skipped.push('Row '+rowNo+': missing device type ID or description');return;}
+        if(seen.has(typeId)){skipped.push('Row '+rowNo+': '+typeId+' already exists (duplicate skipped)');return;}
+        const group=(cell(r,'System Group','system_group')||'').toString().trim();
+        const cat=(cell(r,'Category Code','category_code')||'').toString().trim().toUpperCase();
+        const sub=(cell(r,'Sub-category Code','subcategory_code')||'').toString().trim().toUpperCase();
+        if(group&&!groupNames.has(group)){skipped.push('Row '+rowNo+' ('+typeId+'): unknown system group "'+group+'"');return;}
+        if(cat&&!catCodes.has(cat)){skipped.push('Row '+rowNo+' ('+typeId+'): unknown category code "'+cat+'"');return;}
+        if(sub&&!subCodes.has(sub)){skipped.push('Row '+rowNo+' ('+typeId+'): unknown sub-category code "'+sub+'"');return;}
+        const pwrType=(cell(r,'Power Supply','power_types')||'').toString().trim();
+        const rec={
+          device_type_id:typeId,description:desc,
+          category_code:cat||null,subcategory_code:sub||null,system_group:group||null,
+          spec_ref:cell(r,'Spec Ref','spec_ref')||null,
+          network_role:cell(r,'Network Role','network_role')||'none',
+          avip_role:cell(r,'AVoIP Role','avip_role')||'none',
+          audio_role:cell(r,'Audio Role','audio_role')||'none',
+          lan_ports:parseInt(cell(r,'LAN Ports','lan_ports'))||null,
+          poe_ports:parseInt(cell(r,'PoE Ports','POE Ports','poe_ports'))||null,
+          poe_type:cell(r,'PoE Type','POE Type','poe_type')||null,
+          poe_budget_watts:parseFloat(cell(r,'PoE Budget (W)','poe_budget_watts'))||null,
+          power_types:pwrType?[pwrType]:null,
+          power_watts:parseFloat(cell(r,'Power Draw (W)','power_watts'))||null,
+          heat_btu:parseFloat(cell(r,'Heat (BTU)','heat_btu'))||null,
+          ups_protected:(cell(r,'UPS Protected','ups_protected')||'').toString().toLowerCase()==='yes',
+          speaker_channels:parseInt(cell(r,'Amp Channels','Speaker Channels','speaker_channels'))||null,
+          spk_watts:parseFloat(cell(r,'Spk Watts (W)','Spk Watts','spk_watts'))||null,
+          budget_price:parseFloat(cell(r,'Budget Price','budget_price'))||null,
+          currency:cell(r,'Currency','currency')||null
+        };
+        if(!isGlobal){rec.project_id=currentProject.id;rec.make=cell(r,'Make','make')||null;rec.model=cell(r,'Model','model')||null;rec.comments=cell(r,'Comments','comments')||null;}
+        seen.add(typeId);
+        recs.push(rec);
+      });
+      if(recs.length)await dbInsert(table,recs);
+      if(isGlobal)globalLibrary=[];else projectEquipment=[];
+      showToast(recs.length+' device type'+(recs.length!==1?'s':'')+' imported'+(skipped.length?', '+skipped.length+' skipped':''),'success');
     } else if(dataset==='global-products'){
-      const rows=data;
-      if(opt==='replace'){const existing=await dbGet('global_products','select=id');for(const r of existing)await dbDelete('global_products',r.id);}
-      for(const r of rows){
-        const rec={device_type_id:r['Device Type ID']||r.device_type_id||'',make:r['Make']||r.make||'',model:r['Model']||r.model||'',part_number:r['Part Number']||r.part_number||null,lan_ports:parseInt(r['LAN Ports']||r.lan_ports)||null,poe_ports:parseInt(r['POE Ports']||r.poe_ports)||null,poe_type:r['POE Type']||r.poe_type||null,speaker_channels:parseInt(r['Speaker Channels']||r.speaker_channels)||null,spk_watts:parseFloat(r['Spk Watts (W)']||r.spk_watts)||null,power_watts:parseFloat(r['Power Draw (W)']||r.power_watts)||null,weight_kg:parseFloat(r['Weight (kg)']||r.weight_kg)||null,heat_btu:parseFloat(r['Heat (BTU)']||r.heat_btu)||null,ups_protected:(r['UPS Protected']||'').toString().toLowerCase()==='yes',network_role:r['Network Role']||r.network_role||'none',avip_role:r['AVoIP Role']||r.avip_role||'none',audio_role:r['Audio Role']||r.audio_role||'none',width_mm:parseFloat(r['Width (mm)']||r.width_mm)||null,depth_mm:parseFloat(r['Depth (mm)']||r.depth_mm)||null,height_mm:parseFloat(r['Height (mm)']||r.height_mm)||null,notes:r['Notes']||r.notes||null};
-        if(rec.device_type_id&&rec.make&&rec.model)await dbInsert('global_products',rec);
-      }
-      showToast('Products imported','success');
-    } else if(dataset==='project-equipment'){
-      if(!currentProject){showToast('No project selected','error');return;}
-      const rows=data;
-      if(opt==='replace'){const existing=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&select=id');for(const r of existing)await dbDelete('project_equipment',r.id);}
-      for(const r of rows){
-        const rec={project_id:currentProject.id,device_type_id:r['Device Type ID']||r.device_type_id||'',description:r['Description']||r.description||'',category_code:r['Category Code']||r.category_code||'',system_group:r['System Group']||r.system_group||'',spec_ref:r['Spec Ref']||r.spec_ref||null,network_role:r['Network Role']||r.network_role||'none',avip_role:r['AVoIP Role']||r.avip_role||'none',audio_role:r['Audio Role']||r.audio_role||'none',lan_ports:parseInt(r['LAN Ports']||r.lan_ports)||null,poe_ports:parseInt(r['POE Ports']||r.poe_ports)||null,poe_type:r['POE Type']||r.poe_type||null,power_watts:parseFloat(r['Power Draw (W)']||r.power_watts)||null,heat_btu:parseFloat(r['Heat (BTU)']||r.heat_btu)||null,ups_protected:(r['UPS Protected']||'').toString().toLowerCase()==='yes',speaker_channels:parseInt(r['Amp Channels']||r.speaker_channels)||null,spk_watts:parseFloat(r['Spk Watts (W)']||r.spk_watts)||null,make:r['Make']||r.make||null,model:r['Model']||r.model||null,comments:r['Comments']||r.comments||null};
-        if(rec.device_type_id&&rec.description)await dbInsert('project_equipment',rec);
-      }
-      showToast('Project equipment imported','success');
+      if(opt==='replace')await dbDeleteWhere('global_products','id=not.is.null');
+      // A product must reference a device type that exists in the global library.
+      const types=new Set((await dbGet('global_equipment','select=device_type_id')).map(e=>(e.device_type_id||'').toUpperCase()));
+      const existing=opt==='replace'?[]:await dbGet('global_products','select=device_type_id,make,model');
+      const prodKey=(t,mk,md)=>(t+'|'+mk+'|'+md).toLowerCase();
+      const seen=new Set(existing.map(e=>prodKey(e.device_type_id||'',e.make||'',e.model||'')));
+      const recs=[];
+      data.forEach((r,i)=>{
+        const rowNo=i+2;
+        const typeId=(cell(r,'Device Type ID','device_type_id')||'').toString().trim().toUpperCase();
+        const make=(cell(r,'Make','make')||'').toString().trim();
+        const model=(cell(r,'Model','model')||'').toString().trim();
+        if(!typeId||!make||!model){skipped.push('Row '+rowNo+': missing device type ID, make or model');return;}
+        if(!types.has(typeId)){skipped.push('Row '+rowNo+' ('+make+' '+model+'): device type "'+typeId+'" is not in the global library');return;}
+        if(seen.has(prodKey(typeId,make,model))){skipped.push('Row '+rowNo+': '+make+' '+model+' already exists for '+typeId+' (duplicate skipped)');return;}
+        const pwrType=(cell(r,'Power Supply','power_types')||'').toString().trim();
+        recs.push({
+          device_type_id:typeId,make,model,
+          part_number:cell(r,'Part Number','part_number')||null,
+          network_role:cell(r,'Network Role','network_role')||'none',
+          avip_role:cell(r,'AVoIP Role','avip_role')||'none',
+          audio_role:cell(r,'Audio Role','audio_role')||'none',
+          lan_ports:parseInt(cell(r,'LAN Ports','lan_ports'))||null,
+          poe_ports:parseInt(cell(r,'PoE Ports','POE Ports','poe_ports'))||null,
+          poe_type:cell(r,'PoE Type','POE Type','poe_type')||null,
+          poe_budget_watts:parseFloat(cell(r,'PoE Budget (W)','poe_budget_watts'))||null,
+          power_types:pwrType?[pwrType]:null,
+          power_watts:parseFloat(cell(r,'Power Draw (W)','power_watts'))||null,
+          heat_btu:parseFloat(cell(r,'Heat (BTU)','heat_btu'))||null,
+          ups_protected:(cell(r,'UPS Protected','ups_protected')||'').toString().toLowerCase()==='yes',
+          speaker_channels:parseInt(cell(r,'Amp Channels','Speaker Channels','speaker_channels'))||null,
+          spk_watts:parseFloat(cell(r,'Spk Watts (W)','Spk Watts','spk_watts'))||null,
+          width_mm:parseFloat(cell(r,'Width (mm)','width_mm'))||null,
+          depth_mm:parseFloat(cell(r,'Depth (mm)','depth_mm'))||null,
+          height_mm:parseFloat(cell(r,'Height (mm)','height_mm'))||null,
+          weight_kg:parseFloat(cell(r,'Weight (kg)','weight_kg'))||null,
+          price_min:parseFloat(cell(r,'Price Min','price_min'))||null,
+          price_max:parseFloat(cell(r,'Price Max','price_max'))||null,
+          currency:cell(r,'Currency','currency')||null,
+          notes:cell(r,'Notes','notes')||null
+        });
+        seen.add(prodKey(typeId,make,model));
+      });
+      if(recs.length)await dbInsert('global_products',recs);
+      globalProducts=[];
+      showToast(recs.length+' product'+(recs.length!==1?'s':'')+' imported'+(skipped.length?', '+skipped.length+' skipped':''),'success');
     } else if(dataset==='placed-equipment'){
       if(!currentProject){showToast('No project selected','error');return;}
-      const rows=data;
-      // Load rooms and zones for name resolution
+      // Every placement must resolve to a project library entry (the whole app keys instances
+      // off project_equipment_id) and to a real room or rack zone. Anything unresolved is
+      // skipped and reported, never imported as an invisible orphan.
+      const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&select=id,device_type_id');
+      const peByType={};pe.forEach(p=>{if(p.device_type_id)peByType[p.device_type_id.toUpperCase()]=p.id;});
       const decks=await dbGet('decks','project_id=eq.'+currentProject.id);
-      const rooms=decks.length?await dbGet('rooms','deck_id=in.('+decks.map(d=>d.id).join(',')+')'):[]; 
+      const rooms=decks.length?await dbGet('rooms','deck_id=in.('+decks.map(d=>d.id).join(',')+')'):[];
       const zones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
       const existing=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&select=id,device_id');
-      let added=0,updated=0;
-      for(const r of rows){
-        const deviceId=(r['Device ID']||r.device_id||'').toString().trim();
-        if(!deviceId)continue;
-        const roomName=(r['Room']||'').toString().trim();
-        const zoneName=(r['Rack Zone']||'').toString().trim();
-        const room=rooms.find(rm=>rm.name.toLowerCase()===roomName.toLowerCase()||rm.room_id===roomName);
-        const zone=zones.find(z=>z.name.toLowerCase()===zoneName.toLowerCase()||z.zone_id===zoneName);
-        const rec={device_id:deviceId,project_id:currentProject.id,device_type_id:r['Device Type ID']||r.device_type_id||'',description:r['Description']||r.description||'',room_id:room?room.id:null,rack_zone_id:zone?zone.id:null,quantity:parseInt(r['Quantity']||r.quantity)||1,installation_type:r['Installation Type']||r.installation_type||null,notes:r['Notes']||r.notes||null};
+      const seenIds=new Set();
+      const toInsert=[];let updated=0;
+      for(let i=0;i<data.length;i++){
+        const r=data[i];const rowNo=i+2;
+        const deviceId=(cell(r,'Device ID','device_id')||'').toString().trim();
+        if(!deviceId){skipped.push('Row '+rowNo+': missing device ID');continue;}
+        if(seenIds.has(deviceId)){skipped.push('Row '+rowNo+': device ID '+deviceId+' appears twice in the file (duplicate skipped)');continue;}
+        seenIds.add(deviceId);
+        const typeId=(cell(r,'Device Type ID','device_type_id')||'').toString().trim().toUpperCase();
+        const peId=peByType[typeId]||null;
+        if(!peId){skipped.push('Row '+rowNo+' ('+deviceId+'): device type "'+(typeId||'blank')+'" is not in this project\'s Device Types');continue;}
+        const roomName=(cell(r,'Room')||'').toString().trim();
+        const zoneName=(cell(r,'Rack Zone')||'').toString().trim();
+        const room=roomName?rooms.find(rm=>rm.name.toLowerCase()===roomName.toLowerCase()||(rm.room_id||'')===roomName):null;
+        const zone=zoneName?zones.find(z=>z.name.toLowerCase()===zoneName.toLowerCase()||(z.zone_id||'')===zoneName):null;
+        if(roomName&&!room){skipped.push('Row '+rowNo+' ('+deviceId+'): room "'+roomName+'" not found');continue;}
+        if(zoneName&&!zone){skipped.push('Row '+rowNo+' ('+deviceId+'): rack zone "'+zoneName+'" not found');continue;}
+        if(!room&&!zone){skipped.push('Row '+rowNo+' ('+deviceId+'): no room or rack zone given');continue;}
+        const rec={device_id:deviceId,project_id:currentProject.id,project_equipment_id:peId,room_id:room?room.id:null,rack_zone_id:zone?zone.id:null,quantity:parseInt(cell(r,'Quantity','quantity'))||1,installation_type:cell(r,'Installation Type','installation_type')||null,notes:cell(r,'Notes','notes')||null};
         const existingRec=existing.find(e=>e.device_id===deviceId);
         if(existingRec){await dbUpdate('equipment_instances',existingRec.id,rec);updated++;}
-        else{await dbInsert('equipment_instances',rec);added++;}
+        else toInsert.push(rec);
       }
-      showToast(added+' added, '+updated+' updated','success');
+      if(toInsert.length)await dbInsert('equipment_instances',toInsert);
+      placedEquipment=[];rmInstances=[];fmInstances=[];
+      showToast(toInsert.length+' added, '+updated+' updated'+(skipped.length?', '+skipped.length+' skipped':''),'success');
     } else if(dataset==='decks-rooms-zones'){
       if(!currentProject){showToast('No project selected','error');return;}
       const wb=data;
       if(opt==='replace'){
-        const existingDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&select=id');
-        const existingZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id+'&select=id');
-        for(const z of existingZones)await dbDelete('rack_zones',z.id);
-        for(const d of existingDecks)await dbDelete('decks',d.id);
+        // Zones first (rooms reference them), then decks (their rooms cascade in the DB).
+        await dbDeleteWhere('rack_zones','project_id=eq.'+currentProject.id);
+        await dbDeleteWhere('decks','project_id=eq.'+currentProject.id);
       }
-      // Import Decks
-      const deckMap={};
+      // Existing decks/zones are valid targets when adding (a rooms-only file can reference
+      // decks that already exist). Matched by name or by ID code.
+      const deckMap={},zoneMap={};
+      (await dbGet('decks','project_id=eq.'+currentProject.id)).forEach(d=>{deckMap[d.name.toLowerCase()]=d.id;if(d.deck_id)deckMap[d.deck_id.toLowerCase()]=d.id;});
+      (await dbGet('rack_zones','project_id=eq.'+currentProject.id)).forEach(z=>{zoneMap[z.name.toLowerCase()]=z.id;if(z.zone_id)zoneMap[z.zone_id.toLowerCase()]=z.id;});
+      let deckCount=0,zoneCount=0,roomCount=0;
       if(wb.Sheets['Decks']){
-        const deckRows=XLSX.utils.sheet_to_json(wb.Sheets['Decks'],{defval:''});
-        for(const r of deckRows){
-          const name=(r['Deck Name']||r['Name']||'').toString().trim();if(!name)continue;
-          const created=await dbInsert('decks',{project_id:currentProject.id,name,deck_id:(r['Deck ID']||'').toString().trim()||null,deck_order:parseInt(r['Deck No.']||r['Deck Order'])||null});
-          if(created&&created[0])deckMap[name.toLowerCase()]=created[0].id;
-        }
+        const deckRecs=[];
+        XLSX.utils.sheet_to_json(wb.Sheets['Decks'],{defval:''}).forEach((r,i)=>{
+          const name=(cell(r,'Deck Name','Name')||'').toString().trim();if(!name)return;
+          if(deckMap[name.toLowerCase()]!==undefined){skipped.push('Decks row '+(i+2)+': "'+name+'" already exists (duplicate skipped)');return;}
+          deckMap[name.toLowerCase()]=true; // placeholder so in-file duplicates are caught too
+          deckRecs.push({project_id:currentProject.id,name,deck_id:(cell(r,'Deck ID')||'').toString().trim()||null,deck_order:parseInt(cell(r,'Deck No.','Deck Order'))||null});
+        });
+        if(deckRecs.length){const created=await dbInsert('decks',deckRecs);created.forEach(d=>{deckMap[d.name.toLowerCase()]=d.id;if(d.deck_id)deckMap[d.deck_id.toLowerCase()]=d.id;});deckCount=created.length;}
       }
-      // Import Zones
-      const zoneMap={};
       if(wb.Sheets['Zones']){
-        const zoneRows=XLSX.utils.sheet_to_json(wb.Sheets['Zones'],{defval:''});
-        for(const r of zoneRows){
-          const name=(r['Zone Name']||r['Name']||'').toString().trim();if(!name)continue;
-          const created=await dbInsert('rack_zones',{project_id:currentProject.id,name,zone_id:(r['Zone ID']||'').toString().trim()||null,rack_count:parseInt(r['Rack Count'])||1,colour:safeColour((r['Colour']||'').toString().trim(),'')||null,notes:r['Notes']||null});
-          if(created&&created[0])zoneMap[name.toLowerCase()]=created[0].id;
-        }
+        const zoneRecs=[];
+        XLSX.utils.sheet_to_json(wb.Sheets['Zones'],{defval:''}).forEach((r,i)=>{
+          const name=(cell(r,'Zone Name','Name')||'').toString().trim();if(!name)return;
+          if(zoneMap[name.toLowerCase()]!==undefined){skipped.push('Zones row '+(i+2)+': "'+name+'" already exists (duplicate skipped)');return;}
+          zoneMap[name.toLowerCase()]=true;
+          zoneRecs.push({project_id:currentProject.id,name,zone_id:(cell(r,'Zone ID')||'').toString().trim()||null,rack_count:parseInt(cell(r,'Rack Count'))||1,colour:safeColour((cell(r,'Colour')||'').toString().trim(),'')||null,notes:cell(r,'Notes')||null});
+        });
+        if(zoneRecs.length){const created=await dbInsert('rack_zones',zoneRecs);created.forEach(z=>{zoneMap[z.name.toLowerCase()]=z.id;if(z.zone_id)zoneMap[z.zone_id.toLowerCase()]=z.id;});zoneCount=created.length;}
       }
-      // Import Rooms
-      let roomCount=0;
       if(wb.Sheets['Rooms']){
-        const roomRows=XLSX.utils.sheet_to_json(wb.Sheets['Rooms'],{defval:''});
-        for(const r of roomRows){
-          const name=(r['Room Name']||r['Name']||'').toString().trim();if(!name)continue;
-          const deckName=(r['Deck']||r['Deck Name']||'').toString().trim().toLowerCase();
-          const zoneName=(r['Rack Zone']||'').toString().trim().toLowerCase();
-          const deck_id=deckMap[deckName]||null;
-          const rack_zone_id=zoneMap[zoneName]||null;
-          await dbInsert('rooms',{name,deck_id,rack_zone_id,room_number:parseInt(r['Room No.']||r['Room Number'])||null,room_id:(r['Room ID']||'').toString().toUpperCase()||null,position:(r['Position']||'').toString().toUpperCase()||null,frame_number:(r['Frame Number']||'').toString().trim()||null,notes:(r['Notes']||'').toString().trim()||null});
-          roomCount++;
-        }
+        const roomRecs=[];
+        XLSX.utils.sheet_to_json(wb.Sheets['Rooms'],{defval:''}).forEach((r,i)=>{
+          const rowNo=i+2;
+          const name=(cell(r,'Room Name','Name')||'').toString().trim();if(!name)return;
+          const deckName=(cell(r,'Deck','Deck Name')||'').toString().trim();
+          const deck_id=deckMap[deckName.toLowerCase()]||null;
+          // A room without a resolvable deck would be invisible everywhere (rooms load by deck).
+          if(!deck_id||deck_id===true){skipped.push('Rooms row '+rowNo+' ('+name+'): deck "'+(deckName||'blank')+'" not found');return;}
+          const zoneName=(cell(r,'Rack Zone')||'').toString().trim();
+          let rack_zone_id=zoneName?zoneMap[zoneName.toLowerCase()]||null:null;
+          if(rack_zone_id===true)rack_zone_id=null;
+          if(zoneName&&!rack_zone_id)skipped.push('Rooms row '+rowNo+' ('+name+'): rack zone "'+zoneName+'" not found, room imported without a zone');
+          roomRecs.push({name,deck_id,rack_zone_id,room_number:parseInt(cell(r,'Room No.','Room Number'))||null,room_id:(cell(r,'Room ID')||'').toString().toUpperCase()||null,position:(cell(r,'Position')||'').toString().toUpperCase()||null,frame_number:(cell(r,'Frame Number')||'').toString().trim()||null,notes:(cell(r,'Notes')||'').toString().trim()||null});
+        });
+        if(roomRecs.length){await dbInsert('rooms',roomRecs);roomCount=roomRecs.length;}
       }
-      showToast('Imported '+Object.keys(deckMap).length+' decks, '+roomCount+' rooms, '+Object.keys(zoneMap).length+' zones','success');
+      currentDecks=[];currentRooms=[];currentZones=[];
+      showToast('Imported '+deckCount+' decks, '+roomCount+' rooms, '+zoneCount+' zones'+(skipped.length?' ('+skipped.length+' skipped)':''),'success');
+    }
+    // Show exactly which rows were skipped and why, so nothing is silently dropped.
+    if(skipped.length){
+      const shown=skipped.slice(0,12).join('  •  ')+(skipped.length>12?'  •  …and '+(skipped.length-12)+' more':'');
+      openConfirm(skipped.length+' row'+(skipped.length!==1?'s':'')+' skipped',shown,()=>{},'OK','btn-primary');
     }
     ieResetPanel(panel);
   }catch(e){showToast('Import failed: '+e.message,'error');}
   };// end run
   if(opt==='replace'){
-    const msgMap={'global-devices':'This will DELETE ALL global device types and replace them. Are you sure?','global-products':'This will DELETE ALL global products and replace them. Are you sure?','project-equipment':'This will DELETE ALL equipment from this project and replace it. Are you sure?','placed-equipment':'This will DELETE ALL placed equipment from this project and replace it. Are you sure?','decks-rooms-zones':'This will DELETE ALL decks, rooms and zones from this project and replace them. Are you sure?'};
+    const msgMap={'global-devices':'This will DELETE ALL global device types and replace them. Are you sure?','global-products':'This will DELETE ALL global products and replace them. Are you sure?','project-equipment':'This will DELETE ALL equipment from this project and replace it. Are you sure?','decks-rooms-zones':'This will DELETE ALL decks, rooms and zones from this project and replace them. Are you sure?'};
     openConfirm('Replace All Data',msgMap[dataset]||'This will replace all existing data. Continue?',run,'Replace','btn-danger');
   }else{
     await run();
@@ -3794,8 +3841,8 @@ async function ieExportGlobalDevices(){
   try{
     const data=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
     if(!data.length){showToast('No device types to export','error');return;}
-    const rows=[['Device Type ID','Description','System Group','Category Code','Spec Ref','Network Role','AVoIP Role','Audio Role','LAN Ports','PoE Ports','PoE Type','Power Supply','Power Draw (W)','Heat (BTU)','UPS Protected','Amp Channels','Spk Watts (W)']];
-    data.forEach(d=>rows.push([d.device_type_id,d.description||'',d.system_group||'',d.category_code||'',d.spec_ref||'',d.network_role||'',d.avip_role||'',d.audio_role||'',d.lan_ports||'',d.poe_ports||'',d.poe_type||'',(d.power_types&&d.power_types[0])||'',d.power_watts||'',d.heat_btu||'',d.ups_protected?'Yes':'',d.speaker_channels||'',d.spk_watts||'']));
+    const rows=[['Device Type ID','Description','System Group','Category Code','Sub-category Code','Spec Ref','Network Role','AVoIP Role','Audio Role','LAN Ports','PoE Ports','PoE Type','PoE Budget (W)','Power Supply','Power Draw (W)','Heat (BTU)','UPS Protected','Amp Channels','Spk Watts (W)','Budget Price','Currency']];
+    data.forEach(d=>rows.push([d.device_type_id,d.description||'',d.system_group||'',d.category_code||'',d.subcategory_code||'',d.spec_ref||'',d.network_role||'',d.avip_role||'',d.audio_role||'',d.lan_ports||'',d.poe_ports||'',d.poe_type||'',d.poe_budget_watts||'',(d.power_types&&d.power_types[0])||'',d.power_watts||'',d.heat_btu||'',d.ups_protected?'Yes':'',d.speaker_channels||'',d.spk_watts||'',d.budget_price||'',d.currency||'']));
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Device Types');
     XLSX.writeFile(wb,'Global-Device-Types.xlsx');showToast('Exported '+data.length+' device types','success');
   }catch(e){showToast('Export failed: '+e.message,'error');}
@@ -3804,8 +3851,8 @@ async function ieExportGlobalProducts(){
   try{
     const data=await dbGet('global_products','order=device_type_id.asc,make.asc');
     if(!data.length){showToast('No products to export','error');return;}
-    const rows=[['Device Type ID','Make','Model','Part Number','Network Role','AVoIP Role','Audio Role','LAN Ports','PoE Ports','PoE Type','PoE Budget (W)','Power Supply','Power Draw (W)','Heat (BTU)','UPS Protected','Amp Channels','Spk Watts (W)','Width (mm)','Depth (mm)','Height (mm)','Weight (kg)','Notes']];
-    data.forEach(d=>rows.push([d.device_type_id,d.make,d.model,d.part_number||'',d.network_role||'',d.avip_role||'',d.audio_role||'',d.lan_ports||'',d.poe_ports||'',d.poe_type||'',d.poe_budget_watts||'',(d.power_types&&d.power_types[0])||'',d.power_watts||'',d.heat_btu||'',d.ups_protected?'Yes':'',d.speaker_channels||'',d.spk_watts||'',d.width_mm||'',d.depth_mm||'',d.height_mm||'',d.weight_kg||'',d.notes||'']));
+    const rows=[['Device Type ID','Make','Model','Part Number','Network Role','AVoIP Role','Audio Role','LAN Ports','PoE Ports','PoE Type','PoE Budget (W)','Power Supply','Power Draw (W)','Heat (BTU)','UPS Protected','Amp Channels','Spk Watts (W)','Width (mm)','Depth (mm)','Height (mm)','Weight (kg)','Price Min','Price Max','Currency','Notes']];
+    data.forEach(d=>rows.push([d.device_type_id,d.make,d.model,d.part_number||'',d.network_role||'',d.avip_role||'',d.audio_role||'',d.lan_ports||'',d.poe_ports||'',d.poe_type||'',d.poe_budget_watts||'',(d.power_types&&d.power_types[0])||'',d.power_watts||'',d.heat_btu||'',d.ups_protected?'Yes':'',d.speaker_channels||'',d.spk_watts||'',d.width_mm||'',d.depth_mm||'',d.height_mm||'',d.weight_kg||'',d.price_min||'',d.price_max||'',d.currency||'',d.notes||'']));
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Products');
     XLSX.writeFile(wb,'Global-Product-Catalogue.xlsx');showToast('Exported '+data.length+' products','success');
   }catch(e){showToast('Export failed: '+e.message,'error');}
@@ -3845,8 +3892,8 @@ async function ieExportProjectEquipment(){
   try{
     const data=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
     if(!data.length){showToast('No project equipment to export','error');return;}
-    const rows=[['Device Type ID','Description','System Group','Category Code','Spec Ref','Network Role','AVoIP Role','Audio Role','LAN Ports','PoE Ports','PoE Type','Power Supply','Power Draw (W)','Heat (BTU)','UPS Protected','Amp Channels','Spk Watts (W)','Make','Model','Comments']];
-    data.forEach(d=>rows.push([d.device_type_id,d.description||'',d.system_group||'',d.category_code||'',d.spec_ref||'',d.network_role||'',d.avip_role||'',d.audio_role||'',d.lan_ports||'',d.poe_ports||'',d.poe_type||'',(d.power_types&&d.power_types[0])||'',d.power_watts||'',d.heat_btu||'',d.ups_protected?'Yes':'',d.speaker_channels||'',d.spk_watts||'',d.make||'',d.model||'',d.comments||'']));
+    const rows=[['Device Type ID','Description','System Group','Category Code','Sub-category Code','Spec Ref','Network Role','AVoIP Role','Audio Role','LAN Ports','PoE Ports','PoE Type','PoE Budget (W)','Power Supply','Power Draw (W)','Heat (BTU)','UPS Protected','Amp Channels','Spk Watts (W)','Budget Price','Currency','Make','Model','Comments']];
+    data.forEach(d=>rows.push([d.device_type_id,d.description||'',d.system_group||'',d.category_code||'',d.subcategory_code||'',d.spec_ref||'',d.network_role||'',d.avip_role||'',d.audio_role||'',d.lan_ports||'',d.poe_ports||'',d.poe_type||'',d.poe_budget_watts||'',(d.power_types&&d.power_types[0])||'',d.power_watts||'',d.heat_btu||'',d.ups_protected?'Yes':'',d.speaker_channels||'',d.spk_watts||'',d.budget_price||'',d.currency||'',d.make||'',d.model||'',d.comments||'']));
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Project Equipment');
     XLSX.writeFile(wb,(currentProject.project_code||'Project')+'-Equipment.xlsx');showToast('Exported '+data.length+' items','success');
   }catch(e){showToast('Export failed: '+e.message,'error');}
@@ -3859,12 +3906,18 @@ async function ieExportPlacedEquipment(){
     const decks=await dbGet('decks','project_id=eq.'+currentProject.id);
     const rooms=decks.length?await dbGet('rooms','deck_id=in.('+decks.map(d=>d.id).join(',')+')'):[]; 
     const zones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
+    // Device type and description come from the linked project library entry: the columns on
+    // the instance itself are legacy and null for everything placed through the app, which made
+    // this export blank and impossible to re-import.
+    const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&select=id,device_type_id,description');
+    const peById={};pe.forEach(p=>{peById[p.id]=p;});
     const rows=[['Device ID','Device Type ID','Description','Deck','Room','Rack Zone','Quantity','Installation Type','Notes']];
     instances.forEach(i=>{
       const room=rooms.find(r=>r.id===i.room_id);
       const deck=room?decks.find(d=>d.id===room.deck_id):null;
       const zone=zones.find(z=>z.id===i.rack_zone_id);
-      rows.push([i.device_id||'',i.device_type_id||'',i.description||'',deck?deck.name:'',room?room.name:'',zone?zone.name:'',i.quantity||1,i.installation_type||'',i.notes||'']);
+      const p=peById[i.project_equipment_id]||{};
+      rows.push([i.device_id||'',p.device_type_id||i.device_type_id||'',p.description||i.description||'',deck?deck.name:'',room?room.name:'',zone?zone.name:'',i.quantity||1,i.installation_type||'',i.notes||'']);
     });
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Placed Equipment');
     XLSX.writeFile(wb,(currentProject.project_code||'Project')+'-Placed-Equipment.xlsx');showToast('Exported '+instances.length+' placements','success');
@@ -5038,7 +5091,7 @@ async function saveTemplate(){
     const summary=templateItems.map(i=>i.device_type_id).join('|');
     const payload={project_id:currentProject.id,name,item_count:templateItems.length,item_summary:summary};
     let templateId=editingTemplateId;
-    if(editingTemplateId){await dbUpdate('room_templates',editingTemplateId,payload);const existing=await dbGet('room_template_items','template_id=eq.'+editingTemplateId+'&select=id');for(const e of existing)await dbDelete('room_template_items',e.id);}
+    if(editingTemplateId){await dbUpdate('room_templates',editingTemplateId,payload);await dbDeleteWhere('room_template_items','template_id=eq.'+editingTemplateId);}
     else{const created=await dbInsert('room_templates',payload);templateId=created[0].id;}
     for(const item of templateItems)await dbInsert('room_template_items',{template_id:templateId,device_type_id:item.device_type_id,description:item.description,quantity:item.quantity});
     showToast(editingTemplateId?'Template updated':'Template created','success');closeTemplateModal();await loadRoomTemplates();
@@ -5048,7 +5101,7 @@ async function saveTemplate(){
 
 function confirmDeleteTemplate(id,name){
   openConfirm('Delete Template','Delete "'+name+'"? This cannot be undone.',async()=>{
-    try{const items=await dbGet('room_template_items','template_id=eq.'+id+'&select=id');for(const i of items)await dbDelete('room_template_items',i.id);await dbDelete('room_templates',id);showToast('Template deleted','success');await loadRoomTemplates();}catch(e){showToast('Could not delete: '+e.message,'error');}
+    try{await dbDeleteWhere('room_template_items','template_id=eq.'+id);await dbDelete('room_templates',id);showToast('Template deleted','success');await loadRoomTemplates();}catch(e){showToast('Could not delete: '+e.message,'error');}
   });
 }
 
@@ -5434,7 +5487,7 @@ async function saveGlobalTemplate(){
     const summary=gtItems.map(i=>i.device_type_id).join('|');
     const payload={name,description,item_count:gtItems.length,item_summary:summary,sort_order:editingGtId?(globalTemplates.find(t=>t.id===editingGtId)||{}).sort_order||0:globalTemplates.length};
     let templateId=editingGtId;
-    if(editingGtId){await dbUpdate('global_room_templates',editingGtId,payload);const existing=await dbGet('global_room_template_items','template_id=eq.'+editingGtId+'&select=id');for(const e of existing)await dbDelete('global_room_template_items',e.id);}
+    if(editingGtId){await dbUpdate('global_room_templates',editingGtId,payload);await dbDeleteWhere('global_room_template_items','template_id=eq.'+editingGtId);}
     else{const created=await dbInsert('global_room_templates',payload);templateId=created[0].id;}
     for(const item of gtItems)await dbInsert('global_room_template_items',{template_id:templateId,device_type_id:item.device_type_id,description:item.description,quantity:item.quantity});
     showToast(editingGtId?'Template updated':'Template created','success');closeGlobalTemplateModal();await loadGlobalTemplates();
@@ -5444,7 +5497,7 @@ async function saveGlobalTemplate(){
 
 function confirmDeleteGlobalTemplate(id,name){
   openConfirm('Delete Template','Delete "'+name+'"? This cannot be undone.',async()=>{
-    try{const items=await dbGet('global_room_template_items','template_id=eq.'+id+'&select=id');for(const i of items)await dbDelete('global_room_template_items',i.id);await dbDelete('global_room_templates',id);showToast('Template deleted','success');await loadGlobalTemplates();}catch(e){showToast('Could not delete: '+e.message,'error');}
+    try{await dbDeleteWhere('global_room_template_items','template_id=eq.'+id);await dbDelete('global_room_templates',id);showToast('Template deleted','success');await loadGlobalTemplates();}catch(e){showToast('Could not delete: '+e.message,'error');}
   });
 }
 
