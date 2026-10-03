@@ -2275,6 +2275,7 @@ function renderGaPlans(){
     +'<button class="btn btn-secondary btn-sm" onclick="gaStartDraw()">Draw Room</button>'
     +'<button class="btn btn-secondary btn-sm" onclick="gaStartEdit()">Edit Boundaries</button>'
     +'<button class="btn btn-secondary btn-sm" onclick="gaStartCloud()">Rev Cloud</button>';
+  if(showing&&showing.is_current)bar+='<button class="btn btn-secondary btn-sm" onclick="gaUpRev()">Up-rev</button>';
   if(showing)bar+='<button class="btn btn-secondary btn-sm" onclick="gaToggleRevLog()">Rev Log</button>';
   bar+='</div>';
   if(!showing){
@@ -2623,10 +2624,43 @@ function openGaUploadModal(){
   document.getElementById('ga-up-notes').value='';
   document.getElementById('ga-upload-overlay').classList.add('open');
 }
-function gaUpdateRevSuggestion(){
-  const deckId=document.getElementById('ga-up-deck').value;
+function gaNextRevision(deckId){
   let max=0;gaDeckPlans(deckId).forEach(p=>{const m=/^Rev ([A-Z])$/i.exec(p.revision||'');if(m)max=Math.max(max,m[1].toUpperCase().charCodeAt(0)-64);});
-  document.getElementById('ga-up-rev').value='Rev '+String.fromCharCode(65+Math.min(max,24));
+  return 'Rev '+String.fromCharCode(65+Math.min(max,24));
+}
+function gaUpdateRevSuggestion(){
+  document.getElementById('ga-up-rev').value=gaNextRevision(document.getElementById('ga-up-deck').value);
+}
+// Up-rev without a new drawing: the yard GA is unchanged but the technology layout is being
+// issued as a new revision. Reuses the current image; the old revision stays frozen with its
+// clouds, and the usual carry-forward offer follows.
+function gaUpRev(){
+  const cur=gaCurrentPlan(gaActiveDeckId);
+  if(!cur){showToast('Upload a plan first','error');return;}
+  const next=gaNextRevision(gaActiveDeckId);
+  const deck=currentDecks.find(d=>d.id===gaActiveDeckId);
+  openConfirm('Up-rev to '+next+'?','Create '+next+' of '+(deck?deck.name:'this deck')+' using the same drawing? '+cur.revision+' stays frozen as the issued record, and you can carry its boundaries and pins forward.',async()=>{
+    try{
+      await supaFetch('PATCH','deck_plans',{is_current:false},null,'deck_id=eq.'+gaActiveDeckId+'&is_current=eq.true');
+      const rows=await dbInsert('deck_plans',{project_id:currentProject.id,deck_id:gaActiveDeckId,revision:next,image_path:cur.image_path,image_width:cur.image_width,image_height:cur.image_height,is_current:true,notes:null});
+      logChange('design','added','Up-revved GA plan to '+next+(deck?' for '+deck.name:''));
+      gaViewRevId=null;
+      showToast(next+' created','success');
+      await loadGaPlans();
+      await gaOfferCarryForward(cur,rows[0].id,next);
+    }catch(e){showToast('Up-rev failed: '+e.message,'error');}
+  },'Up-rev','btn-primary');
+}
+async function gaOfferCarryForward(prevPlan,newPlanId,revision){
+  const [pb,pp]=await Promise.all([
+    dbGet('plan_room_boundaries','deck_plan_id=eq.'+prevPlan.id+'&select=id'),
+    dbGet('plan_equipment_pins','deck_plan_id=eq.'+prevPlan.id+'&select=id')
+  ]);
+  if(!pb.length&&!pp.length)return;
+  openConfirm('Carry forward from '+prevPlan.revision+'?',
+    'Copy '+pb.length+' room boundar'+(pb.length===1?'y':'ies')+' and '+pp.length+' device pin'+(pp.length===1?'':'s')+' from '+prevPlan.revision+' onto '+revision+'? Positions can be adjusted afterwards. Choosing Cancel starts '+revision+' with a clean plan.',
+    ()=>gaCarryForward(prevPlan.id,newPlanId),
+    'Carry forward','btn-primary');
 }
 function closeGaUploadModal(){document.getElementById('ga-upload-overlay').classList.remove('open');}
 async function saveGaPlan(){
@@ -2658,18 +2692,7 @@ async function saveGaPlan(){
     await loadGaPlans();
     // Offer to carry the previous revision's room boundaries and pins onto the new one.
     // Rev clouds are not carried: they mark what changed on that revision.
-    if(prevPlan&&newRows&&newRows[0]){
-      const [pb,pp]=await Promise.all([
-        dbGet('plan_room_boundaries','deck_plan_id=eq.'+prevPlan.id+'&select=id'),
-        dbGet('plan_equipment_pins','deck_plan_id=eq.'+prevPlan.id+'&select=id')
-      ]);
-      if(pb.length||pp.length){
-        openConfirm('Carry forward from '+prevPlan.revision+'?',
-          'Copy '+pb.length+' room boundar'+(pb.length===1?'y':'ies')+' and '+pp.length+' device pin'+(pp.length===1?'':'s')+' from '+prevPlan.revision+' onto '+revision+'? Positions can be adjusted afterwards. Choosing Cancel starts '+revision+' with a clean plan.',
-          ()=>gaCarryForward(prevPlan.id,newRows[0].id),
-          'Carry forward','btn-primary');
-      }
-    }
+    if(prevPlan&&newRows&&newRows[0])await gaOfferCarryForward(prevPlan,newRows[0].id,revision);
   }catch(e){showToast('Upload failed: '+e.message,'error');}
   finally{btn.textContent='Upload Plan';btn.disabled=false;}
 }
