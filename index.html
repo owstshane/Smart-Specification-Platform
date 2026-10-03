@@ -462,7 +462,7 @@
       </div>
       <div class="nav-item sub disabled" onclick="showPage('decks-rooms')" id="nav-decks-rooms">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
-        Layout &amp; Zones
+        Design
       </div>
       <div class="nav-item sub disabled" onclick="showPage('equipment')" id="nav-equipment">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
@@ -562,13 +562,14 @@
       <!-- PROJECT INFO -->
       <div id="page-project-info" class="hidden"><div id="project-info-content"></div></div>
 
-      <!-- DECKS & ROOMS -->
+      <!-- DESIGN (Decks / Rooms / Rack Zones / GA Plans) -->
       <div id="page-decks-rooms" class="hidden">
         <div class="section-tabs">
           <button class="section-tab active" id="tab-btn-decks" onclick="switchDeckRoomTab('decks')">Decks</button>
           <button class="section-tab" id="tab-btn-floors" onclick="switchDeckRoomTab('floors')" style="display:none">Floors</button>
           <button class="section-tab" id="tab-btn-rooms" onclick="switchDeckRoomTab('rooms')">Rooms</button>
           <button class="section-tab" id="tab-btn-zones" onclick="switchDeckRoomTab('zones')">Rack Zones</button>
+          <button class="section-tab" id="tab-btn-ga" onclick="switchDeckRoomTab('ga')">GA Plans</button>
         </div>
         <div id="decks-tab-content"><div id="decks-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
         <div id="floors-tab-content" class="hidden"><div id="floors-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
@@ -580,6 +581,7 @@
           <div id="rooms-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
         </div>
         <div id="zones-tab-content" class="hidden"><div id="rack-zones-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
+        <div id="ga-tab-content" class="hidden"><div id="ga-plans-container"></div></div>
       </div>
 
       <!-- IMPORT / EXPORT -->
@@ -1764,7 +1766,7 @@ function closeAvatarPopup(){const p=document.getElementById('avatar-popup'),c=do
 // ── NAVIGATION ──
 const pages=['dashboard','project-info','decks-rooms','import-export','equipment','feature-matrix','change-control','specification','global-library','product-catalogue','system-groups','global-templates','spec-library'];
 const navIds={'dashboard':'nav-dashboard','project-info':'nav-project-info','decks-rooms':'nav-decks-rooms','import-export':'nav-import-export','equipment':'nav-equipment','feature-matrix':'nav-feature-matrix','change-control':'nav-change-control','specification':'nav-specification','global-library':'nav-global-library','product-catalogue':'nav-product-catalogue','system-groups':'nav-system-groups','global-templates':'nav-global-templates','spec-library':'nav-spec-library'};
-const titles={'dashboard':['All Projects','Overview of all active and archived projects'],'project-info':['Project Info',''],'decks-rooms':['Layout & Zones',''],'import-export':['Import / Export',''],'equipment':['Equipment',''],'feature-matrix':['Feature Matrix',''],'change-control':['Change Control',''],'specification':['Specification',''],'global-library':['Device Types',''],'product-catalogue':['Product Catalogue',''],'system-groups':['Groups & Categories',''],'global-templates':['Room Templates',''],'spec-library':['Spec Section Library','']};
+const titles={'dashboard':['All Projects','Overview of all active and archived projects'],'project-info':['Project Info',''],'decks-rooms':['Design',''],'import-export':['Import / Export',''],'equipment':['Equipment',''],'feature-matrix':['Feature Matrix',''],'change-control':['Change Control',''],'specification':['Specification',''],'global-library':['Device Types',''],'product-catalogue':['Product Catalogue',''],'system-groups':['Groups & Categories',''],'global-templates':['Room Templates',''],'spec-library':['Spec Section Library','']};
 
 function refreshCurrentPage(){
   const btn=document.getElementById('topbar-refresh-btn');
@@ -1893,12 +1895,17 @@ function applyLayoutTerms(){
 function switchDeckRoomTab(tab){
   activeDeckRoomTab=tab;
   applyLayoutTerms();
-  ['decks','floors','rooms','zones'].forEach(t=>{
+  ['decks','floors','rooms','zones','ga'].forEach(t=>{
     const el=document.getElementById(t+'-tab-content');if(el)el.classList.toggle('hidden',t!==tab);
     const btn=document.getElementById('tab-btn-'+t);if(btn)btn.classList.toggle('active',t===tab);
   });
   updateDecksRoomsBtn();
-  if(tab==='decks')loadDecks();else if(tab==='floors')loadFloors();else if(tab==='rooms')loadRooms();else loadRackZones();
+  if(tab==='decks')loadDecks();else if(tab==='floors')loadFloors();else if(tab==='rooms')loadRooms();else if(tab==='ga')loadGaPlans();else loadRackZones();
+}
+// GA Plans tab shell. Upload, viewing and pin placement arrive in the next stages.
+function loadGaPlans(){
+  const c=document.getElementById('ga-plans-container');if(!c)return;
+  c.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">GA Plans</div><div class="empty-state-text">General arrangement plans are coming here: upload a plan per deck, place equipment pins linked to the schedule, and track revisions. Plan upload is the next update.</div></div>';
 }
 function updateDecksRoomsBtn(){
   const btn=document.getElementById('topbar-btn');if(!btn)return;
@@ -1907,6 +1914,7 @@ function updateDecksRoomsBtn(){
   if(activeDeckRoomTab==='decks'){btn.innerHTML=plus+'Add '+topNoun(true);btn.onclick=openNewDeckModal;btn.style.display='';}
   else if(activeDeckRoomTab==='floors'){btn.innerHTML=plus+'Add Floor';btn.onclick=openNewFloorModal;btn.style.display='';}
   else if(activeDeckRoomTab==='rooms'){btn.innerHTML=plus+'Add Room';btn.onclick=()=>openNewRoomModal(null);btn.style.display='';}
+  else if(activeDeckRoomTab==='ga'){btn.style.display='none';}
   else{btn.innerHTML=plus+'Add Zone';btn.onclick=openNewZoneModal;btn.style.display='';}
 }
 
