@@ -345,6 +345,7 @@
   #ga-overlay polyline { fill: none; stroke: #0f6e8c; stroke-width: 2; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; }
   .ga-vtx { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #fff; border: 2px solid #0f6e8c; transform: scale(var(--ga-inv,1)); pointer-events: none; z-index: 2; }
   .ga-vtx.first { background: #0f6e8c; }
+  .ga-vtx.edit { pointer-events: auto; cursor: grab; width: 16px; height: 16px; margin: -8px 0 0 -8px; z-index: 3; touch-action: none; }
   .ga-blabel { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); pointer-events: none; font-weight: 600; font-size: 12px; color: #0f4e63; background: rgba(255,255,255,.85); border-radius: 3px; padding: 0 5px; white-space: nowrap; z-index: 1; }
   .ga-blabel.unassigned { color: #8a5a12; }
   .ga-pick-row { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: center; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border); background: none; padding: 9px 10px; cursor: pointer; }
@@ -2099,7 +2100,8 @@ function renderGaPlans(){
   if(revs.length)bar+='<select onchange="gaSelectRev(this.value)" style="margin-left:auto;max-width:240px">'
     +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
   if(showing&&showing.is_current)bar+='<button class="btn btn-primary btn-sm" onclick="openGaPickModal()">+ Place Device</button>'
-    +'<button class="btn btn-secondary btn-sm" onclick="gaStartDraw()">Draw Room</button>';
+    +'<button class="btn btn-secondary btn-sm" onclick="gaStartDraw()">Draw Room</button>'
+    +'<button class="btn btn-secondary btn-sm" onclick="gaStartEdit()">Edit Boundaries</button>';
   bar+='</div>';
   if(!showing){
     c.innerHTML=bar+'<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No plan for this deck yet</div><div class="empty-state-text">Upload the GA sheet for this deck as an image. Equipment pins and room boundaries will be placed on top of it.</div><button class="btn btn-primary" style="margin-top:12px" onclick="openGaUploadModal()">Upload Plan</button></div>';
@@ -2107,7 +2109,7 @@ function renderGaPlans(){
   }
   c.innerHTML=bar
     +'<div class="ga-viewport" id="ga-viewport">'
-    +'<div class="ga-banner" id="ga-banner"><span id="ga-banner-text"></span><button onclick="gaStopPlacing()">Stop placing</button></div>'
+    +'<div class="ga-banner" id="ga-banner"><span id="ga-banner-text"></span><button id="ga-banner-btn" onclick="gaStopPlacing()">Stop</button></div>'
     +(showing.is_current?'':'<div class="ga-oldrev">Viewing '+escHtml(showing.revision)+' — not the current revision</div>')
     +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan"><svg id="ga-overlay"></svg></div>'
     +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button></div>'
@@ -2159,10 +2161,23 @@ function renderGaBounds(){
     const cx=b.points.reduce((a,p)=>a+p[0],0)/b.points.length, cy=b.points.reduce((a,p)=>a+p[1],0)/b.points.length;
     const lab=document.createElement('div');
     lab.className='ga-blabel'+(room?'':' unassigned');
+    lab.dataset.bound=b.id;
     lab.textContent=room?room.name:'Room not assigned';
     lab.style.left=(cx*100)+'%';lab.style.top=(cy*100)+'%';
     st.appendChild(lab);
   });
+  if(gaMode==='edit'){
+    gaBounds.forEach(b=>{
+      if(!Array.isArray(b.points))return;
+      b.points.forEach((p,i)=>{
+        const v=document.createElement('div');
+        v.className='ga-vtx edit';
+        v.dataset.bound=b.id;v.dataset.vi=i;
+        v.style.left=(p[0]*100)+'%';v.style.top=(p[1]*100)+'%';
+        st.appendChild(v);
+      });
+    });
+  }
   if(gaMode==='draw'&&gaDraft.length){
     svg+='<polyline points="'+gaDraft.map(p=>(p[0]*gaImgW)+','+(p[1]*gaImgH)).join(' ')+'"/>';
     gaDraft.forEach((p,i)=>{
@@ -2233,11 +2248,12 @@ function wireGaViewport(){
     if(e.target.closest('.ga-zoom,.ga-banner'))return;
     vp.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    const pinEl=gaMode==='pan'?e.target.closest('.ga-pin'):null;
-    const boundEl=(gaMode==='pan'&&!pinEl&&e.target.closest)?e.target.closest('[data-bound]'):null;
+    const vtxEl=gaMode==='edit'?e.target.closest('.ga-vtx.edit'):null;
+    const pinEl=(gaMode==='pan'&&!vtxEl)?e.target.closest('.ga-pin'):null;
+    const boundEl=((gaMode==='pan'||gaMode==='edit')&&!pinEl&&!vtxEl&&e.target.closest)?e.target.closest('polygon[data-bound]'):null;
     if(ptrs.size===1){
-      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null};
-      pan=drag.pinId?null:{sx:e.clientX,sy:e.clientY,vx:gaView.x,vy:gaView.y};
+      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null};
+      pan=(drag.pinId||drag.vtxBound)?null:{sx:e.clientX,sy:e.clientY,vx:gaView.x,vy:gaView.y};
     }
     else if(ptrs.size===2){pan=null;drag=null;const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:gaView.s};}
   });
@@ -2252,6 +2268,13 @@ function wireGaViewport(){
       return;
     }
     if(drag&&!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>5)drag.moved=true;
+    if(drag&&drag.moved&&drag.vtxBound){
+      const b=gaBounds.find(bb=>bb.id===drag.vtxBound);if(!b)return;
+      const [x,y]=gaToFraction(e.clientX,e.clientY);
+      b.points[drag.vtxI]=[Math.min(1,Math.max(0,x)),Math.min(1,Math.max(0,y))];
+      gaUpdateBoundVisual(b,drag.vtxI);
+      return;
+    }
     if(drag&&drag.moved&&drag.pinId){
       const [x,y]=gaToFraction(e.clientX,e.clientY);
       drag.x=Math.min(1,Math.max(0,x));drag.y=Math.min(1,Math.max(0,y));
@@ -2269,6 +2292,13 @@ function wireGaViewport(){
     if(ptrs.size){return;}
     const d=drag;drag=null;pan=null;vp.classList.remove('dragging');
     if(!d)return;
+    if(d.vtxBound){
+      if(!d.moved)return;
+      const b=gaBounds.find(bb=>bb.id===d.vtxBound);if(!b)return;
+      try{await dbUpdate('plan_room_boundaries',b.id,{points:b.points});}
+      catch(err){showToast('Could not save the outline: '+err.message,'error');renderGaBounds();}
+      return;
+    }
     if(d.moved&&d.pinId&&d.x!=null){
       try{
         await dbUpdate('plan_equipment_pins',d.pinId,{x:d.x,y:d.y});
@@ -2309,6 +2339,16 @@ function wireGaViewport(){
     if(gaSelPinId){gaSelPinId=null;renderGaPins();}
   };
   vp.addEventListener('pointerup',gaUp);vp.addEventListener('pointercancel',()=>{ptrs.clear();pan=null;pinch=null;drag=null;vp.classList.remove('dragging');});
+  // Double-tap a corner handle in edit mode to remove that corner (minimum 3 stay)
+  vp.addEventListener('dblclick',async e=>{
+    if(gaMode!=='edit')return;
+    const v=e.target.closest&&e.target.closest('.ga-vtx.edit');if(!v)return;
+    const b=gaBounds.find(bb=>bb.id===v.dataset.bound);if(!b)return;
+    if(b.points.length<=3){showToast('An outline needs at least 3 corners','error');return;}
+    b.points.splice(+v.dataset.vi,1);
+    try{await dbUpdate('plan_room_boundaries',b.id,{points:b.points});renderGaBounds();}
+    catch(err){showToast('Could not update: '+err.message,'error');}
+  });
 }
 function openGaUploadModal(){
   if(!currentProject){showToast('Please open a project first','error');return;}
@@ -2384,8 +2424,7 @@ function gaArm(typeId){
   gaArmedTypeId=typeId;gaMode='place';
   closeGaPickModal();
   const vp=document.getElementById('ga-viewport');if(vp)vp.classList.add('placing');
-  const b=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text');
-  if(b&&t){t.textContent='Tap the plan to place '+typeId+'. Each tap places one device.';b.classList.add('on');}
+  gaBanner('Tap the plan to place '+typeId+'. Each tap places one device.','Stop placing');
 }
 function gaStopPlacing(){
   gaArmedTypeId=null;gaMode='pan';gaDraft=[];gaRedrawBoundId=null;
@@ -2399,8 +2438,35 @@ function gaStartDraw(){
   if(!showing.is_current){showToast('Switch to the current revision to draw','error');return;}
   gaMode='draw';gaDraft=[];gaArmedTypeId=null;
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('drawing');vp.classList.remove('placing');}
-  const b=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text');
-  if(b&&t){t.textContent='Tap the plan to outline the room, point by point. Tap the first point again to close the shape.';b.classList.add('on');}
+  gaBanner('Tap the plan to outline the room, point by point. Tap the first point again to close the shape.','Stop');
+}
+function gaBanner(text,btnLabel){
+  const b=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text'),btn=document.getElementById('ga-banner-btn');
+  if(b&&t){t.textContent=text;if(btn)btn.textContent=btnLabel||'Stop';b.classList.add('on');}
+}
+function gaStartEdit(){
+  const showing=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
+  if(!showing){showToast('Upload a plan first','error');return;}
+  if(!showing.is_current){showToast('Switch to the current revision to edit','error');return;}
+  if(!gaBounds.length){showToast('No outlines on this plan yet. Use Draw Room first','error');return;}
+  gaMode='edit';gaArmedTypeId=null;gaDraft=[];
+  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');}
+  gaBanner('Drag the corners to adjust an outline. Double-tap a corner to remove it. Tap an outline to reassign its room.','Done');
+  renderGaBounds();
+}
+// Live update of one boundary's polygon, dragged corner and label during a corner drag
+// (a full re-render would destroy the handle mid-drag and break the pointer capture).
+function gaUpdateBoundVisual(b,vi){
+  const st=document.getElementById('ga-stage');if(!st)return;
+  const poly=st.querySelector('polygon[data-bound="'+b.id+'"]');
+  if(poly)poly.setAttribute('points',b.points.map(p=>(p[0]*gaImgW)+','+(p[1]*gaImgH)).join(' '));
+  const v=st.querySelector('.ga-vtx.edit[data-bound="'+b.id+'"][data-vi="'+vi+'"]');
+  if(v){v.style.left=(b.points[vi][0]*100)+'%';v.style.top=(b.points[vi][1]*100)+'%';}
+  const lab=st.querySelector('.ga-blabel[data-bound="'+b.id+'"]');
+  if(lab){
+    const cx=b.points.reduce((a,p)=>a+p[0],0)/b.points.length, cy=b.points.reduce((a,p)=>a+p[1],0)/b.points.length;
+    lab.style.left=(cx*100)+'%';lab.style.top=(cy*100)+'%';
+  }
 }
 async function gaFinishDraft(){
   if(gaDraft.length<3){showToast('A room outline needs at least 3 points','error');return;}
@@ -2476,8 +2542,7 @@ function gaRedrawBound(){
   gaMode='draw';gaDraft=[];gaArmedTypeId=null;
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('drawing');vp.classList.remove('placing');}
   const room=currentRooms.find(r=>r.id===b.room_id);
-  const bn=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text');
-  if(bn&&t){t.textContent='Redraw the outline'+(room?' for '+room.name:'')+' point by point. Tap the first point again to close.';bn.classList.add('on');}
+  gaBanner('Redraw the outline'+(room?' for '+room.name:'')+' point by point. Tap the first point again to close.','Stop');
 }
 function gaDeleteBound(){
   const b=gaBounds.find(x=>x.id===gaEditBoundId);if(!b)return;
@@ -2629,8 +2694,8 @@ function gaDeleteSelectedPin(){
   // hard delete, and a soft-removed device's pin is hidden (and returns if the CR is rejected).
   confirmDeletePlaced(inst.id,inst.device_id||'device');
 }
-// Esc cancels place or draw mode
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(gaMode==='place'||gaMode==='draw'))gaStopPlacing();});
+// Esc cancels place, draw or edit mode
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&gaMode!=='pan')gaStopPlacing();});
 function updateDecksRoomsBtn(){
   const btn=document.getElementById('topbar-btn');if(!btn)return;
   applyLayoutTerms();
