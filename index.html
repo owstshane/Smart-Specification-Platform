@@ -346,6 +346,8 @@
   .ga-vtx { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #fff; border: 2px solid #0f6e8c; transform: scale(var(--ga-inv,1)); pointer-events: none; z-index: 2; }
   .ga-vtx.first { background: #0f6e8c; }
   .ga-vtx.edit { pointer-events: auto; cursor: grab; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-width: 3px; z-index: 3; touch-action: none; }
+  #ga-overlay path.ga-cloud { fill: rgba(192,57,43,.05); stroke: #c0392b; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: visiblePainted; cursor: pointer; }
+  .ga-cloud-label { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); pointer-events: none; font-weight: 700; font-size: 12px; color: #fff; background: #c0392b; border-radius: 3px; padding: 1px 7px; white-space: nowrap; z-index: 1; }
   .ga-blabel { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); pointer-events: none; font-weight: 600; font-size: 12px; color: #0f4e63; background: rgba(255,255,255,.85); border-radius: 3px; padding: 0 5px; white-space: nowrap; z-index: 1; }
   .ga-blabel.unassigned { color: #8a5a12; }
   .gd-icon-grid { display: flex; flex-wrap: wrap; gap: 5px; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; }
@@ -1100,6 +1102,17 @@
       <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="ga-pin-notes" rows="2"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-danger" id="ga-pin-delete" onclick="gaDeleteSelectedPin()" style="margin-right:auto;display:none">Delete</button><button class="btn btn-secondary" onclick="closeGaPinModal()">Cancel</button><button class="btn btn-primary" onclick="gaSavePin()" id="ga-pin-save">Place Device</button></div>
+  </div>
+</div>
+
+<!-- GA REV CLOUD MODAL -->
+<div class="modal-overlay" id="ga-cloud-overlay">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header"><div class="modal-title">Rev Cloud</div><button class="btn-icon" onclick="closeGaCloudModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Label <span class="optional">what changed here</span></label><input type="text" id="ga-cloud-label" placeholder="e.g. CR-004: speakers relocated"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-danger" onclick="gaDeleteCloud()" style="margin-right:auto">Delete</button><button class="btn btn-secondary" onclick="closeGaCloudModal()">Cancel</button><button class="btn btn-primary" onclick="gaSaveCloud()">Save</button></div>
   </div>
 </div>
 
@@ -2054,6 +2067,7 @@ function switchDeckRoomTab(tab){
 let gaPlans=[], gaActiveDeckId=null, gaViewRevId=null, gaView={s:1,x:0,y:0}, gaImgW=0, gaImgH=0, _gaSignedCache={};
 let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=null, gaEditPinId=null, gaLastLoc=null;
 let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
+let gaClouds=[], gaEditCloudId=null;
 // Pin colours by system group, icons by device type prefix
 const GA_GROUP_COLOURS={'Central Systems':'#6b7a89','Power, UPS & Battery':'#b7791f','Audio Visual System':'#c7811a','Control System':'#7b5ea7','IT System':'#2f6fd0','Lighting Control':'#3e8e4e','Motorised Window Treatments':'#8a5aa7','Access Control & Surveillance':'#c23b3b','Cinema System':'#8a2be2','Satellite & Communications':'#1a8fa6','Radio System':'#8a9a2b'};
 // Icon library (ported from the GA demo): 48 icons in 7 groups, picked per device type on the
@@ -2245,7 +2259,8 @@ function renderGaPlans(){
     +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
   if(showing&&showing.is_current)bar+='<button class="btn btn-primary btn-sm" onclick="openGaPickModal()">+ Place Device</button>'
     +'<button class="btn btn-secondary btn-sm" onclick="gaStartDraw()">Draw Room</button>'
-    +'<button class="btn btn-secondary btn-sm" onclick="gaStartEdit()">Edit Boundaries</button>';
+    +'<button class="btn btn-secondary btn-sm" onclick="gaStartEdit()">Edit Boundaries</button>'
+    +'<button class="btn btn-secondary btn-sm" onclick="gaStartCloud()">Rev Cloud</button>';
   bar+='</div>';
   if(!showing){
     c.innerHTML=bar+'<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No plan for this deck yet</div><div class="empty-state-text">Upload the GA sheet for this deck as an image. Equipment pins and room boundaries will be placed on top of it.</div><button class="btn btn-primary" style="margin-top:12px" onclick="openGaUploadModal()">Upload Plan</button></div>';
@@ -2272,11 +2287,12 @@ async function loadGaPins(planId){
     if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
     if(!globalLibrary.length)globalLibrary=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
     await loadCustomIcons();
-    const [pins,bounds]=await Promise.all([
+    const [pins,bounds,clouds]=await Promise.all([
       dbGet('plan_equipment_pins','deck_plan_id=eq.'+planId),
-      dbGet('plan_room_boundaries','deck_plan_id=eq.'+planId)
+      dbGet('plan_room_boundaries','deck_plan_id=eq.'+planId),
+      dbGet('plan_rev_clouds','deck_plan_id=eq.'+planId)
     ]);
-    gaPins=pins;gaBounds=bounds;
+    gaPins=pins;gaBounds=bounds;gaClouds=clouds;
     renderGaBounds();renderGaPins();
   }catch(e){showToast('Could not load the plan layers: '+e.message,'error');}
 }
@@ -2296,11 +2312,41 @@ function gaRoomForPoint(x,y){
     .sort((a,b)=>gaPolyArea(a.points)-gaPolyArea(b.points))[0];
   return hit?currentRooms.find(r=>r.id===hit.room_id)||null:null;
 }
+// Classic scalloped rev-cloud outline: every edge of the drawn polygon becomes a run of arcs.
+function gaCloudPath(pts){
+  const seg=Math.max(gaImgW,gaImgH)/55;
+  let d='';
+  for(let i=0;i<pts.length;i++){
+    const a=pts[i],b=pts[(i+1)%pts.length];
+    const ax=a[0]*gaImgW,ay=a[1]*gaImgH,bx=b[0]*gaImgW,by=b[1]*gaImgH;
+    const n=Math.max(1,Math.round(Math.hypot(bx-ax,by-ay)/seg));
+    const r=Math.hypot(bx-ax,by-ay)/n/1.7;
+    if(i===0)d='M'+ax.toFixed(1)+' '+ay.toFixed(1);
+    for(let s=1;s<=n;s++){
+      const x=ax+(bx-ax)*s/n,y=ay+(by-ay)*s/n;
+      d+=' A'+r.toFixed(1)+' '+r.toFixed(1)+' 0 0 1 '+x.toFixed(1)+' '+y.toFixed(1);
+    }
+  }
+  return d+' Z';
+}
 function renderGaBounds(){
   const ov=document.getElementById('ga-overlay'),st=document.getElementById('ga-stage');
   if(!ov||!st||!gaImgW)return;
-  st.querySelectorAll('.ga-blabel,.ga-vtx').forEach(n=>n.remove());
+  st.querySelectorAll('.ga-blabel,.ga-vtx,.ga-cloud-label').forEach(n=>n.remove());
   let svg='';
+  gaClouds.forEach(cl=>{
+    if(!Array.isArray(cl.points)||cl.points.length<3)return;
+    svg+='<path data-cloud="'+cl.id+'" class="ga-cloud" d="'+gaCloudPath(cl.points)+'"/>';
+    if(cl.label){
+      const ty=Math.min.apply(null,cl.points.map(p=>p[1]));
+      const cx=cl.points.reduce((a,p)=>a+p[0],0)/cl.points.length;
+      const lab=document.createElement('div');
+      lab.className='ga-cloud-label';
+      lab.textContent=cl.label;
+      lab.style.left=(cx*100)+'%';lab.style.top=(ty*100)+'%';
+      st.appendChild(lab);
+    }
+  });
   gaBounds.forEach(b=>{
     if(!Array.isArray(b.points)||b.points.length<3)return;
     const room=currentRooms.find(r=>r.id===b.room_id);
@@ -2325,7 +2371,7 @@ function renderGaBounds(){
       });
     });
   }
-  if(gaMode==='draw'&&gaDraft.length){
+  if((gaMode==='draw'||gaMode==='cloud')&&gaDraft.length){
     svg+='<polyline points="'+gaDraft.map(p=>(p[0]*gaImgW)+','+(p[1]*gaImgH)).join(' ')+'"/>';
     gaDraft.forEach((p,i)=>{
       const v=document.createElement('div');
@@ -2400,8 +2446,9 @@ function wireGaViewport(){
     // Stop the browser starting its own image drag or selection when a handle/pin drag begins
     if(vtxEl||pinEl)e.preventDefault();
     const boundEl=((gaMode==='pan'||gaMode==='edit')&&!pinEl&&!vtxEl&&e.target.closest)?e.target.closest('polygon[data-bound]'):null;
+    const cloudEl=(gaMode==='pan'&&!pinEl&&!vtxEl&&!boundEl&&e.target.closest)?e.target.closest('path[data-cloud]'):null;
     if(ptrs.size===1){
-      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null};
+      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?cloudEl.dataset.cloud:null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null};
       pan=(drag.pinId||drag.vtxBound)?null:{sx:e.clientX,sy:e.clientY,vx:gaView.x,vy:gaView.y};
     }
     else if(ptrs.size===2){pan=null;drag=null;const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:gaView.s};}
@@ -2465,7 +2512,7 @@ function wireGaViewport(){
     if(d.moved)return;
     const [x,y]=gaToFraction(e.clientX,e.clientY);
     const inside=x>=0&&x<=1&&y>=0&&y<=1;
-    if(gaMode==='draw'){
+    if(gaMode==='draw'||gaMode==='cloud'){
       if(!inside)return;
       if(gaDraft.length>=3){
         const fx=gaDraft[0][0],fy=gaDraft[0][1];
@@ -2485,6 +2532,7 @@ function wireGaViewport(){
       return;
     }
     if(d.boundId){openGaBoundEdit(d.boundId);return;}
+    if(d.cloudId){openGaCloudEdit(d.cloudId);return;}
     if(gaSelPinId){gaSelPinId=null;renderGaPins();}
   };
   vp.addEventListener('pointerup',gaUp);vp.addEventListener('pointercancel',()=>{ptrs.clear();pan=null;pinch=null;drag=null;vp.classList.remove('dragging');});
@@ -2531,15 +2579,31 @@ async function saveGaPlan(){
     const ext=file.type==='image/png'?'png':(file.type==='image/webp'?'webp':'jpg');
     const path=currentProject.id+'/'+deckId+'/'+Date.now()+'.'+ext;
     await storageUpload(path,file);
+    // Remember the outgoing current revision so its boundaries and pins can be carried forward
+    const prevPlan=gaCurrentPlan(deckId);
     // The previous current revision steps down first (one current per deck is DB-enforced)
     await supaFetch('PATCH','deck_plans',{is_current:false},null,'deck_id=eq.'+deckId+'&is_current=eq.true');
-    await dbInsert('deck_plans',{project_id:currentProject.id,deck_id:deckId,revision,image_path:path,image_width:dims.w,image_height:dims.h,is_current:true,notes});
+    const newRows=await dbInsert('deck_plans',{project_id:currentProject.id,deck_id:deckId,revision,image_path:path,image_width:dims.w,image_height:dims.h,is_current:true,notes});
     const deck=currentDecks.find(d=>d.id===deckId);
     logChange('design','added','Uploaded GA plan '+revision+(deck?' for '+deck.name:''));
     closeGaUploadModal();
     gaActiveDeckId=deckId;gaViewRevId=null;
     showToast('Plan uploaded','success');
     await loadGaPlans();
+    // Offer to carry the previous revision's room boundaries and pins onto the new one.
+    // Rev clouds are not carried: they mark what changed on that revision.
+    if(prevPlan&&newRows&&newRows[0]){
+      const [pb,pp]=await Promise.all([
+        dbGet('plan_room_boundaries','deck_plan_id=eq.'+prevPlan.id+'&select=id'),
+        dbGet('plan_equipment_pins','deck_plan_id=eq.'+prevPlan.id+'&select=id')
+      ]);
+      if(pb.length||pp.length){
+        openConfirm('Carry forward from '+prevPlan.revision+'?',
+          'Copy '+pb.length+' room boundar'+(pb.length===1?'y':'ies')+' and '+pp.length+' device pin'+(pp.length===1?'':'s')+' from '+prevPlan.revision+' onto '+revision+'? Positions can be adjusted afterwards. Choosing Cancel starts '+revision+' with a clean plan.',
+          ()=>gaCarryForward(prevPlan.id,newRows[0].id),
+          'Carry forward','btn-primary');
+      }
+    }
   }catch(e){showToast('Upload failed: '+e.message,'error');}
   finally{btn.textContent='Upload Plan';btn.disabled=false;}
 }
@@ -2603,6 +2667,53 @@ function gaStartEdit(){
   gaBanner('Drag the corners to adjust an outline. Double-tap a corner to remove it. Tap an outline to reassign its room.','Done');
   renderGaBounds();
 }
+async function gaCarryForward(fromPlanId,toPlanId){
+  try{
+    const [bounds,pins]=await Promise.all([
+      dbGet('plan_room_boundaries','deck_plan_id=eq.'+fromPlanId),
+      dbGet('plan_equipment_pins','deck_plan_id=eq.'+fromPlanId)
+    ]);
+    if(bounds.length)await dbInsert('plan_room_boundaries',bounds.map(b=>({deck_plan_id:toPlanId,room_id:b.room_id,points:b.points})));
+    if(pins.length)await dbInsert('plan_equipment_pins',pins.map(p=>({deck_plan_id:toPlanId,equipment_instance_id:p.equipment_instance_id,x:p.x,y:p.y})));
+    showToast('Carried forward '+bounds.length+' boundar'+(bounds.length===1?'y':'ies')+' and '+pins.length+' pin'+(pins.length===1?'':'s'),'success');
+    renderGaPlans();
+  }catch(e){showToast('Carry forward failed: '+e.message,'error');}
+}
+function gaStartCloud(){
+  const showing=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
+  if(!showing){showToast('Upload a plan first','error');return;}
+  if(!showing.is_current){showToast('Switch to the current revision to add a rev cloud','error');return;}
+  gaMode='cloud';gaDraft=[];gaArmedTypeId=null;
+  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('drawing');vp.classList.remove('placing');}
+  gaBanner('Outline the changed area point by point. Tap the first point again to close the cloud.','Stop');
+}
+function openGaCloudEdit(cloudId){
+  const cl=gaClouds.find(c=>c.id===cloudId);if(!cl)return;
+  gaEditCloudId=cloudId;
+  document.getElementById('ga-cloud-label').value=cl.label||'';
+  document.getElementById('ga-cloud-overlay').classList.add('open');
+}
+function closeGaCloudModal(){document.getElementById('ga-cloud-overlay').classList.remove('open');gaEditCloudId=null;}
+async function gaSaveCloud(){
+  const cl=gaClouds.find(c=>c.id===gaEditCloudId);if(!cl)return;
+  const label=document.getElementById('ga-cloud-label').value.trim()||null;
+  try{
+    await dbUpdate('plan_rev_clouds',cl.id,{label});
+    cl.label=label;
+    closeGaCloudModal();renderGaBounds();
+  }catch(e){showToast('Could not save: '+e.message,'error');}
+}
+function gaDeleteCloud(){
+  const cl=gaClouds.find(c=>c.id===gaEditCloudId);if(!cl)return;
+  closeGaCloudModal();
+  openConfirm('Delete Rev Cloud','Delete this rev cloud?',async()=>{
+    try{
+      await dbDelete('plan_rev_clouds',cl.id);
+      gaClouds=gaClouds.filter(c=>c.id!==cl.id);
+      renderGaBounds();showToast('Rev cloud deleted','success');
+    }catch(e){showToast('Could not delete: '+e.message,'error');}
+  },'Delete','btn-danger');
+}
 // Live update of one boundary's polygon, dragged corner and label during a corner drag
 // (a full re-render would destroy the handle mid-drag and break the pointer capture).
 function gaUpdateBoundVisual(b,vi){
@@ -2623,8 +2734,16 @@ async function gaFinishDraft(){
   if(!plan)return;
   const pts=gaDraft.slice();
   const redrawId=gaRedrawBoundId;
+  const wasCloud=gaMode==='cloud';
   gaStopPlacing();
   try{
+    if(wasCloud){
+      const rows=await dbInsert('plan_rev_clouds',{deck_plan_id:plan.id,points:pts,label:null});
+      gaClouds.push(rows[0]);
+      renderGaBounds();
+      openGaCloudEdit(rows[0].id);
+      return;
+    }
     if(redrawId){
       // Redraw: replace the shape, keep the room assignment
       const b=gaBounds.find(x=>x.id===redrawId);
