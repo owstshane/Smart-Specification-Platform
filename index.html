@@ -337,7 +337,8 @@
   .ga-pin .tag { pointer-events: none; position: absolute; left: 34px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,.92); color: #1b2a3a; border: 1px solid var(--c); border-radius: 3px; padding: 0 4px; }
   .ga-pin.sel .mark { box-shadow: 0 0 0 3px var(--c), 0 0 0 5px #fff; }
   #ga-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-  #ga-overlay polygon { fill: rgba(15,110,140,.08); stroke: #0f6e8c; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: visiblePainted; cursor: pointer; }
+  #ga-overlay polygon { fill: rgba(15,110,140,.08); stroke: #0f6e8c; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .ga-viewport.editing #ga-overlay polygon { pointer-events: visiblePainted; cursor: pointer; }
   #ga-overlay polygon.unassigned { fill: rgba(183,121,31,.10); stroke: #b7791f; stroke-dasharray: 8 5; }
   #ga-overlay polygon.sel { fill: rgba(15,110,140,.22); stroke-width: 3; }
   .ga-viewport.drawing { cursor: crosshair; }
@@ -2455,7 +2456,7 @@ function wireGaViewport(){
     const pinEl=(gaMode==='pan'&&!vtxEl)?e.target.closest('.ga-pin'):null;
     // Stop the browser starting its own image drag or selection when a handle/pin drag begins
     if(vtxEl||pinEl)e.preventDefault();
-    const boundEl=((gaMode==='pan'||gaMode==='edit')&&!pinEl&&!vtxEl&&e.target.closest)?e.target.closest('polygon[data-bound]'):null;
+    const boundEl=(gaMode==='edit'&&!pinEl&&!vtxEl&&e.target.closest)?e.target.closest('polygon[data-bound]'):null;
     const cloudEl=(gaMode==='pan'&&!pinEl&&!vtxEl&&!boundEl&&e.target.closest)?e.target.closest('path[data-cloud]'):null;
     if(ptrs.size===1){
       drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?cloudEl.dataset.cloud:null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null,cloudBox:gaMode==='cloud'};
@@ -2677,7 +2678,7 @@ function gaArm(typeId){
 }
 function gaStopPlacing(){
   gaArmedTypeId=null;gaMode='pan';gaDraft=[];gaRedrawBoundId=null;gaCloudPreview=null;
-  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');}
+  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');vp.classList.remove('editing');}
   const b=document.getElementById('ga-banner');if(b)b.classList.remove('on');
   renderGaBounds();
 }
@@ -2699,7 +2700,7 @@ function gaStartEdit(){
   if(!showing.is_current){showToast('Switch to the current revision to edit','error');return;}
   if(!gaBounds.length){showToast('No outlines on this plan yet. Use Draw Room first','error');return;}
   gaMode='edit';gaArmedTypeId=null;gaDraft=[];
-  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');}
+  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');vp.classList.add('editing');}
   gaBanner('Drag the corners to adjust an outline. Double-tap a corner to remove it. Tap an outline to reassign its room.','Done');
   renderGaBounds();
 }
