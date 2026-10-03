@@ -336,6 +336,17 @@
   .ga-pin .mark svg { width: 17px; height: 17px; }
   .ga-pin .tag { pointer-events: none; position: absolute; left: 34px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,.92); color: #1b2a3a; border: 1px solid var(--c); border-radius: 3px; padding: 0 4px; }
   .ga-pin.sel .mark { box-shadow: 0 0 0 3px var(--c), 0 0 0 5px #fff; }
+  #ga-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  #ga-overlay polygon { fill: rgba(15,110,140,.08); stroke: #0f6e8c; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: visiblePainted; cursor: pointer; }
+  #ga-overlay polygon.unassigned { fill: rgba(183,121,31,.10); stroke: #b7791f; stroke-dasharray: 8 5; }
+  #ga-overlay polygon.sel { fill: rgba(15,110,140,.22); stroke-width: 3; }
+  .ga-viewport.drawing { cursor: crosshair; }
+  .ga-viewport.drawing #ga-overlay polygon { cursor: crosshair; }
+  #ga-overlay polyline { fill: none; stroke: #0f6e8c; stroke-width: 2; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; }
+  .ga-vtx { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #fff; border: 2px solid #0f6e8c; transform: scale(var(--ga-inv,1)); pointer-events: none; z-index: 2; }
+  .ga-vtx.first { background: #0f6e8c; }
+  .ga-blabel { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); pointer-events: none; font-weight: 600; font-size: 12px; color: #0f4e63; background: rgba(255,255,255,.85); border-radius: 3px; padding: 0 5px; white-space: nowrap; z-index: 1; }
+  .ga-blabel.unassigned { color: #8a5a12; }
   .ga-pick-row { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: center; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border); background: none; padding: 9px 10px; cursor: pointer; }
   .ga-pick-row:hover { background: var(--surface2); }
   .ga-pick-dot { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; background: var(--c); color: #fff; }
@@ -1067,6 +1078,18 @@
       <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="ga-pin-notes" rows="2"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-danger" id="ga-pin-delete" onclick="gaDeleteSelectedPin()" style="margin-right:auto;display:none">Delete</button><button class="btn btn-secondary" onclick="closeGaPinModal()">Cancel</button><button class="btn btn-primary" onclick="gaSavePin()" id="ga-pin-save">Place Device</button></div>
+  </div>
+</div>
+
+<!-- GA ROOM BOUNDARY MODAL -->
+<div class="modal-overlay" id="ga-bound-overlay">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title">Room Boundary</div><button class="btn-icon" onclick="closeGaBoundModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--text-2);margin-bottom:14px">Devices placed inside this outline automatically take this room, with their Device ID numbered from it.</div>
+      <div class="form-group"><label>Room</label><select id="ga-bound-room"><option value="">— Not assigned yet —</option></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-danger" onclick="gaDeleteBound()" style="margin-right:auto">Delete</button><button class="btn btn-secondary" onclick="closeGaBoundModal()">Cancel</button><button class="btn btn-primary" onclick="gaSaveBound()">Save</button></div>
   </div>
 </div>
 
@@ -1999,6 +2022,7 @@ function switchDeckRoomTab(tab){
 // leaked link dies quickly and nothing is ever publicly reachable.
 let gaPlans=[], gaActiveDeckId=null, gaViewRevId=null, gaView={s:1,x:0,y:0}, gaImgW=0, gaImgH=0, _gaSignedCache={};
 let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=null, gaEditPinId=null, gaLastLoc=null;
+let gaBounds=[], gaDraft=[], gaEditBoundId=null;
 // Pin colours by system group, icons by device type prefix
 const GA_GROUP_COLOURS={'Central Systems':'#6b7a89','Power, UPS & Battery':'#b7791f','Audio Visual System':'#c7811a','Control System':'#7b5ea7','IT System':'#2f6fd0','Lighting Control':'#3e8e4e','Motorised Window Treatments':'#8a5aa7','Access Control & Surveillance':'#c23b3b','Cinema System':'#8a2be2','Satellite & Communications':'#1a8fa6','Radio System':'#8a9a2b'};
 const GA_ICONS={
@@ -2069,7 +2093,8 @@ function renderGaPlans(){
     +currentDecks.map(d=>'<button class="ga-pill'+(d.id===gaActiveDeckId?' active':'')+'" onclick="gaSelectDeck(\''+d.id+'\')">'+escHtml(d.name)+(gaCurrentPlan(d.id)?'<span class="ga-dot"></span>':'')+'</button>').join('');
   if(revs.length)bar+='<select onchange="gaSelectRev(this.value)" style="margin-left:auto;max-width:240px">'
     +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
-  if(showing&&showing.is_current)bar+='<button class="btn btn-primary btn-sm" onclick="openGaPickModal()">+ Place Device</button>';
+  if(showing&&showing.is_current)bar+='<button class="btn btn-primary btn-sm" onclick="openGaPickModal()">+ Place Device</button>'
+    +'<button class="btn btn-secondary btn-sm" onclick="gaStartDraw()">Draw Room</button>';
   bar+='</div>';
   if(!showing){
     c.innerHTML=bar+'<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No plan for this deck yet</div><div class="empty-state-text">Upload the GA sheet for this deck as an image. Equipment pins and room boundaries will be placed on top of it.</div><button class="btn btn-primary" style="margin-top:12px" onclick="openGaUploadModal()">Upload Plan</button></div>';
@@ -2079,7 +2104,7 @@ function renderGaPlans(){
     +'<div class="ga-viewport" id="ga-viewport">'
     +'<div class="ga-banner" id="ga-banner"><span id="ga-banner-text"></span><button onclick="gaStopPlacing()">Stop placing</button></div>'
     +(showing.is_current?'':'<div class="ga-oldrev">Viewing '+escHtml(showing.revision)+' — not the current revision</div>')
-    +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan"></div>'
+    +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan"><svg id="ga-overlay"></svg></div>'
     +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button></div>'
     +'</div>'
     +'<div style="margin-top:8px;font-size:12px;color:var(--text-3)">'+escHtml(showing.revision)+(showing.is_current?' (current)':'')+(showing.notes?' · '+escHtml(showing.notes):'')+' · <span id="ga-pin-count"></span></div>';
@@ -2087,14 +2112,62 @@ function renderGaPlans(){
   gaShowImage(showing);
   loadGaPins(showing.id);
 }
-// Pins for the plan being shown. One pin = one physical device (one equipment instance).
+// Pins and room boundaries for the plan being shown. One pin = one physical device.
 async function loadGaPins(planId){
   try{
     if(!projectEquipment.length)projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
     if(!placedEquipment.length)placedEquipment=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&order=created_at.asc');
-    gaPins=await dbGet('plan_equipment_pins','deck_plan_id=eq.'+planId);
-    renderGaPins();
-  }catch(e){showToast('Could not load pins: '+e.message,'error');}
+    if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
+    const [pins,bounds]=await Promise.all([
+      dbGet('plan_equipment_pins','deck_plan_id=eq.'+planId),
+      dbGet('plan_room_boundaries','deck_plan_id=eq.'+planId)
+    ]);
+    gaPins=pins;gaBounds=bounds;
+    renderGaBounds();renderGaPins();
+  }catch(e){showToast('Could not load the plan layers: '+e.message,'error');}
+}
+// Point-in-polygon (ray cast) over this plan's boundaries; the smallest boundary containing
+// the point wins, so a cabin inside a larger suite outline is matched correctly.
+function gaInPoly(x,y,pts){
+  let c=false;
+  for(let i=0,j=pts.length-1;i<pts.length;j=i++){
+    const xi=pts[i][0],yi=pts[i][1],xj=pts[j][0],yj=pts[j][1];
+    if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c;
+  }
+  return c;
+}
+function gaPolyArea(pts){return Math.abs(pts.reduce((a,p,i)=>{const q=pts[(i+1)%pts.length];return a+p[0]*q[1]-q[0]*p[1];},0)/2);}
+function gaRoomForPoint(x,y){
+  const hit=gaBounds.filter(b=>b.room_id&&Array.isArray(b.points)&&b.points.length>=3&&gaInPoly(x,y,b.points))
+    .sort((a,b)=>gaPolyArea(a.points)-gaPolyArea(b.points))[0];
+  return hit?currentRooms.find(r=>r.id===hit.room_id)||null:null;
+}
+function renderGaBounds(){
+  const ov=document.getElementById('ga-overlay'),st=document.getElementById('ga-stage');
+  if(!ov||!st||!gaImgW)return;
+  st.querySelectorAll('.ga-blabel,.ga-vtx').forEach(n=>n.remove());
+  let svg='';
+  gaBounds.forEach(b=>{
+    if(!Array.isArray(b.points)||b.points.length<3)return;
+    const room=currentRooms.find(r=>r.id===b.room_id);
+    svg+='<polygon data-bound="'+b.id+'" class="'+(room?'':'unassigned')+'" points="'+b.points.map(p=>(p[0]*gaImgW)+','+(p[1]*gaImgH)).join(' ')+'"/>';
+    const cx=b.points.reduce((a,p)=>a+p[0],0)/b.points.length, cy=b.points.reduce((a,p)=>a+p[1],0)/b.points.length;
+    const lab=document.createElement('div');
+    lab.className='ga-blabel'+(room?'':' unassigned');
+    lab.textContent=room?room.name:'Room not assigned';
+    lab.style.left=(cx*100)+'%';lab.style.top=(cy*100)+'%';
+    st.appendChild(lab);
+  });
+  if(gaMode==='draw'&&gaDraft.length){
+    svg+='<polyline points="'+gaDraft.map(p=>(p[0]*gaImgW)+','+(p[1]*gaImgH)).join(' ')+'"/>';
+    gaDraft.forEach((p,i)=>{
+      const v=document.createElement('div');
+      v.className='ga-vtx'+(i===0?' first':'');
+      v.style.left=(p[0]*100)+'%';v.style.top=(p[1]*100)+'%';
+      st.appendChild(v);
+    });
+  }
+  ov.innerHTML=svg;
 }
 function renderGaPins(){
   const st=document.getElementById('ga-stage');if(!st)return;
@@ -2128,7 +2201,10 @@ async function gaShowImage(plan){
       const st=document.getElementById('ga-stage');
       if(st){st.style.width=gaImgW+'px';st.style.height=gaImgH+'px';}
       img.style.width=gaImgW+'px';img.style.height=gaImgH+'px';
+      const ov=document.getElementById('ga-overlay');
+      if(ov)ov.setAttribute('viewBox','0 0 '+gaImgW+' '+gaImgH);
       gaFit();
+      renderGaBounds();
     };
     img.src=url;
   }catch(e){showToast('Could not load the plan image: '+e.message,'error');}
@@ -2153,8 +2229,9 @@ function wireGaViewport(){
     vp.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
     const pinEl=gaMode==='pan'?e.target.closest('.ga-pin'):null;
+    const boundEl=(gaMode==='pan'&&!pinEl&&e.target.closest)?e.target.closest('[data-bound]'):null;
     if(ptrs.size===1){
-      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null};
+      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null};
       pan=drag.pinId?null:{sx:e.clientX,sy:e.clientY,vx:gaView.x,vy:gaView.y};
     }
     else if(ptrs.size===2){pan=null;drag=null;const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:gaView.s};}
@@ -2188,20 +2265,42 @@ function wireGaViewport(){
     const d=drag;drag=null;pan=null;vp.classList.remove('dragging');
     if(!d)return;
     if(d.moved&&d.pinId&&d.x!=null){
-      try{await dbUpdate('plan_equipment_pins',d.pinId,{x:d.x,y:d.y});
+      try{
+        await dbUpdate('plan_equipment_pins',d.pinId,{x:d.x,y:d.y});
         const pin=gaPins.find(p=>p.id===d.pinId);if(pin){pin.x=d.x;pin.y=d.y;}
+        // Dragged into a different room's boundary: the device takes that room and its ID
+        // renumbers (room-mounted devices only; rack kit keeps its zone).
+        const inst=pin?placedEquipment.find(i=>i.id===pin.equipment_instance_id):null;
+        if(inst&&inst.room_id){
+          const room=gaRoomForPoint(d.x,d.y);
+          if(room&&room.id!==inst.room_id)await gaMoveInstanceToRoom(inst,room);
+        }
       }catch(err){showToast('Could not move pin: '+err.message,'error');renderGaPins();}
       return;
     }
     if(d.moved)return;
+    const [x,y]=gaToFraction(e.clientX,e.clientY);
+    const inside=x>=0&&x<=1&&y>=0&&y<=1;
+    if(gaMode==='draw'){
+      if(!inside)return;
+      if(gaDraft.length>=3){
+        const fx=gaDraft[0][0],fy=gaDraft[0][1];
+        if(Math.hypot((fx-x)*gaImgW*gaView.s,(fy-y)*gaImgH*gaView.s)<16){await gaFinishDraft();return;}
+      }
+      gaDraft.push([x,y]);renderGaBounds();
+      return;
+    }
     if(d.pinId){gaSelPinId=d.pinId;renderGaPins();openGaPinEdit(d.pinId);return;}
     if(gaMode==='place'&&gaArmedTypeId){
-      const [x,y]=gaToFraction(e.clientX,e.clientY);
-      if(x<0||x>1||y<0||y>1)return;
+      if(!inside)return;
+      // Inside a drawn room boundary: place instantly, no dialog. Otherwise ask for the location.
+      const room=gaRoomForPoint(x,y);
+      if(room){await gaCreatePinnedDevice(gaArmedTypeId,x,y,room,null,null);return;}
       gaPinDraft={x,y};gaEditPinId=null;
       openGaPinModal();
       return;
     }
+    if(d.boundId){openGaBoundEdit(d.boundId);return;}
     if(gaSelPinId){gaSelPinId=null;renderGaPins();}
   };
   vp.addEventListener('pointerup',gaUp);vp.addEventListener('pointercancel',()=>{ptrs.clear();pan=null;pinch=null;drag=null;vp.classList.remove('dragging');});
@@ -2284,9 +2383,111 @@ function gaArm(typeId){
   if(b&&t){t.textContent='Tap the plan to place '+typeId+'. Each tap places one device.';b.classList.add('on');}
 }
 function gaStopPlacing(){
-  gaArmedTypeId=null;gaMode='pan';
-  const vp=document.getElementById('ga-viewport');if(vp)vp.classList.remove('placing');
+  gaArmedTypeId=null;gaMode='pan';gaDraft=[];
+  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');}
   const b=document.getElementById('ga-banner');if(b)b.classList.remove('on');
+  renderGaBounds();
+}
+function gaStartDraw(){
+  const showing=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
+  if(!showing){showToast('Upload a plan first','error');return;}
+  if(!showing.is_current){showToast('Switch to the current revision to draw','error');return;}
+  gaMode='draw';gaDraft=[];gaArmedTypeId=null;
+  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('drawing');vp.classList.remove('placing');}
+  const b=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text');
+  if(b&&t){t.textContent='Tap the plan to outline the room, point by point. Tap the first point again to close the shape.';b.classList.add('on');}
+}
+async function gaFinishDraft(){
+  if(gaDraft.length<3){showToast('A room outline needs at least 3 points','error');return;}
+  const plan=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
+  if(!plan)return;
+  const pts=gaDraft.slice();
+  gaStopPlacing();
+  try{
+    const rows=await dbInsert('plan_room_boundaries',{deck_plan_id:plan.id,points:pts,room_id:null});
+    gaBounds.push(rows[0]);
+    renderGaBounds();
+    openGaBoundEdit(rows[0].id);
+  }catch(e){showToast('Could not save the outline: '+e.message,'error');}
+}
+function openGaBoundEdit(boundId){
+  const b=gaBounds.find(x=>x.id===boundId);if(!b)return;
+  gaEditBoundId=boundId;
+  const sel=document.getElementById('ga-bound-room');
+  const byDeck={};currentRooms.forEach(r=>{(byDeck[r.deck_id]=byDeck[r.deck_id]||[]).push(r);});
+  let html='<option value="">— Not assigned yet —</option>';
+  currentDecks.forEach(d=>{
+    const rooms=byDeck[d.id]||[];if(!rooms.length)return;
+    html+='<optgroup label="'+escHtml(d.name)+'">'+rooms.map(r=>'<option value="'+r.id+'"'+(b.room_id===r.id?' selected':'')+'>'+escHtml(r.name)+(r.room_number?' ('+r.room_number+')':'')+'</option>').join('')+'</optgroup>';
+  });
+  sel.innerHTML=html;
+  document.getElementById('ga-bound-overlay').classList.add('open');
+}
+function closeGaBoundModal(){document.getElementById('ga-bound-overlay').classList.remove('open');gaEditBoundId=null;}
+async function gaSaveBound(){
+  const b=gaBounds.find(x=>x.id===gaEditBoundId);if(!b)return;
+  const roomId=document.getElementById('ga-bound-room').value||null;
+  try{
+    await dbUpdate('plan_room_boundaries',b.id,{room_id:roomId});
+    b.room_id=roomId;
+    closeGaBoundModal();renderGaBounds();
+    showToast(roomId?'Boundary assigned':'Boundary saved','success');
+  }catch(e){showToast('Could not save: '+e.message,'error');}
+}
+function gaDeleteBound(){
+  const b=gaBounds.find(x=>x.id===gaEditBoundId);if(!b)return;
+  closeGaBoundModal();
+  openConfirm('Delete Boundary','Delete this room outline? Devices already placed keep their rooms.',async()=>{
+    try{
+      await dbDelete('plan_room_boundaries',b.id);
+      gaBounds=gaBounds.filter(x=>x.id!==b.id);
+      renderGaBounds();showToast('Boundary deleted','success');
+    }catch(e){showToast('Could not delete: '+e.message,'error');}
+  },'Delete','btn-danger');
+}
+// Moves a device to a different room: new room-coded ID (Shane's rule), CR stamp, cache update.
+async function gaMoveInstanceToRoom(inst,room){
+  const pe=projectEquipment.find(p=>p.id===inst.project_equipment_id)||{};
+  const allIds=new Set(placedEquipment.map(i=>i.device_id).filter(Boolean));
+  allIds.delete(inst.device_id);
+  const oldId=inst.device_id;
+  const payload={room_id:room.id,rack_zone_id:null,device_id:nextDeviceId(pe.device_type_id,(room.room_number||room.room_id)||'0',allIds,{})};
+  stampChange(payload,'modified',inst);
+  await dbUpdate('equipment_instances',inst.id,payload);
+  Object.assign(inst,payload);
+  logChange('equipment','updated','Moved '+(oldId||'device')+' to '+room.name+' on the GA, now '+payload.device_id);
+  showToast('Moved to '+room.name+'. New ID: '+payload.device_id,'success');
+  renderGaPins();
+}
+// Creates the device and its pin in one go (fast path when the tap lands inside a room
+// boundary, and the save path of the location dialog).
+async function gaCreatePinnedDevice(typeId,x,y,room,zone,notes){
+  const plan=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
+  if(!plan){showToast('No plan selected','error');return;}
+  const gd=globalLibrary.find(g=>g.device_type_id===typeId);
+  if(!gd){showToast('Device type not found','error');return;}
+  const isZone=!!zone;
+  const locLabel=isZone?(zone.zone_id||'Z'):((room&&(room.room_number||room.room_id))||'0');
+  let pe=projectEquipment.find(p=>p.device_type_id===gd.device_type_id);
+  if(!pe){
+    const created=await dbInsert('project_equipment',stampChange(_peFromGlobal(gd),'added'));
+    pe=created[0];projectEquipment.push(pe);
+  }
+  const allIds=new Set(placedEquipment.map(i=>i.device_id).filter(Boolean));
+  const deviceId=nextDeviceId(gd.device_type_id,locLabel,allIds,{});
+  const instPayload=stampChange({project_id:currentProject.id,project_equipment_id:pe.id,device_id:deviceId,quantity:1,room_id:isZone?null:(room?room.id:null),rack_zone_id:isZone?zone.id:null,installation_type:isZone?'rack-mounted':'room-mounted',notes:notes||null},'added');
+  const instRows=await dbInsert('equipment_instances',instPayload);
+  const inst=instRows[0];placedEquipment.push(inst);
+  const pinRows=await dbInsert('plan_equipment_pins',{deck_plan_id:plan.id,equipment_instance_id:inst.id,x,y});
+  gaPins.push(pinRows[0]);
+  logChange('equipment','added','Placed '+deviceId+' on the GA ('+(isZone?zone.name:(room?room.name:'unassigned'))+')');
+  showToast(deviceId+' placed'+(room?' in '+room.name:zone?' in '+zone.name:''),'success');
+  renderGaPins();
+  if(activeCRId&&activeCRType==='formal'){
+    const {price:unitPrice,source:priceSource}=lookupEquipmentPriceInfo(pe);
+    const currency=projectAward?.currency||'EUR';
+    openCostPrompt(activeCRId,pe.description||deviceId,1,unitPrice,currency,false,null,priceSource);
+  }
 }
 // Location dropdown: rooms grouped by deck, then rack zones. The plan's own deck is listed first.
 function gaLocationOptions(selected){
@@ -2362,33 +2563,10 @@ async function gaSavePin(){
       showToast(moved?('Moved. New ID: '+payload.device_id):'Saved','success');
       closeGaPinModal();renderGaPins();
     }else{
-      // Create: ensure the type is in the project library, then instance + pin
-      const plan=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
-      if(!plan){showToast('No plan selected','error');return;}
-      const gd=globalLibrary.find(g=>g.device_type_id===gaArmedTypeId);
-      if(!gd){showToast('Device type not found','error');return;}
-      let pe=projectEquipment.find(p=>p.device_type_id===gd.device_type_id);
-      if(!pe){
-        const created=await dbInsert('project_equipment',stampChange(_peFromGlobal(gd),'added'));
-        pe=created[0];projectEquipment.push(pe);
-      }
-      const allIds=new Set(placedEquipment.map(i=>i.device_id).filter(Boolean));
-      const deviceId=nextDeviceId(gd.device_type_id,locLabel,allIds,{});
-      const instPayload=stampChange({project_id:currentProject.id,project_equipment_id:pe.id,device_id:deviceId,quantity:1,room_id:isZone?null:locId,rack_zone_id:isZone?locId:null,installation_type:isZone?'rack-mounted':'room-mounted',notes},'added');
-      const instRows=await dbInsert('equipment_instances',instPayload);
-      const inst=instRows[0];placedEquipment.push(inst);
-      const pinRows=await dbInsert('plan_equipment_pins',{deck_plan_id:plan.id,equipment_instance_id:inst.id,x:gaPinDraft.x,y:gaPinDraft.y});
-      gaPins.push(pinRows[0]);
+      const draft=gaPinDraft;
       gaLastLoc=locVal;
-      logChange('equipment','added','Placed '+deviceId+' on the GA ('+(isZone?(zone?zone.name:'zone'):(room?room.name:'room'))+')');
-      showToast(deviceId+' placed','success');
-      closeGaPinModal();renderGaPins();
-      // Offer a cost line when working under a formal CR, same as schedule placement
-      if(activeCRId&&activeCRType==='formal'){
-        const {price:unitPrice,source:priceSource}=lookupEquipmentPriceInfo(pe);
-        const currency=projectAward?.currency||'EUR';
-        openCostPrompt(activeCRId,pe.description||deviceId,1,unitPrice,currency,false,null,priceSource);
-      }
+      closeGaPinModal();
+      await gaCreatePinnedDevice(gaArmedTypeId,draft.x,draft.y,room,zone,notes);
     }
   }catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.disabled=false;}
@@ -2406,8 +2584,8 @@ function gaDeleteSelectedPin(){
   // hard delete, and a soft-removed device's pin is hidden (and returns if the CR is rejected).
   confirmDeletePlaced(inst.id,inst.device_id||'device');
 }
-// Esc cancels place mode
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&gaMode==='place')gaStopPlacing();});
+// Esc cancels place or draw mode
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(gaMode==='place'||gaMode==='draw'))gaStopPlacing();});
 function updateDecksRoomsBtn(){
   const btn=document.getElementById('topbar-btn');if(!btn)return;
   applyLayoutTerms();
