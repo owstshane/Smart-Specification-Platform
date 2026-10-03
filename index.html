@@ -350,6 +350,11 @@
   #ga-overlay path.ga-cloud { fill: rgba(192,57,43,.05); stroke: #c0392b; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: visiblePainted; cursor: pointer; }
   #ga-overlay path.ga-cloud.flash { stroke-width: 4; fill: rgba(192,57,43,.18); }
   .ga-delta { position: absolute; transform: translate(-50%,-100%) scale(var(--ga-inv,1)); transform-origin: 50% 100%; cursor: pointer; z-index: 2; width: 34px; height: 30px; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: #c0392b; color: #fff; display: grid; place-items: end center; font-weight: 700; font-size: 11px; padding-bottom: 2px; }
+  .ga-grid-panel { position: absolute; left: 12px; top: 12px; z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 12px 14px; width: 230px; font-size: 13px; }
+  .ga-grid-panel .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+  .ga-grid-panel label.chk { display: flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; }
+  .ga-grid-panel input[type=number] { width: 86px; padding: 4px 8px; }
+  .ga-scale-dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); transform: scale(var(--ga-inv,1)); pointer-events: none; z-index: 2; }
   .ga-revlog { width: 272px; flex: none; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow-y: auto; }
   .ga-revlog h3 { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin: 0; padding: 12px 14px 6px; }
   .ga-revlog .rl-rev { padding: 6px 14px 2px; font-size: 12px; font-weight: 700; color: var(--text-2); border-top: 1px solid var(--border); }
@@ -1113,6 +1118,18 @@
       <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="ga-pin-notes" rows="2"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-danger" id="ga-pin-delete" onclick="gaDeleteSelectedPin()" style="margin-right:auto;display:none">Delete</button><button class="btn btn-secondary" onclick="closeGaPinModal()">Cancel</button><button class="btn btn-primary" onclick="gaSavePin()" id="ga-pin-save">Place Device</button></div>
+  </div>
+</div>
+
+<!-- GA SCALE MODAL -->
+<div class="modal-overlay" id="ga-scale-overlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><div class="modal-title">Set Drawing Scale</div><button class="btn-icon" onclick="closeGaScaleModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--text-2);margin-bottom:12px">What is the real distance between the two points you tapped?</div>
+      <div class="form-group"><label>Distance (metres) <span class="required">*</span></label><input type="number" id="ga-scale-m" min="0.01" step="0.01" placeholder="e.g. 10"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaScaleModal()">Cancel</button><button class="btn btn-primary" onclick="gaSaveScale()">Set Scale</button></div>
   </div>
 </div>
 
@@ -2082,6 +2099,7 @@ let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=nul
 let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
 let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='', gaLastCloudCrId='';
 let gaCRs=[], gaDeckClouds=[], gaRevLogOpen=true, gaPendingFocus=null;
+let gaGridPanelOpen=false, gaGridShow=true, gaGridUnlocked=false, gaGridSnap=true, gaScalePts=[];
 // Pin colours by system group, icons by device type prefix
 const GA_GROUP_COLOURS={'Central Systems':'#6b7a89','Power, UPS & Battery':'#b7791f','Audio Visual System':'#c7811a','Control System':'#7b5ea7','IT System':'#2f6fd0','Lighting Control':'#3e8e4e','Motorised Window Treatments':'#8a5aa7','Access Control & Surveillance':'#c23b3b','Cinema System':'#8a2be2','Satellite & Communications':'#1a8fa6','Radio System':'#8a9a2b'};
 // Icon library (ported from the GA demo): 48 icons in 7 groups, picked per device type on the
@@ -2275,7 +2293,8 @@ function renderGaPlans(){
     +'<button class="btn btn-secondary btn-sm" onclick="gaStartDraw()">Draw Room</button>'
     +'<button class="btn btn-secondary btn-sm" onclick="gaStartEdit()">Edit Boundaries</button>'
     +'<button class="btn btn-secondary btn-sm" onclick="gaStartCloud()">Rev Cloud</button>';
-  if(showing&&showing.is_current)bar+='<button class="btn btn-secondary btn-sm" onclick="gaUpRev()">Up-rev</button>';
+  if(showing&&showing.is_current)bar+='<button class="btn btn-secondary btn-sm" onclick="gaUpRev()">Up-rev</button>'
+    +'<button class="btn btn-secondary btn-sm" onclick="gaToggleGridPanel()">Grid</button>';
   if(showing)bar+='<button class="btn btn-secondary btn-sm" onclick="gaToggleRevLog()">Rev Log</button>';
   bar+='</div>';
   if(!showing){
@@ -2289,11 +2308,13 @@ function renderGaPlans(){
     +(showing.is_current?'':'<div class="ga-oldrev">Viewing '+escHtml(showing.revision)+' — not the current revision</div>')
     +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan" draggable="false"><svg id="ga-overlay"></svg></div>'
     +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button></div>'
+    +'<div class="ga-grid-panel" id="ga-grid-panel" style="display:none"></div>'
     +'</div>'
     +'<div class="ga-revlog" id="ga-revlog" style="display:'+(gaRevLogOpen?'':'none')+'"></div>'
     +'</div>'
     +'<div style="margin-top:8px;font-size:12px;color:var(--text-3)">'+escHtml(showing.revision)+(showing.is_current?' (current)':'')+(showing.notes?' · '+escHtml(showing.notes):'')+' · <span id="ga-pin-count"></span></div>';
   wireGaViewport();
+  if(gaGridPanelOpen){const gp=document.getElementById('ga-grid-panel');if(gp){gp.style.display='';renderGaGridPanel();}}
   gaShowImage(showing);
   loadGaPins(showing.id);
 }
@@ -2364,8 +2385,31 @@ function gaCloudPath(pts){
 function renderGaBounds(){
   const ov=document.getElementById('ga-overlay'),st=document.getElementById('ga-stage');
   if(!ov||!st||!gaImgW)return;
-  st.querySelectorAll('.ga-blabel,.ga-vtx,.ga-delta').forEach(n=>n.remove());
+  st.querySelectorAll('.ga-blabel,.ga-vtx,.ga-delta,.ga-scale-dot').forEach(n=>n.remove());
   let svg='';
+  // Design grid: drawn at true scale under everything else
+  const gplan=gaShownPlan();
+  if(gplan&&gaGridShow&&gplan.scale_px_per_m>0&&gplan.grid_spacing_m>0){
+    const step=gplan.grid_spacing_m*gplan.scale_px_per_m;
+    if(step>2){
+      const ox=((gplan.grid_offset_x||0)*gaImgW)%step, oy=((gplan.grid_offset_y||0)*gaImgH)%step;
+      svg+='<defs><pattern id="ga-grid-pat" width="'+step.toFixed(2)+'" height="'+step.toFixed(2)+'" x="'+ox.toFixed(2)+'" y="'+oy.toFixed(2)+'" patternUnits="userSpaceOnUse">'
+        +'<path d="M '+step.toFixed(2)+' 0 L 0 0 0 '+step.toFixed(2)+'" fill="none" stroke="rgba(15,110,140,.45)" stroke-width="0.8"/></pattern></defs>'
+        +'<rect width="'+gaImgW+'" height="'+gaImgH+'" fill="url(#ga-grid-pat)" style="pointer-events:none"/>';
+    }
+  }
+  // Scale calibration points
+  if(gaMode==='scale'){
+    gaScalePts.forEach(p=>{
+      const dot=document.createElement('div');
+      dot.className='ga-scale-dot';
+      dot.style.left=(p[0]*100)+'%';dot.style.top=(p[1]*100)+'%';
+      st.appendChild(dot);
+    });
+    if(gaScalePts.length===2){
+      svg+='<line x1="'+(gaScalePts[0][0]*gaImgW)+'" y1="'+(gaScalePts[0][1]*gaImgH)+'" x2="'+(gaScalePts[1][0]*gaImgW)+'" y2="'+(gaScalePts[1][1]*gaImgH)+'" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>';
+    }
+  }
   gaClouds.forEach(cl=>{
     if(!Array.isArray(cl.points)||cl.points.length<3)return;
     svg+='<path data-cloud="'+cl.id+'" class="ga-cloud" d="'+gaCloudPath(cl.points)+'"/>';
@@ -2477,11 +2521,12 @@ function wireGaViewport(){
   const ptrs=new Map();let pan=null,pinch=null,drag=null;
   vp.addEventListener('wheel',e=>{e.preventDefault();const r=vp.getBoundingClientRect();gaZoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.15:1/1.15);},{passive:false});
   vp.addEventListener('pointerdown',e=>{
-    if(e.target.closest('.ga-zoom,.ga-banner'))return;
+    if(e.target.closest('.ga-zoom,.ga-banner,.ga-grid-panel'))return;
     vp.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const gridMove=gaMode==='pan'&&gaGridUnlocked;
     const vtxEl=gaMode==='edit'?e.target.closest('.ga-vtx.edit'):null;
-    const pinEl=(gaMode==='pan'&&!vtxEl)?e.target.closest('.ga-pin'):null;
+    const pinEl=(gaMode==='pan'&&!gridMove&&!vtxEl)?e.target.closest('.ga-pin'):null;
     // Stop the browser starting its own image drag or selection when a handle/pin drag begins
     if(vtxEl||pinEl)e.preventDefault();
     const boundEl=(gaMode==='edit'&&!pinEl&&!vtxEl&&e.target.closest)?e.target.closest('polygon[data-bound]'):null;
@@ -2489,7 +2534,8 @@ function wireGaViewport(){
     if(ptrs.size===1){
       drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?(cloudEl.dataset.cloud||cloudEl.dataset.cloudtag):null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null,cloudBox:gaMode==='cloud'};
       if(drag.cloudBox){const [fx,fy]=gaToFraction(e.clientX,e.clientY);drag.fx0=Math.min(1,Math.max(0,fx));drag.fy0=Math.min(1,Math.max(0,fy));}
-      pan=(drag.pinId||drag.vtxBound||drag.cloudBox)?null:{sx:e.clientX,sy:e.clientY,vx:gaView.x,vy:gaView.y};
+      if(gridMove){const gp=gaShownPlan();drag.gridMove=true;drag.gox=(gp&&gp.grid_offset_x)||0;drag.goy=(gp&&gp.grid_offset_y)||0;}
+      pan=(drag.pinId||drag.vtxBound||drag.cloudBox||drag.gridMove)?null:{sx:e.clientX,sy:e.clientY,vx:gaView.x,vy:gaView.y};
     }
     else if(ptrs.size===2){pan=null;drag=null;const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:gaView.s};}
   });
@@ -2504,6 +2550,13 @@ function wireGaViewport(){
       return;
     }
     if(drag&&!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>5)drag.moved=true;
+    if(drag&&drag.moved&&drag.gridMove){
+      const plan=gaShownPlan();if(!plan)return;
+      plan.grid_offset_x=drag.gox+(e.clientX-drag.sx)/gaView.s/gaImgW;
+      plan.grid_offset_y=drag.goy+(e.clientY-drag.sy)/gaView.s/gaImgH;
+      gaUpdateGridVisual();
+      return;
+    }
     if(drag&&drag.moved&&drag.cloudBox){
       const [fx,fy]=gaToFraction(e.clientX,e.clientY);
       gaCloudPreview=[drag.fx0,drag.fy0,Math.min(1,Math.max(0,fx)),Math.min(1,Math.max(0,fy))];
@@ -2519,7 +2572,8 @@ function wireGaViewport(){
     }
     if(drag&&drag.moved&&drag.pinId){
       const [x,y]=gaToFraction(e.clientX,e.clientY);
-      drag.x=Math.min(1,Math.max(0,x));drag.y=Math.min(1,Math.max(0,y));
+      const snapped=gaSnapPoint(Math.min(1,Math.max(0,x)),Math.min(1,Math.max(0,y)));
+      drag.x=snapped[0];drag.y=snapped[1];
       const el=document.querySelector('.ga-pin[data-pin="'+drag.pinId+'"]');
       if(el){el.style.left=(drag.x*100)+'%';el.style.top=(drag.y*100)+'%';}
     }else if(pan&&drag&&drag.moved){
@@ -2534,6 +2588,13 @@ function wireGaViewport(){
     if(ptrs.size){return;}
     const d=drag;drag=null;pan=null;vp.classList.remove('dragging');
     if(!d)return;
+    if(d.gridMove){
+      if(!d.moved)return;
+      const plan=gaShownPlan();if(!plan)return;
+      try{await dbUpdate('deck_plans',plan.id,{grid_offset_x:plan.grid_offset_x,grid_offset_y:plan.grid_offset_y});}
+      catch(err){showToast('Could not save the grid position: '+err.message,'error');}
+      return;
+    }
     if(d.cloudBox){
       gaCloudPreview=null;
       if(!d.moved){renderGaBounds();return;}
@@ -2579,6 +2640,16 @@ function wireGaViewport(){
     if(d.moved)return;
     const [x,y]=gaToFraction(e.clientX,e.clientY);
     const inside=x>=0&&x<=1&&y>=0&&y<=1;
+    if(gaMode==='scale'){
+      if(!inside)return;
+      gaScalePts.push([x,y]);
+      renderGaBounds();
+      if(gaScalePts.length===2){
+        document.getElementById('ga-scale-m').value='';
+        document.getElementById('ga-scale-overlay').classList.add('open');
+      }
+      return;
+    }
     if(gaMode==='draw'){
       if(!inside)return;
       if(gaDraft.length>=3){
@@ -2591,10 +2662,12 @@ function wireGaViewport(){
     if(d.pinId){gaSelPinId=d.pinId;renderGaPins();openGaPinEdit(d.pinId);return;}
     if(gaMode==='place'&&gaArmedTypeId){
       if(!inside)return;
-      // Inside a drawn room boundary: place instantly, no dialog. Otherwise ask for the location.
-      const room=gaRoomForPoint(x,y);
-      if(room){await gaCreatePinnedDevice(gaArmedTypeId,x,y,room,null,null);return;}
-      gaPinDraft={x,y};gaEditPinId=null;
+      // Snap to the design grid when active, then: inside a drawn room boundary places
+      // instantly, no dialog; otherwise ask for the location.
+      const [px,py]=gaSnapPoint(x,y);
+      const room=gaRoomForPoint(px,py);
+      if(room){await gaCreatePinnedDevice(gaArmedTypeId,px,py,room,null,null);return;}
+      gaPinDraft={x:px,y:py};gaEditPinId=null;
       openGaPinModal();
       return;
     }
@@ -2642,7 +2715,7 @@ function gaUpRev(){
   openConfirm('Up-rev to '+next+'?','Create '+next+' of '+(deck?deck.name:'this deck')+' using the same drawing? '+cur.revision+' stays frozen as the issued record, and you can carry its boundaries and pins forward.',async()=>{
     try{
       await supaFetch('PATCH','deck_plans',{is_current:false},null,'deck_id=eq.'+gaActiveDeckId+'&is_current=eq.true');
-      const rows=await dbInsert('deck_plans',{project_id:currentProject.id,deck_id:gaActiveDeckId,revision:next,image_path:cur.image_path,image_width:cur.image_width,image_height:cur.image_height,is_current:true,notes:null});
+      const rows=await dbInsert('deck_plans',{project_id:currentProject.id,deck_id:gaActiveDeckId,revision:next,image_path:cur.image_path,image_width:cur.image_width,image_height:cur.image_height,is_current:true,notes:null,scale_px_per_m:cur.scale_px_per_m,grid_spacing_m:cur.grid_spacing_m,grid_offset_x:cur.grid_offset_x||0,grid_offset_y:cur.grid_offset_y||0});
       logChange('design','added','Up-revved GA plan to '+next+(deck?' for '+deck.name:''));
       gaViewRevId=null;
       showToast(next+' created','success');
@@ -2683,7 +2756,16 @@ async function saveGaPlan(){
     const prevPlan=gaCurrentPlan(deckId);
     // The previous current revision steps down first (one current per deck is DB-enforced)
     await supaFetch('PATCH','deck_plans',{is_current:false},null,'deck_id=eq.'+deckId+'&is_current=eq.true');
-    const newRows=await dbInsert('deck_plans',{project_id:currentProject.id,deck_id:deckId,revision,image_path:path,image_width:dims.w,image_height:dims.h,is_current:true,notes});
+    const newPlanRec={project_id:currentProject.id,deck_id:deckId,revision,image_path:path,image_width:dims.w,image_height:dims.h,is_current:true,notes};
+    // A new image with identical pixel dimensions keeps the previous scale and grid; a
+    // different size needs recalibrating.
+    if(prevPlan&&prevPlan.image_width===dims.w&&prevPlan.image_height===dims.h){
+      newPlanRec.scale_px_per_m=prevPlan.scale_px_per_m;
+      newPlanRec.grid_spacing_m=prevPlan.grid_spacing_m;
+      newPlanRec.grid_offset_x=prevPlan.grid_offset_x||0;
+      newPlanRec.grid_offset_y=prevPlan.grid_offset_y||0;
+    }
+    const newRows=await dbInsert('deck_plans',newPlanRec);
     const deck=currentDecks.find(d=>d.id===deckId);
     logChange('design','added','Uploaded GA plan '+revision+(deck?' for '+deck.name:''));
     closeGaUploadModal();
@@ -2729,7 +2811,8 @@ function gaArm(typeId){
   gaBanner('Tap the plan to place '+typeId+'. Each tap places one device.','Stop placing');
 }
 function gaStopPlacing(){
-  gaArmedTypeId=null;gaMode='pan';gaDraft=[];gaRedrawBoundId=null;gaCloudPreview=null;
+  gaArmedTypeId=null;gaMode='pan';gaDraft=[];gaRedrawBoundId=null;gaCloudPreview=null;gaScalePts=[];
+  if(gaGridUnlocked){gaGridUnlocked=false;renderGaGridPanel();}
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');vp.classList.remove('editing');}
   const b=document.getElementById('ga-banner');if(b)b.classList.remove('on');
   renderGaBounds();
@@ -2842,6 +2925,94 @@ function gaFocusCloud(cloudId){
     else if(++tries<5)setTimeout(flash,300);
   };
   flash();
+}
+// ── DESIGN GRID + DRAWING SCALE ──
+function gaShownPlan(){return gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);}
+function gaToggleGridPanel(){
+  gaGridPanelOpen=!gaGridPanelOpen;
+  const p=document.getElementById('ga-grid-panel');
+  if(p){p.style.display=gaGridPanelOpen?'':'none';if(gaGridPanelOpen)renderGaGridPanel();}
+}
+function renderGaGridPanel(){
+  const p=document.getElementById('ga-grid-panel');if(!p)return;
+  const plan=gaShownPlan();if(!plan)return;
+  const hasScale=plan.scale_px_per_m>0;
+  p.innerHTML='<div style="font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3)">Design Grid</div>'
+    +'<div class="row"><span>'+(hasScale?'Scale: '+(plan.scale_px_per_m).toFixed(1)+' px/m':'Scale not set')+'</span>'
+    +'<button class="btn btn-secondary btn-sm" onclick="gaStartScale()">'+(hasScale?'Re-set':'Set Scale')+'</button></div>'
+    +(hasScale
+      ?'<div class="row"><label for="ga-grid-spacing">Spacing (m)</label><input type="number" id="ga-grid-spacing" min="0.05" step="0.05" value="'+(plan.grid_spacing_m||1)+'" onchange="gaGridSetSpacing(this.value)"></div>'
+       +'<div class="row"><label class="chk"><input type="checkbox" '+(gaGridShow?'checked':'')+' onchange="gaGridShow=this.checked;renderGaBounds()"> Show grid</label>'
+       +'<label class="chk"><input type="checkbox" '+(gaGridSnap?'checked':'')+' onchange="gaGridSnap=this.checked"> Snap</label></div>'
+       +'<div class="row"><button class="btn '+(gaGridUnlocked?'btn-primary':'btn-secondary')+' btn-sm" style="width:100%" onclick="gaGridToggleLock()">'+(gaGridUnlocked?'Lock grid in place':'Unlock to move grid')+'</button></div>'
+      :'<div style="margin-top:8px;font-size:12px;color:var(--text-3)">Set the scale first: tap two points a known distance apart on the drawing.</div>');
+}
+async function gaGridSetSpacing(v){
+  const plan=gaShownPlan();if(!plan||!plan.is_current)return;
+  const m=parseFloat(v);
+  if(!(m>0.01)){showToast('Enter a spacing in metres','error');return;}
+  try{await dbUpdate('deck_plans',plan.id,{grid_spacing_m:m});plan.grid_spacing_m=m;renderGaBounds();}
+  catch(e){showToast('Could not save: '+e.message,'error');}
+}
+function gaGridToggleLock(){
+  const plan=gaShownPlan();
+  if(!plan||!plan.is_current){showToast('Switch to the current revision to move the grid','error');return;}
+  gaGridUnlocked=!gaGridUnlocked;
+  if(gaGridUnlocked){
+    gaGridShow=true;
+    gaBanner('Drag the plan to slide the grid into position. Two fingers still pan and zoom.','Lock grid');
+  }else{
+    const b=document.getElementById('ga-banner');if(b)b.classList.remove('on');
+  }
+  renderGaGridPanel();renderGaBounds();
+}
+function gaStartScale(){
+  const plan=gaShownPlan();
+  if(!plan||!plan.is_current){showToast('Switch to the current revision to set the scale','error');return;}
+  gaMode='scale';gaScalePts=[];gaArmedTypeId=null;gaGridUnlocked=false;
+  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('drawing');vp.classList.remove('placing');}
+  gaBanner('Tap two points a known distance apart (a dimension line, frame spacing or the beam).','Stop');
+  renderGaBounds();
+}
+function closeGaScaleModal(){document.getElementById('ga-scale-overlay').classList.remove('open');gaScalePts=[];if(gaMode==='scale')gaStopPlacing();}
+async function gaSaveScale(){
+  const m=parseFloat(document.getElementById('ga-scale-m').value);
+  if(!(m>0.009)){showToast('Enter the real distance in metres','error');return;}
+  const plan=gaShownPlan();if(!plan||gaScalePts.length<2)return;
+  const dx=(gaScalePts[1][0]-gaScalePts[0][0])*gaImgW, dy=(gaScalePts[1][1]-gaScalePts[0][1])*gaImgH;
+  const px=Math.hypot(dx,dy);
+  if(px<5){showToast('The two points are too close together','error');return;}
+  const scale=px/m;
+  try{
+    const payload={scale_px_per_m:scale};
+    if(!plan.grid_spacing_m)payload.grid_spacing_m=1;
+    await dbUpdate('deck_plans',plan.id,payload);
+    Object.assign(plan,payload);
+    document.getElementById('ga-scale-overlay').classList.remove('open');
+    gaScalePts=[];gaStopPlacing();gaGridShow=true;
+    renderGaGridPanel();renderGaBounds();
+    showToast('Scale set: '+scale.toFixed(1)+' px per metre','success');
+  }catch(e){showToast('Could not save: '+e.message,'error');}
+}
+// Snap a point (fractions) to the nearest grid intersection when snapping is active
+function gaSnapPoint(x,y){
+  const plan=gaShownPlan();
+  if(!plan||!gaGridShow||!gaGridSnap||gaGridUnlocked)return[x,y];
+  if(!(plan.scale_px_per_m>0&&plan.grid_spacing_m>0))return[x,y];
+  const step=plan.grid_spacing_m*plan.scale_px_per_m;
+  const ox=(plan.grid_offset_x||0)*gaImgW, oy=(plan.grid_offset_y||0)*gaImgH;
+  return[
+    Math.min(1,Math.max(0,(Math.round((x*gaImgW-ox)/step)*step+ox)/gaImgW)),
+    Math.min(1,Math.max(0,(Math.round((y*gaImgH-oy)/step)*step+oy)/gaImgH))
+  ];
+}
+function gaUpdateGridVisual(){
+  const plan=gaShownPlan();
+  const pat=document.getElementById('ga-grid-pat');
+  if(!pat||!plan)return;
+  const step=plan.grid_spacing_m*plan.scale_px_per_m;
+  pat.setAttribute('x',(((plan.grid_offset_x||0)*gaImgW)%step).toFixed(2));
+  pat.setAttribute('y',(((plan.grid_offset_y||0)*gaImgH)%step).toFixed(2));
 }
 function gaStartCloud(){
   const showing=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
