@@ -1088,8 +1088,13 @@
     <div class="modal-body">
       <div style="font-size:13px;color:var(--text-2);margin-bottom:14px">Devices placed inside this outline automatically take this room, with their Device ID numbered from it.</div>
       <div class="form-group"><label>Room</label><select id="ga-bound-room"><option value="">— Not assigned yet —</option></select></div>
+      <div style="font-size:12px;margin-bottom:8px"><a href="#" style="color:var(--accent)" onclick="gaToggleNewRoom();return false" id="ga-nr-link">Room not in the list? Create it here</a></div>
+      <div id="ga-bound-newroom" style="display:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:4px">
+        <div class="form-row form-row-2"><div><label>Room number</label><input type="number" id="ga-nr-number" placeholder="e.g. 305"></div><div><label>Room name <span class="required">*</span></label><input type="text" id="ga-nr-name" placeholder="e.g. Gym"></div></div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:6px">Created on this plan's deck and assigned to this outline when you save.</div>
+      </div>
     </div>
-    <div class="modal-footer"><button class="btn btn-danger" onclick="gaDeleteBound()" style="margin-right:auto">Delete</button><button class="btn btn-secondary" onclick="closeGaBoundModal()">Cancel</button><button class="btn btn-primary" onclick="gaSaveBound()">Save</button></div>
+    <div class="modal-footer"><button class="btn btn-danger" onclick="gaDeleteBound()" style="margin-right:auto">Delete</button><button class="btn btn-secondary" onclick="gaRedrawBound()">Redraw outline</button><button class="btn btn-secondary" onclick="closeGaBoundModal()">Cancel</button><button class="btn btn-primary" onclick="gaSaveBound()">Save</button></div>
   </div>
 </div>
 
@@ -2022,7 +2027,7 @@ function switchDeckRoomTab(tab){
 // leaked link dies quickly and nothing is ever publicly reachable.
 let gaPlans=[], gaActiveDeckId=null, gaViewRevId=null, gaView={s:1,x:0,y:0}, gaImgW=0, gaImgH=0, _gaSignedCache={};
 let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=null, gaEditPinId=null, gaLastLoc=null;
-let gaBounds=[], gaDraft=[], gaEditBoundId=null;
+let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
 // Pin colours by system group, icons by device type prefix
 const GA_GROUP_COLOURS={'Central Systems':'#6b7a89','Power, UPS & Battery':'#b7791f','Audio Visual System':'#c7811a','Control System':'#7b5ea7','IT System':'#2f6fd0','Lighting Control':'#3e8e4e','Motorised Window Treatments':'#8a5aa7','Access Control & Surveillance':'#c23b3b','Cinema System':'#8a2be2','Satellite & Communications':'#1a8fa6','Radio System':'#8a9a2b'};
 const GA_ICONS={
@@ -2383,7 +2388,7 @@ function gaArm(typeId){
   if(b&&t){t.textContent='Tap the plan to place '+typeId+'. Each tap places one device.';b.classList.add('on');}
 }
 function gaStopPlacing(){
-  gaArmedTypeId=null;gaMode='pan';gaDraft=[];
+  gaArmedTypeId=null;gaMode='pan';gaDraft=[];gaRedrawBoundId=null;
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');}
   const b=document.getElementById('ga-banner');if(b)b.classList.remove('on');
   renderGaBounds();
@@ -2402,8 +2407,18 @@ async function gaFinishDraft(){
   const plan=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
   if(!plan)return;
   const pts=gaDraft.slice();
+  const redrawId=gaRedrawBoundId;
   gaStopPlacing();
   try{
+    if(redrawId){
+      // Redraw: replace the shape, keep the room assignment
+      const b=gaBounds.find(x=>x.id===redrawId);
+      await dbUpdate('plan_room_boundaries',redrawId,{points:pts});
+      if(b)b.points=pts;
+      renderGaBounds();
+      showToast('Outline updated','success');
+      return;
+    }
     const rows=await dbInsert('plan_room_boundaries',{deck_plan_id:plan.id,points:pts,room_id:null});
     gaBounds.push(rows[0]);
     renderGaBounds();
@@ -2421,18 +2436,48 @@ function openGaBoundEdit(boundId){
     html+='<optgroup label="'+escHtml(d.name)+'">'+rooms.map(r=>'<option value="'+r.id+'"'+(b.room_id===r.id?' selected':'')+'>'+escHtml(r.name)+(r.room_number?' ('+r.room_number+')':'')+'</option>').join('')+'</optgroup>';
   });
   sel.innerHTML=html;
+  document.getElementById('ga-bound-newroom').style.display='none';
+  document.getElementById('ga-nr-number').value='';
+  document.getElementById('ga-nr-name').value='';
   document.getElementById('ga-bound-overlay').classList.add('open');
+}
+function gaToggleNewRoom(){
+  const box=document.getElementById('ga-bound-newroom');
+  box.style.display=box.style.display==='none'?'':'none';
 }
 function closeGaBoundModal(){document.getElementById('ga-bound-overlay').classList.remove('open');gaEditBoundId=null;}
 async function gaSaveBound(){
   const b=gaBounds.find(x=>x.id===gaEditBoundId);if(!b)return;
-  const roomId=document.getElementById('ga-bound-room').value||null;
+  let roomId=document.getElementById('ga-bound-room').value||null;
+  const newBox=document.getElementById('ga-bound-newroom');
+  const newName=document.getElementById('ga-nr-name').value.trim();
   try{
+    // Create the room right here if the new-room section is open and filled in
+    if(newBox.style.display!=='none'&&newName){
+      const plan=gaPlans.find(p=>p.id===b.deck_plan_id);
+      if(!plan){showToast('Could not find this plan','error');return;}
+      const payload=stampChange({deck_id:plan.deck_id,name:newName,room_number:parseInt(document.getElementById('ga-nr-number').value)||null},'added');
+      const rows=await dbInsert('rooms',payload);
+      currentRooms.push(rows[0]);
+      roomId=rows[0].id;
+      logChange('rooms','added','Added room from the GA plan: '+newName);
+    }
     await dbUpdate('plan_room_boundaries',b.id,{room_id:roomId});
     b.room_id=roomId;
     closeGaBoundModal();renderGaBounds();
     showToast(roomId?'Boundary assigned':'Boundary saved','success');
   }catch(e){showToast('Could not save: '+e.message,'error');}
+}
+// Redraw keeps the room assignment and replaces just the outline shape.
+function gaRedrawBound(){
+  const b=gaBounds.find(x=>x.id===gaEditBoundId);if(!b)return;
+  gaRedrawBoundId=b.id;
+  closeGaBoundModal();
+  gaMode='draw';gaDraft=[];gaArmedTypeId=null;
+  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('drawing');vp.classList.remove('placing');}
+  const room=currentRooms.find(r=>r.id===b.room_id);
+  const bn=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text');
+  if(bn&&t){t.textContent='Redraw the outline'+(room?' for '+room.name:'')+' point by point. Tap the first point again to close.';bn.classList.add('on');}
 }
 function gaDeleteBound(){
   const b=gaBounds.find(x=>x.id===gaEditBoundId);if(!b)return;
