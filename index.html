@@ -314,6 +314,19 @@
 
   /* IMPORT/EXPORT */
   .ie-preview { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+
+  /* GA PLANS */
+  .ga-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .ga-pill { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 14px; font-size: 13px; cursor: pointer; }
+  .ga-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .ga-pill .ga-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-left: 6px; vertical-align: 1px; }
+  .ga-viewport { position: relative; overflow: hidden; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); height: calc(100vh - 310px); min-height: 380px; touch-action: none; cursor: grab; }
+  .ga-viewport.dragging { cursor: grabbing; }
+  .ga-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .ga-stage img { display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; box-shadow: 0 2px 12px rgba(0,0,0,.15); background: #fff; }
+  .ga-zoom { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+  .ga-zoom button { width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font-size: 17px; cursor: pointer; }
+  .ga-oldrev { position: absolute; left: 12px; top: 12px; z-index: 3; background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; }
   .ie-import-options { display: flex; gap: 12px; margin-bottom: 16px; }
   .ie-option { flex: 1; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 14px; cursor: pointer; transition: all 0.15s; }
   .ie-option.selected { border-color: var(--accent); background: var(--accent-light); }
@@ -1016,6 +1029,22 @@
       <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="fz-notes" rows="2"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeZoneModal()">Cancel</button><button class="btn btn-primary" onclick="saveZone()" id="zone-save-btn">Save Zone</button></div>
+  </div>
+</div>
+
+<!-- GA PLAN UPLOAD MODAL -->
+<div class="modal-overlay" id="ga-upload-overlay">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><div class="modal-title">Upload GA Plan</div><button class="btn-icon" onclick="closeGaUploadModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-row form-row-2">
+        <div><label>Deck <span class="required">*</span></label><select id="ga-up-deck" onchange="gaUpdateRevSuggestion()"></select></div>
+        <div><label>Revision</label><input type="text" id="ga-up-rev" placeholder="Rev A"></div>
+      </div>
+      <div class="form-group"><label>Plan image <span class="required">*</span></label><input type="file" id="ga-up-file" accept="image/png,image/jpeg,image/webp"><div style="font-size:12px;color:var(--text-3);margin-top:6px">PNG, JPG or WebP. If the GA is a PDF, export the sheet as an image first. Plans are stored privately; only signed-in team members can view them.</div></div>
+      <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="ga-up-notes" rows="2" placeholder="e.g. Issued by yard 28 Sep, frame grid updated"></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaUploadModal()">Cancel</button><button class="btn btn-primary" onclick="saveGaPlan()" id="ga-up-save">Upload Plan</button></div>
   </div>
 </div>
 
@@ -1866,6 +1895,7 @@ function resetProjectCaches(){
   rmInstances=[];rmTypeDetails=[];
   roomTemplates=[];templateItems=[];
   plItems=[];plAlreadyPlaced=[];
+  gaPlans=[];gaActiveDeckId=null;gaViewRevId=null;_gaSignedCache={};
 }
 function closeProject(){
   currentProject=null;
@@ -1925,10 +1955,161 @@ function switchDeckRoomTab(tab){
   updateDecksRoomsBtn();
   if(tab==='decks')loadDecks();else if(tab==='floors')loadFloors();else if(tab==='rooms')loadRooms();else if(tab==='ga')loadGaPlans();else loadRackZones();
 }
-// GA Plans tab shell. Upload, viewing and pin placement arrive in the next stages.
-function loadGaPlans(){
+// ── GA PLANS ──
+// One plan image per deck with revision history. Images live in the PRIVATE deck-plans bucket;
+// the browser displays them via short-lived signed URLs requested with the user's JWT, so a
+// leaked link dies quickly and nothing is ever publicly reachable.
+let gaPlans=[], gaActiveDeckId=null, gaViewRevId=null, gaView={s:1,x:0,y:0}, gaImgW=0, gaImgH=0, _gaSignedCache={};
+async function storageUpload(path,file){
+  await refreshTokenIfNeeded();
+  const res=await fetch(SUPABASE_URL+'/storage/v1/object/deck-plans/'+path,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':getAuthHeader(),'Content-Type':file.type||'application/octet-stream'},body:file});
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.message||'Upload failed (HTTP '+res.status+')');}
+}
+async function storageSignedUrl(path,expiresSec){
+  const ttl=expiresSec||3600;
+  const cached=_gaSignedCache[path];
+  if(cached&&cached.exp>Date.now()+60000)return cached.url;
+  await refreshTokenIfNeeded();
+  const res=await fetch(SUPABASE_URL+'/storage/v1/object/sign/deck-plans/'+path,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':getAuthHeader(),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:ttl})});
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.message||'Could not create a viewing link');}
+  const data=await res.json();
+  const url=SUPABASE_URL+'/storage/v1'+data.signedURL;
+  _gaSignedCache[path]={url,exp:Date.now()+ttl*1000};
+  return url;
+}
+function gaDeckPlans(deckId){return gaPlans.filter(p=>p.deck_id===deckId).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));}
+function gaCurrentPlan(deckId){const r=gaDeckPlans(deckId);return r.find(p=>p.is_current)||r[0]||null;}
+function gaSelectDeck(id){gaActiveDeckId=id;gaViewRevId=null;renderGaPlans();}
+function gaSelectRev(id){gaViewRevId=id||null;renderGaPlans();}
+async function loadGaPlans(){
   const c=document.getElementById('ga-plans-container');if(!c)return;
-  c.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">GA Plans</div><div class="empty-state-text">General arrangement plans are coming here: upload a plan per deck, place equipment pins linked to the schedule, and track revisions. Plan upload is the next update.</div></div>';
+  if(!currentProject){c.innerHTML='';return;}
+  c.innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try{
+    if(!currentDecks.length)currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
+    gaPlans=await dbGet('deck_plans','project_id=eq.'+currentProject.id+'&order=created_at.desc');
+    if(!currentDecks.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No decks yet</div><div class="empty-state-text">Add decks on the Decks tab first, then upload a GA plan for each deck here.</div></div>';return;}
+    if(!gaActiveDeckId||!currentDecks.find(d=>d.id===gaActiveDeckId))gaActiveDeckId=currentDecks[0].id;
+    renderGaPlans();
+  }catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Could not load</div><div class="empty-state-text">'+escHtml(e.message)+'</div></div>';}
+}
+function renderGaPlans(){
+  const c=document.getElementById('ga-plans-container');if(!c)return;
+  const revs=gaDeckPlans(gaActiveDeckId);
+  const showing=gaViewRevId?revs.find(p=>p.id===gaViewRevId)||gaCurrentPlan(gaActiveDeckId):gaCurrentPlan(gaActiveDeckId);
+  let bar='<div class="ga-toolbar">'
+    +currentDecks.map(d=>'<button class="ga-pill'+(d.id===gaActiveDeckId?' active':'')+'" onclick="gaSelectDeck(\''+d.id+'\')">'+escHtml(d.name)+(gaCurrentPlan(d.id)?'<span class="ga-dot"></span>':'')+'</button>').join('');
+  if(revs.length)bar+='<select onchange="gaSelectRev(this.value)" style="margin-left:auto;max-width:240px">'
+    +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
+  bar+='</div>';
+  if(!showing){
+    c.innerHTML=bar+'<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No plan for this deck yet</div><div class="empty-state-text">Upload the GA sheet for this deck as an image. Equipment pins and room boundaries will be placed on top of it.</div><button class="btn btn-primary" style="margin-top:12px" onclick="openGaUploadModal()">Upload Plan</button></div>';
+    return;
+  }
+  c.innerHTML=bar
+    +'<div class="ga-viewport" id="ga-viewport">'
+    +(showing.is_current?'':'<div class="ga-oldrev">Viewing '+escHtml(showing.revision)+' — not the current revision</div>')
+    +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan"></div>'
+    +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button></div>'
+    +'</div>'
+    +'<div style="margin-top:8px;font-size:12px;color:var(--text-3)">'+escHtml(showing.revision)+(showing.is_current?' (current)':'')+(showing.notes?' · '+escHtml(showing.notes):'')+'</div>';
+  wireGaViewport();
+  gaShowImage(showing);
+}
+async function gaShowImage(plan){
+  const img=document.getElementById('ga-img');if(!img)return;
+  try{
+    const url=await storageSignedUrl(plan.image_path,3600);
+    img.onload=()=>{
+      gaImgW=img.naturalWidth||plan.image_width||1600;gaImgH=img.naturalHeight||plan.image_height||900;
+      const st=document.getElementById('ga-stage');
+      if(st){st.style.width=gaImgW+'px';st.style.height=gaImgH+'px';}
+      img.style.width=gaImgW+'px';img.style.height=gaImgH+'px';
+      gaFit();
+    };
+    img.src=url;
+  }catch(e){showToast('Could not load the plan image: '+e.message,'error');}
+}
+function gaApply(){const st=document.getElementById('ga-stage');if(st)st.style.transform='translate('+gaView.x+'px,'+gaView.y+'px) scale('+gaView.s+')';}
+function gaFit(){const vp=document.getElementById('ga-viewport');if(!vp||!gaImgW)return;const r=vp.getBoundingClientRect();if(!r.width||!r.height)return;gaView.s=Math.min(r.width/gaImgW,r.height/gaImgH)*0.95;gaView.x=(r.width-gaImgW*gaView.s)/2;gaView.y=(r.height-gaImgH*gaView.s)/2;gaApply();}
+function gaZoomAt(px,py,f){const ns=Math.min(12,Math.max(0.05,gaView.s*f));gaView.x=px-(px-gaView.x)*(ns/gaView.s);gaView.y=py-(py-gaView.y)*(ns/gaView.s);gaView.s=ns;gaApply();}
+function gaZoomBtn(f){const vp=document.getElementById('ga-viewport');if(!vp)return;const r=vp.getBoundingClientRect();gaZoomAt(r.width/2,r.height/2,f);}
+// Pan with one finger or mouse drag, pinch with two fingers, wheel to zoom at the cursor.
+function wireGaViewport(){
+  const vp=document.getElementById('ga-viewport');if(!vp)return;
+  const ptrs=new Map();let pan=null,pinch=null;
+  vp.addEventListener('wheel',e=>{e.preventDefault();const r=vp.getBoundingClientRect();gaZoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.15:1/1.15);},{passive:false});
+  vp.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.ga-zoom'))return;
+    vp.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===1)pan={sx:e.clientX,sy:e.clientY,vx:gaView.x,vy:gaView.y};
+    else if(ptrs.size===2){pan=null;const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:gaView.s};}
+  });
+  vp.addEventListener('pointermove',e=>{
+    if(!ptrs.has(e.pointerId))return;
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pinch&&ptrs.size===2){
+      const[a,b]=[...ptrs.values()];
+      const d=Math.hypot(a.x-b.x,a.y-b.y);if(!pinch.d)return;
+      const r=vp.getBoundingClientRect();
+      gaZoomAt((a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top,(pinch.s*(d/pinch.d))/gaView.s);
+    }else if(pan){
+      gaView.x=pan.vx+(e.clientX-pan.sx);gaView.y=pan.vy+(e.clientY-pan.sy);
+      vp.classList.add('dragging');gaApply();
+    }
+  });
+  const gaUp=e=>{
+    ptrs.delete(e.pointerId);
+    if(ptrs.size<2)pinch=null;
+    if(!ptrs.size){pan=null;vp.classList.remove('dragging');}
+    else if(ptrs.size===1){const[a]=[...ptrs.values()];pan={sx:a.x,sy:a.y,vx:gaView.x,vy:gaView.y};}
+  };
+  vp.addEventListener('pointerup',gaUp);vp.addEventListener('pointercancel',gaUp);
+}
+function openGaUploadModal(){
+  if(!currentProject){showToast('Please open a project first','error');return;}
+  if(!currentDecks.length){showToast('Please add a deck first','error');return;}
+  const sel=document.getElementById('ga-up-deck');
+  sel.innerHTML=currentDecks.map(d=>'<option value="'+d.id+'"'+(d.id===gaActiveDeckId?' selected':'')+'>'+escHtml(d.name)+'</option>').join('');
+  gaUpdateRevSuggestion();
+  document.getElementById('ga-up-file').value='';
+  document.getElementById('ga-up-notes').value='';
+  document.getElementById('ga-upload-overlay').classList.add('open');
+}
+function gaUpdateRevSuggestion(){
+  const deckId=document.getElementById('ga-up-deck').value;
+  let max=0;gaDeckPlans(deckId).forEach(p=>{const m=/^Rev ([A-Z])$/i.exec(p.revision||'');if(m)max=Math.max(max,m[1].toUpperCase().charCodeAt(0)-64);});
+  document.getElementById('ga-up-rev').value='Rev '+String.fromCharCode(65+Math.min(max,24));
+}
+function closeGaUploadModal(){document.getElementById('ga-upload-overlay').classList.remove('open');}
+async function saveGaPlan(){
+  const deckId=document.getElementById('ga-up-deck').value;
+  const file=(document.getElementById('ga-up-file').files||[])[0];
+  const revision=document.getElementById('ga-up-rev').value.trim()||'Rev A';
+  const notes=document.getElementById('ga-up-notes').value.trim()||null;
+  if(!deckId){showToast('Please choose a deck','error');return;}
+  if(!file){showToast('Please choose a plan image','error');return;}
+  if(!/^image\/(png|jpeg|webp)$/.test(file.type)){showToast('Please upload a PNG, JPG or WebP image','error');return;}
+  if(file.size>25*1024*1024){showToast('Image too large (25 MB maximum)','error');return;}
+  const btn=document.getElementById('ga-up-save');btn.textContent='Uploading…';btn.disabled=true;
+  try{
+    // Read the image dimensions locally before uploading
+    const dims=await new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>{const d={w:im.naturalWidth,h:im.naturalHeight};URL.revokeObjectURL(u);res(d);};im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('Could not read the image file'));};im.src=u;});
+    const ext=file.type==='image/png'?'png':(file.type==='image/webp'?'webp':'jpg');
+    const path=currentProject.id+'/'+deckId+'/'+Date.now()+'.'+ext;
+    await storageUpload(path,file);
+    // The previous current revision steps down first (one current per deck is DB-enforced)
+    await supaFetch('PATCH','deck_plans',{is_current:false},null,'deck_id=eq.'+deckId+'&is_current=eq.true');
+    await dbInsert('deck_plans',{project_id:currentProject.id,deck_id:deckId,revision,image_path:path,image_width:dims.w,image_height:dims.h,is_current:true,notes});
+    const deck=currentDecks.find(d=>d.id===deckId);
+    logChange('design','added','Uploaded GA plan '+revision+(deck?' for '+deck.name:''));
+    closeGaUploadModal();
+    gaActiveDeckId=deckId;gaViewRevId=null;
+    showToast('Plan uploaded','success');
+    await loadGaPlans();
+  }catch(e){showToast('Upload failed: '+e.message,'error');}
+  finally{btn.textContent='Upload Plan';btn.disabled=false;}
 }
 function updateDecksRoomsBtn(){
   const btn=document.getElementById('topbar-btn');if(!btn)return;
@@ -1937,7 +2118,7 @@ function updateDecksRoomsBtn(){
   if(activeDeckRoomTab==='decks'){btn.innerHTML=plus+'Add '+topNoun(true);btn.onclick=openNewDeckModal;btn.style.display='';}
   else if(activeDeckRoomTab==='floors'){btn.innerHTML=plus+'Add Floor';btn.onclick=openNewFloorModal;btn.style.display='';}
   else if(activeDeckRoomTab==='rooms'){btn.innerHTML=plus+'Add Room';btn.onclick=()=>openNewRoomModal(null);btn.style.display='';}
-  else if(activeDeckRoomTab==='ga'){btn.style.display='none';}
+  else if(activeDeckRoomTab==='ga'){btn.innerHTML=plus+'Upload Plan';btn.onclick=openGaUploadModal;btn.style.display='';}
   else{btn.innerHTML=plus+'Add Zone';btn.onclick=openNewZoneModal;btn.style.display='';}
 }
 
