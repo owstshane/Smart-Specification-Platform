@@ -2363,7 +2363,7 @@ function gaCloudPath(pts){
 function renderGaBounds(){
   const ov=document.getElementById('ga-overlay'),st=document.getElementById('ga-stage');
   if(!ov||!st||!gaImgW)return;
-  st.querySelectorAll('.ga-blabel,.ga-vtx,.ga-cloud-label').forEach(n=>n.remove());
+  st.querySelectorAll('.ga-blabel,.ga-vtx,.ga-delta').forEach(n=>n.remove());
   let svg='';
   gaClouds.forEach(cl=>{
     if(!Array.isArray(cl.points)||cl.points.length<3)return;
