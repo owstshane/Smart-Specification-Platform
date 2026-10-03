@@ -2287,15 +2287,25 @@ function renderGaPlans(){
   const showing=gaViewRevId?revs.find(p=>p.id===gaViewRevId)||gaCurrentPlan(gaActiveDeckId):gaCurrentPlan(gaActiveDeckId);
   let bar='<div class="ga-toolbar">'
     +currentDecks.map(d=>'<button class="ga-pill'+(d.id===gaActiveDeckId?' active':'')+'" onclick="gaSelectDeck(\''+d.id+'\')">'+escHtml(d.name)+(gaCurrentPlan(d.id)?'<span class="ga-dot"></span>':'')+'</button>').join('');
-  if(revs.length)bar+='<select onchange="gaSelectRev(this.value)" style="margin-left:auto;max-width:240px">'
-    +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
-  if(showing&&showing.is_current)bar+='<button class="btn btn-primary btn-sm" onclick="openGaPickModal()">+ Place Device</button>'
-    +'<button class="btn btn-secondary btn-sm" onclick="gaStartDraw()">Draw Room</button>'
-    +'<button class="btn btn-secondary btn-sm" onclick="gaStartEdit()">Edit Boundaries</button>'
-    +'<button class="btn btn-secondary btn-sm" onclick="gaStartCloud()">Rev Cloud</button>';
-  if(showing&&showing.is_current)bar+='<button class="btn btn-secondary btn-sm" onclick="gaUpRev()">Up-rev</button>'
-    +'<button class="btn btn-secondary btn-sm" onclick="gaToggleGridPanel()">Grid</button>';
-  if(showing)bar+='<button class="btn btn-secondary btn-sm" onclick="gaToggleRevLog()">Rev Log</button>';
+  // Toolbar order: actions (place/draw/edit/cloud), view tools (grid/rev log), then revision
+  // management (dropdown + up-rev) on the far right, with dividers between the groups.
+  const gaDiv='<span style="width:1px;align-self:stretch;background:var(--border-strong)"></span>';
+  let gaRight='';
+  if(showing&&showing.is_current){
+    gaRight+='<button class="btn btn-primary btn-sm" onclick="openGaPickModal()">+ Place Device</button>'
+      +'<button class="btn btn-secondary btn-sm" onclick="gaStartDraw()">Draw Room</button>'
+      +'<button class="btn btn-secondary btn-sm" onclick="gaStartEdit()">Edit Boundaries</button>'
+      +'<button class="btn btn-secondary btn-sm" onclick="gaStartCloud()">Rev Cloud</button>'
+      +gaDiv
+      +'<button class="btn btn-secondary btn-sm" onclick="gaToggleGridPanel()">Grid</button>';
+  }
+  if(showing)gaRight+='<button class="btn btn-secondary btn-sm" onclick="gaToggleRevLog()">Rev Log</button>';
+  if(revs.length){
+    gaRight+=gaDiv+'<select onchange="gaSelectRev(this.value)" style="max-width:200px">'
+      +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
+    if(showing&&showing.is_current)gaRight+='<button class="btn btn-secondary btn-sm" onclick="gaUpRev()">Up-rev</button>';
+  }
+  if(gaRight)bar+='<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+gaRight+'</span>';
   bar+='</div>';
   if(!showing){
     c.innerHTML=bar+'<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No plan for this deck yet</div><div class="empty-state-text">Upload the GA sheet for this deck as an image. Equipment pins and room boundaries will be placed on top of it.</div><button class="btn btn-primary" style="margin-top:12px" onclick="openGaUploadModal()">Upload Plan</button></div>';
