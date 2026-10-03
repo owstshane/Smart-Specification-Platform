@@ -320,7 +320,7 @@
   .ga-pill { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 14px; font-size: 13px; cursor: pointer; }
   .ga-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .ga-pill .ga-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-left: 6px; vertical-align: 1px; }
-  .ga-viewport { position: relative; overflow: hidden; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); height: calc(100vh - 310px); min-height: 380px; touch-action: none; cursor: grab; }
+  .ga-viewport { position: relative; overflow: hidden; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); height: calc(100vh - 310px); min-height: 380px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
   .ga-viewport.dragging { cursor: grabbing; }
   .ga-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
   .ga-stage img { display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; box-shadow: 0 2px 12px rgba(0,0,0,.15); background: #fff; }
@@ -345,7 +345,7 @@
   #ga-overlay polyline { fill: none; stroke: #0f6e8c; stroke-width: 2; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; }
   .ga-vtx { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #fff; border: 2px solid #0f6e8c; transform: scale(var(--ga-inv,1)); pointer-events: none; z-index: 2; }
   .ga-vtx.first { background: #0f6e8c; }
-  .ga-vtx.edit { pointer-events: auto; cursor: grab; width: 16px; height: 16px; margin: -8px 0 0 -8px; z-index: 3; touch-action: none; }
+  .ga-vtx.edit { pointer-events: auto; cursor: grab; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-width: 3px; z-index: 3; touch-action: none; }
   .ga-blabel { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); pointer-events: none; font-weight: 600; font-size: 12px; color: #0f4e63; background: rgba(255,255,255,.85); border-radius: 3px; padding: 0 5px; white-space: nowrap; z-index: 1; }
   .ga-blabel.unassigned { color: #8a5a12; }
   .ga-pick-row { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: center; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border); background: none; padding: 9px 10px; cursor: pointer; }
@@ -2111,7 +2111,7 @@ function renderGaPlans(){
     +'<div class="ga-viewport" id="ga-viewport">'
     +'<div class="ga-banner" id="ga-banner"><span id="ga-banner-text"></span><button id="ga-banner-btn" onclick="gaStopPlacing()">Stop</button></div>'
     +(showing.is_current?'':'<div class="ga-oldrev">Viewing '+escHtml(showing.revision)+' — not the current revision</div>')
-    +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan"><svg id="ga-overlay"></svg></div>'
+    +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan" draggable="false"><svg id="ga-overlay"></svg></div>'
     +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button></div>'
     +'</div>'
     +'<div style="margin-top:8px;font-size:12px;color:var(--text-3)">'+escHtml(showing.revision)+(showing.is_current?' (current)':'')+(showing.notes?' · '+escHtml(showing.notes):'')+' · <span id="ga-pin-count"></span></div>';
@@ -2250,6 +2250,8 @@ function wireGaViewport(){
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
     const vtxEl=gaMode==='edit'?e.target.closest('.ga-vtx.edit'):null;
     const pinEl=(gaMode==='pan'&&!vtxEl)?e.target.closest('.ga-pin'):null;
+    // Stop the browser starting its own image drag or selection when a handle/pin drag begins
+    if(vtxEl||pinEl)e.preventDefault();
     const boundEl=((gaMode==='pan'||gaMode==='edit')&&!pinEl&&!vtxEl&&e.target.closest)?e.target.closest('polygon[data-bound]'):null;
     if(ptrs.size===1){
       drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null};
