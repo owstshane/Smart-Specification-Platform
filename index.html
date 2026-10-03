@@ -1586,21 +1586,26 @@ function escJs(s){if(s==null)return'';return String(s).replace(/\\/g,'\\\\').rep
 // crafted value could break out of the attribute (stored XSS). Only a plain hex colour is
 // accepted; anything else falls back to a neutral grey (or the given fallback).
 function safeColour(c,fallback){return /^#[0-9a-fA-F]{3,8}$/.test(c||'')?c:(fallback||'#6b7280');}
-// Device ID scheme (Oct 2026, new placements only; existing IDs are never renumbered):
-// prefix = the device type ID up to its first hyphen, plus a 3-digit sequence per prefix per
-// project. Placing SPK-IC-1 gives SPK-001, SPK-002...; DISP-65 gives DISP-001. `allIds` is a
-// Set of every device_id in the project (kept updated so one batch never collides with itself);
-// `counters` caches the max sequence per prefix across one placement batch.
-function nextDeviceId(typeId,allIds,counters){
+// Device ID scheme (Oct 2026): TYPE prefix + location + 2-digit sequence. SPK-301-02 is the
+// second speaker in room 301; NET-Z1-01 is the first switch in rack zone Z1. Prefix = the
+// device type ID up to its first hyphen; location = room number (zone code for rack kit);
+// sequence counts per type per location. Shane's rule: the ID UPDATES when a device moves to
+// a different location (applies to new placements and future move flows such as GA pin drags;
+// data placed before Oct 2026 keeps its old IDs). `allIds` is a Set of every device_id in the
+// project, kept updated so one batch never collides with itself.
+function nextDeviceId(typeId,locLabel,allIds,counters){
+  const rxEsc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   const prefix=((String(typeId||'').split('-')[0]||'').toUpperCase())||'DEV';
-  if(counters[prefix]==null){
+  const loc=String(locLabel==null||locLabel===''?'0':locLabel).toUpperCase();
+  const key=prefix+'|'+loc;
+  if(counters[key]==null){
     let max=0;
-    const re=new RegExp('^'+prefix+'-(\\d+)$');
+    const re=new RegExp('^'+rxEsc(prefix)+'-'+rxEsc(loc)+'-(\\d+)$');
     allIds.forEach(id=>{const m=re.exec(id||'');if(m)max=Math.max(max,parseInt(m[1],10));});
-    counters[prefix]=max;
+    counters[key]=max;
   }
   let id;
-  do{counters[prefix]++;id=prefix+'-'+String(counters[prefix]).padStart(3,'0');}while(allIds.has(id));
+  do{counters[key]++;id=prefix+'-'+loc+'-'+String(counters[key]).padStart(2,'0');}while(allIds.has(id));
   allIds.add(id);
   return id;
 }
@@ -5209,7 +5214,8 @@ async function confirmApplyTemplate(){
             }
             // Skip if already placed in this room
             if(alreadyPlacedPeIds.includes(peEntry.id))continue;
-            const deviceId=nextDeviceId(item.device_type_id,allTplIds,tplIdCounters);
+            const tplRoom=currentRooms.find(r=>r.id===roomId);
+            const deviceId=nextDeviceId(item.device_type_id,(tplRoom&&(tplRoom.room_number||tplRoom.room_id))||'0',allTplIds,tplIdCounters);
             await dbInsert('equipment_instances',stampChange({project_id:currentProject.id,project_equipment_id:peEntry.id,room_id:roomId,quantity:item.quantity||1,device_id:deviceId},'added'));
             placed.push({room_id:roomId,project_equipment_id:peEntry.id});
             placed_count++;
@@ -6145,15 +6151,18 @@ async function savePlacement(){
   if(!locId){showToast('Please select a location','error');return;}
   const btn=document.getElementById('place-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{
-    // Device IDs are unique per PROJECT (DB-enforced): typed prefix + 3-digit sequence,
-    // generated against every existing ID in the project.
+    // Device IDs are unique per PROJECT (DB-enforced): TYPE-location-sequence, generated
+    // against every existing ID in the project.
     const allIds=new Set((await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&select=device_id')).map(r=>r.device_id).filter(Boolean));
     const idCounters={};
+    const locRoom=locType==='room'?currentRooms.find(r=>r.id===locId):null;
+    const locZone=locType==='zone'?currentZones.find(z=>z.id===locId):null;
+    const locLabel=locType==='room'?((locRoom&&(locRoom.room_number||locRoom.room_id))||'0'):((locZone&&locZone.zone_id)||'Z');
     const servesRoom=locType==='zone'?(document.getElementById('pl-serves-room')||{}).value||null:null;
     const payloads=[];
     for(const item of plItems){
       for(let i=0;i<item.quantity;i++){
-        const deviceId=nextDeviceId(item.typeId,allIds,idCounters);
+        const deviceId=nextDeviceId(item.typeId,locLabel,allIds,idCounters);
         const instPayload={
           project_id:currentProject.id,
           project_equipment_id:item.peId,
