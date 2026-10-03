@@ -2157,7 +2157,16 @@ function gaAutoIcon(typeId){
   if(/^(NVX|SRC|CTRL|SEC)/.test(id))return 'rackUnit';
   return 'generic';
 }
-function gaIconKey(d){return (d&&d.icon&&GA_ICONS[d.icon])?d.icon:gaAutoIcon(d?d.device_type_id:'');}
+// Icon precedence: the item's own icon, then the global library's icon for that type (so an
+// icon change on the Device Type flows to every project without re-pulling), then automatic.
+function gaIconKey(d){
+  if(d&&d.icon&&GA_ICONS[d.icon])return d.icon;
+  if(d&&d.global_equipment_id){
+    const g=globalLibrary.find(x=>x.id===d.global_equipment_id);
+    if(g&&g.icon&&GA_ICONS[g.icon])return g.icon;
+  }
+  return gaAutoIcon(d?d.device_type_id:'');
+}
 function gaIconSvg(key){
   const i=GA_ICONS[key]||GA_ICONS.generic;
   return '<svg viewBox="0 0 24 24" fill="'+(i.fill?'currentColor':'none')+'" fill-opacity="'+(i.fill?'.25':'1')+'" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+i.svg+'</svg>';
@@ -2237,6 +2246,7 @@ async function loadGaPins(planId){
     if(!placedEquipment.length)placedEquipment=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&order=created_at.asc');
     if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
     if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
+    if(!globalLibrary.length)globalLibrary=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
     const [pins,bounds]=await Promise.all([
       dbGet('plan_equipment_pins','deck_plan_id=eq.'+planId),
       dbGet('plan_room_boundaries','deck_plan_id=eq.'+planId)
