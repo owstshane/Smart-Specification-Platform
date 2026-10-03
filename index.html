@@ -2067,7 +2067,7 @@ function switchDeckRoomTab(tab){
 let gaPlans=[], gaActiveDeckId=null, gaViewRevId=null, gaView={s:1,x:0,y:0}, gaImgW=0, gaImgH=0, _gaSignedCache={};
 let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=null, gaEditPinId=null, gaLastLoc=null;
 let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
-let gaClouds=[], gaEditCloudId=null;
+let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='';
 // Pin colours by system group, icons by device type prefix
 const GA_GROUP_COLOURS={'Central Systems':'#6b7a89','Power, UPS & Battery':'#b7791f','Audio Visual System':'#c7811a','Control System':'#7b5ea7','IT System':'#2f6fd0','Lighting Control':'#3e8e4e','Motorised Window Treatments':'#8a5aa7','Access Control & Surveillance':'#c23b3b','Cinema System':'#8a2be2','Satellite & Communications':'#1a8fa6','Radio System':'#8a9a2b'};
 // Icon library (ported from the GA demo): 48 icons in 7 groups, picked per device type on the
@@ -2312,18 +2312,24 @@ function gaRoomForPoint(x,y){
     .sort((a,b)=>gaPolyArea(a.points)-gaPolyArea(b.points))[0];
   return hit?currentRooms.find(r=>r.id===hit.room_id)||null:null;
 }
-// Classic scalloped rev-cloud outline: every edge of the drawn polygon becomes a run of arcs.
+// Classic scalloped rev-cloud outline: every edge becomes a run of arcs. Winding is normalised
+// so the scallops always bulge OUTWARD whichever way the shape was drawn, and the scallop size
+// follows the cloud's own perimeter so small clouds stay in proportion.
 function gaCloudPath(pts){
-  const seg=Math.max(gaImgW,gaImgH)/55;
+  const shoelace=pts.reduce((a,p,i)=>{const q=pts[(i+1)%pts.length];return a+(p[0]*q[1]-q[0]*p[1]);},0);
+  const P=(shoelace<0?pts.slice().reverse():pts).map(p=>[p[0]*gaImgW,p[1]*gaImgH]);
+  let per=0;for(let i=0;i<P.length;i++){const q=P[(i+1)%P.length];per+=Math.hypot(q[0]-P[i][0],q[1]-P[i][1]);}
+  const imgMax=Math.max(gaImgW,gaImgH);
+  const seg=Math.min(Math.max(per/16,imgMax/160),imgMax/45);
   let d='';
-  for(let i=0;i<pts.length;i++){
-    const a=pts[i],b=pts[(i+1)%pts.length];
-    const ax=a[0]*gaImgW,ay=a[1]*gaImgH,bx=b[0]*gaImgW,by=b[1]*gaImgH;
-    const n=Math.max(1,Math.round(Math.hypot(bx-ax,by-ay)/seg));
-    const r=Math.hypot(bx-ax,by-ay)/n/1.7;
-    if(i===0)d='M'+ax.toFixed(1)+' '+ay.toFixed(1);
+  for(let i=0;i<P.length;i++){
+    const a=P[i],b=P[(i+1)%P.length];
+    const len=Math.hypot(b[0]-a[0],b[1]-a[1]);
+    const n=Math.max(1,Math.round(len/seg));
+    const r=Math.max(0.5,len/n/1.7);
+    if(i===0)d='M'+a[0].toFixed(1)+' '+a[1].toFixed(1);
     for(let s=1;s<=n;s++){
-      const x=ax+(bx-ax)*s/n,y=ay+(by-ay)*s/n;
+      const x=a[0]+(b[0]-a[0])*s/n,y=a[1]+(b[1]-a[1])*s/n;
       d+=' A'+r.toFixed(1)+' '+r.toFixed(1)+' 0 0 1 '+x.toFixed(1)+' '+y.toFixed(1);
     }
   }
@@ -2371,7 +2377,11 @@ function renderGaBounds(){
       });
     });
   }
-  if((gaMode==='draw'||gaMode==='cloud')&&gaDraft.length){
+  if(gaCloudPreview){
+    const [ax,ay,bx,by]=gaCloudPreview;
+    svg+='<path class="ga-cloud" style="opacity:.55" d="'+gaCloudPath([[ax,ay],[bx,ay],[bx,by],[ax,by]])+'"/>';
+  }
+  if(gaMode==='draw'&&gaDraft.length){
     svg+='<polyline points="'+gaDraft.map(p=>(p[0]*gaImgW)+','+(p[1]*gaImgH)).join(' ')+'"/>';
     gaDraft.forEach((p,i)=>{
       const v=document.createElement('div');
@@ -2448,8 +2458,9 @@ function wireGaViewport(){
     const boundEl=((gaMode==='pan'||gaMode==='edit')&&!pinEl&&!vtxEl&&e.target.closest)?e.target.closest('polygon[data-bound]'):null;
     const cloudEl=(gaMode==='pan'&&!pinEl&&!vtxEl&&!boundEl&&e.target.closest)?e.target.closest('path[data-cloud]'):null;
     if(ptrs.size===1){
-      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?cloudEl.dataset.cloud:null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null};
-      pan=(drag.pinId||drag.vtxBound)?null:{sx:e.clientX,sy:e.clientY,vx:gaView.x,vy:gaView.y};
+      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?cloudEl.dataset.cloud:null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null,cloudBox:gaMode==='cloud'};
+      if(drag.cloudBox){const [fx,fy]=gaToFraction(e.clientX,e.clientY);drag.fx0=Math.min(1,Math.max(0,fx));drag.fy0=Math.min(1,Math.max(0,fy));}
+      pan=(drag.pinId||drag.vtxBound||drag.cloudBox)?null:{sx:e.clientX,sy:e.clientY,vx:gaView.x,vy:gaView.y};
     }
     else if(ptrs.size===2){pan=null;drag=null;const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:gaView.s};}
   });
@@ -2464,6 +2475,12 @@ function wireGaViewport(){
       return;
     }
     if(drag&&!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>5)drag.moved=true;
+    if(drag&&drag.moved&&drag.cloudBox){
+      const [fx,fy]=gaToFraction(e.clientX,e.clientY);
+      gaCloudPreview=[drag.fx0,drag.fy0,Math.min(1,Math.max(0,fx)),Math.min(1,Math.max(0,fy))];
+      renderGaBounds();
+      return;
+    }
     if(drag&&drag.moved&&drag.vtxBound){
       const b=gaBounds.find(bb=>bb.id===drag.vtxBound);if(!b)return;
       const [x,y]=gaToFraction(e.clientX,e.clientY);
@@ -2488,6 +2505,25 @@ function wireGaViewport(){
     if(ptrs.size){return;}
     const d=drag;drag=null;pan=null;vp.classList.remove('dragging');
     if(!d)return;
+    if(d.cloudBox){
+      gaCloudPreview=null;
+      if(!d.moved){renderGaBounds();return;}
+      const [fx,fy]=gaToFraction(e.clientX,e.clientY);
+      const x1=Math.min(1,Math.max(0,fx)),y1=Math.min(1,Math.max(0,fy));
+      // Ignore accidental tiny drags (under ~14 screen px either way)
+      if(Math.abs(x1-d.fx0)*gaImgW*gaView.s<14||Math.abs(y1-d.fy0)*gaImgH*gaView.s<14){renderGaBounds();return;}
+      const pts=[[d.fx0,d.fy0],[x1,d.fy0],[x1,y1],[d.fx0,y1]];
+      const input=document.getElementById('ga-cloud-live-label');
+      const label=(input?input.value.trim():'')||null;
+      gaLastCloudLabel=label||'';
+      try{
+        const plan=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
+        const rows=await dbInsert('plan_rev_clouds',{deck_plan_id:plan.id,points:pts,label});
+        gaClouds.push(rows[0]);
+      }catch(err){showToast('Could not save the cloud: '+err.message,'error');}
+      renderGaBounds();
+      return;
+    }
     if(d.vtxBound){
       if(!d.moved)return;
       const b=gaBounds.find(bb=>bb.id===d.vtxBound);if(!b)return;
@@ -2512,7 +2548,7 @@ function wireGaViewport(){
     if(d.moved)return;
     const [x,y]=gaToFraction(e.clientX,e.clientY);
     const inside=x>=0&&x<=1&&y>=0&&y<=1;
-    if(gaMode==='draw'||gaMode==='cloud'){
+    if(gaMode==='draw'){
       if(!inside)return;
       if(gaDraft.length>=3){
         const fx=gaDraft[0][0],fy=gaDraft[0][1];
@@ -2640,7 +2676,7 @@ function gaArm(typeId){
   gaBanner('Tap the plan to place '+typeId+'. Each tap places one device.','Stop placing');
 }
 function gaStopPlacing(){
-  gaArmedTypeId=null;gaMode='pan';gaDraft=[];gaRedrawBoundId=null;
+  gaArmedTypeId=null;gaMode='pan';gaDraft=[];gaRedrawBoundId=null;gaCloudPreview=null;
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');}
   const b=document.getElementById('ga-banner');if(b)b.classList.remove('on');
   renderGaBounds();
@@ -2685,7 +2721,12 @@ function gaStartCloud(){
   if(!showing.is_current){showToast('Switch to the current revision to add a rev cloud','error');return;}
   gaMode='cloud';gaDraft=[];gaArmedTypeId=null;
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('drawing');vp.classList.remove('placing');}
-  gaBanner('Outline the changed area point by point. Tap the first point again to close the cloud.','Stop');
+  const b=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text'),btn=document.getElementById('ga-banner-btn');
+  if(b&&t){
+    t.innerHTML='Drag a box around each changed area.&nbsp;<input id="ga-cloud-live-label" type="text" placeholder="Reason (stamped on every cloud you draw)" value="'+escHtml(gaLastCloudLabel)+'" style="width:260px;max-width:45vw;padding:3px 8px;border:none;border-radius:5px;font-size:13px;color:#1b2a3a">';
+    if(btn)btn.textContent='Done';
+    b.classList.add('on');
+  }
 }
 function openGaCloudEdit(cloudId){
   const cl=gaClouds.find(c=>c.id===cloudId);if(!cl)return;
@@ -2734,16 +2775,8 @@ async function gaFinishDraft(){
   if(!plan)return;
   const pts=gaDraft.slice();
   const redrawId=gaRedrawBoundId;
-  const wasCloud=gaMode==='cloud';
   gaStopPlacing();
   try{
-    if(wasCloud){
-      const rows=await dbInsert('plan_rev_clouds',{deck_plan_id:plan.id,points:pts,label:null});
-      gaClouds.push(rows[0]);
-      renderGaBounds();
-      openGaCloudEdit(rows[0].id);
-      return;
-    }
     if(redrawId){
       // Redraw: replace the shape, keep the room assignment
       const b=gaBounds.find(x=>x.id===redrawId);
