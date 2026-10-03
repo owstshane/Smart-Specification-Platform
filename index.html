@@ -1586,6 +1586,24 @@ function escJs(s){if(s==null)return'';return String(s).replace(/\\/g,'\\\\').rep
 // crafted value could break out of the attribute (stored XSS). Only a plain hex colour is
 // accepted; anything else falls back to a neutral grey (or the given fallback).
 function safeColour(c,fallback){return /^#[0-9a-fA-F]{3,8}$/.test(c||'')?c:(fallback||'#6b7280');}
+// Device ID scheme (Oct 2026, new placements only; existing IDs are never renumbered):
+// prefix = the device type ID up to its first hyphen, plus a 3-digit sequence per prefix per
+// project. Placing SPK-IC-1 gives SPK-001, SPK-002...; DISP-65 gives DISP-001. `allIds` is a
+// Set of every device_id in the project (kept updated so one batch never collides with itself);
+// `counters` caches the max sequence per prefix across one placement batch.
+function nextDeviceId(typeId,allIds,counters){
+  const prefix=((String(typeId||'').split('-')[0]||'').toUpperCase())||'DEV';
+  if(counters[prefix]==null){
+    let max=0;
+    const re=new RegExp('^'+prefix+'-(\\d+)$');
+    allIds.forEach(id=>{const m=re.exec(id||'');if(m)max=Math.max(max,parseInt(m[1],10));});
+    counters[prefix]=max;
+  }
+  let id;
+  do{counters[prefix]++;id=prefix+'-'+String(counters[prefix]).padStart(3,'0');}while(allIds.has(id));
+  allIds.add(id);
+  return id;
+}
 // Sanitize generated spec HTML before it hits the live DOM. The spec engine renders stored,
 // user-editable rich text (project_spec_overrides.content / spec_section_library.content) raw so
 // tables and formatting survive — DOMPurify strips any injected <script>/onerror/onclick etc. while
@@ -5165,20 +5183,9 @@ async function confirmApplyTemplate(){
     // Load existing project equipment and placed equipment
     const pe=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&select=id,device_type_id');
     const placed=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&select=id,room_id,project_equipment_id,device_id');
-    // Next device-ID sequence per room from the max existing numeric suffix, NOT the row count:
-    // count-based numbering reused IDs after any deletion, creating duplicates.
-    const seqByRoom={};
-    const nextSeqForRoom=(roomId)=>{
-      if(seqByRoom[roomId]==null){
-        let max=0;
-        placed.filter(p=>p.room_id===roomId).forEach(p=>{const m=/-(\d+)$/.exec(p.device_id||'');if(m)max=Math.max(max,parseInt(m[1],10));});
-        seqByRoom[roomId]=max;
-      }
-      return ++seqByRoom[roomId];
-    };
-    // Device IDs are unique per PROJECT (DB-enforced), and room numbers can repeat across decks,
-    // so check candidates against every ID in the project and skip past any collision.
+    // Device IDs are unique per PROJECT (DB-enforced): typed prefix + 3-digit sequence.
     const allTplIds=new Set(placed.map(p=>p.device_id).filter(Boolean));
+    const tplIdCounters={};
     // Check if any selected room already has equipment
     const roomsWithEquip=[];
     for(const roomId of applyTemplateRoomSelections){
@@ -5202,11 +5209,7 @@ async function confirmApplyTemplate(){
             }
             // Skip if already placed in this room
             if(alreadyPlacedPeIds.includes(peEntry.id))continue;
-            // Generate device ID using in-memory room data (no DB round-trip)
-            const roomNum=(currentRooms.find(r=>r.id===roomId)||{}).room_number||'?';
-            let deviceId=roomNum+'-'+String(nextSeqForRoom(roomId)).padStart(4,'0');
-            while(allTplIds.has(deviceId))deviceId=roomNum+'-'+String(nextSeqForRoom(roomId)).padStart(4,'0');
-            allTplIds.add(deviceId);
+            const deviceId=nextDeviceId(item.device_type_id,allTplIds,tplIdCounters);
             await dbInsert('equipment_instances',stampChange({project_id:currentProject.id,project_equipment_id:peEntry.id,room_id:roomId,quantity:item.quantity||1,device_id:deviceId},'added'));
             placed.push({room_id:roomId,project_equipment_id:peEntry.id});
             placed_count++;
@@ -6142,24 +6145,15 @@ async function savePlacement(){
   if(!locId){showToast('Please select a location','error');return;}
   const btn=document.getElementById('place-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{
-    const room=locType==='room'?currentRooms.find(r=>r.id===locId):null;
-    const roomNum=room?room.room_number:'0';
-    // Load existing instances for this location to generate sequential IDs
-    const existing=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+(locType==='room'?'&room_id=eq.'+locId:'&rack_zone_id=eq.'+locId));
-    // Sequence from the max existing numeric suffix, NOT the row count: count-based numbering
-    // reused device IDs after any deletion, creating duplicates.
-    let seqBase=0;existing.forEach(p=>{const m=/-(\d+)$/.exec(p.device_id||'');if(m)seqBase=Math.max(seqBase,parseInt(m[1],10));});
-    // Device IDs are unique per PROJECT (DB-enforced), and room numbers can repeat across decks,
-    // so check candidates against every ID in the project and skip past any collision.
+    // Device IDs are unique per PROJECT (DB-enforced): typed prefix + 3-digit sequence,
+    // generated against every existing ID in the project.
     const allIds=new Set((await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&select=device_id')).map(r=>r.device_id).filter(Boolean));
+    const idCounters={};
     const servesRoom=locType==='zone'?(document.getElementById('pl-serves-room')||{}).value||null:null;
     const payloads=[];
     for(const item of plItems){
       for(let i=0;i<item.quantity;i++){
-        seqBase++;
-        let deviceId=(roomNum||'0')+'-'+String(seqBase).padStart(4,'0');
-        while(allIds.has(deviceId)){seqBase++;deviceId=(roomNum||'0')+'-'+String(seqBase).padStart(4,'0');}
-        allIds.add(deviceId);
+        const deviceId=nextDeviceId(item.typeId,allIds,idCounters);
         const instPayload={
           project_id:currentProject.id,
           project_equipment_id:item.peId,
