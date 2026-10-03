@@ -911,8 +911,10 @@
         <div class="section-tabs">
           <button class="section-tab active" id="tab-btn-sg" onclick="switchSgTab('groups')">System Groups</button>
           <button class="section-tab" id="tab-btn-dc" onclick="switchSgTab('categories')">Categories</button>
+          <button class="section-tab" id="tab-btn-icons" onclick="switchSgTab('icons')">Pin Icons</button>
         </div>
         <div id="sg-tab-groups"><div id="system-groups-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
+        <div id="sg-tab-icons" class="hidden"><div id="custom-icons-container"></div></div>
         <div id="sg-tab-categories" class="hidden">
           <div class="toolbar">
             <select id="dc-filter-group" onchange="renderDeviceCategories()" style="width:auto;padding:8px 11px"><option value="">All system groups</option></select>
@@ -1060,6 +1062,19 @@
       <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="fz-notes" rows="2"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeZoneModal()">Cancel</button><button class="btn btn-primary" onclick="saveZone()" id="zone-save-btn">Save Zone</button></div>
+  </div>
+</div>
+
+<!-- CUSTOM PIN ICON MODAL -->
+<div class="modal-overlay" id="ci-modal-overlay">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title">Add Pin Icon</div><button class="btn-icon" onclick="closeCiModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Name <span class="required">*</span></label><input type="text" id="ci-name" placeholder="e.g. TV Lift"></div>
+      <div class="form-group"><label>SVG file <span class="required">*</span></label><input type="file" id="ci-file" accept=".svg,image/svg+xml" onchange="ciPreview()"><div style="font-size:12px;color:var(--text-3);margin-top:6px">A simple single-colour SVG with a viewBox scales best. Scripts and event handlers are stripped for safety.</div></div>
+      <div id="ci-preview" style="display:none;align-items:center;gap:10px;font-size:13px;color:var(--text-2)"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeCiModal()">Cancel</button><button class="btn btn-primary" onclick="saveCustomIcon()" id="ci-save-btn">Add Icon</button></div>
   </div>
 </div>
 
@@ -2159,15 +2174,19 @@ function gaAutoIcon(typeId){
 }
 // Icon precedence: the item's own icon, then the global library's icon for that type (so an
 // icon change on the Device Type flows to every project without re-pulling), then automatic.
+// Keys starting "c:" are uploaded custom icons.
+function gaIconValid(key){return !!(GA_ICONS[key]||gaCustomIcon(key));}
 function gaIconKey(d){
-  if(d&&d.icon&&GA_ICONS[d.icon])return d.icon;
+  if(d&&d.icon&&gaIconValid(d.icon))return d.icon;
   if(d&&d.global_equipment_id){
     const g=globalLibrary.find(x=>x.id===d.global_equipment_id);
-    if(g&&g.icon&&GA_ICONS[g.icon])return g.icon;
+    if(g&&g.icon&&gaIconValid(g.icon))return g.icon;
   }
   return gaAutoIcon(d?d.device_type_id:'');
 }
 function gaIconSvg(key){
+  const ci=gaCustomIcon(key);
+  if(ci){const safe=sanitizeSvgIcon(ci.svg);if(safe)return safe;}
   const i=GA_ICONS[key]||GA_ICONS.generic;
   return '<svg viewBox="0 0 24 24" fill="'+(i.fill?'currentColor':'none')+'" fill-opacity="'+(i.fill?'.25':'1')+'" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+i.svg+'</svg>';
 }
@@ -2247,6 +2266,7 @@ async function loadGaPins(planId){
     if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
     if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
     if(!globalLibrary.length)globalLibrary=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
+    await loadCustomIcons();
     const [pins,bounds]=await Promise.all([
       dbGet('plan_equipment_pins','deck_plan_id=eq.'+planId),
       dbGet('plan_room_boundaries','deck_plan_id=eq.'+planId)
@@ -4947,14 +4967,110 @@ function switchSgTab(tab){
   activeSgTab=tab;
   document.getElementById('sg-tab-groups').classList.toggle('hidden',tab!=='groups');
   document.getElementById('sg-tab-categories').classList.toggle('hidden',tab!=='categories');
+  document.getElementById('sg-tab-icons').classList.toggle('hidden',tab!=='icons');
   document.getElementById('tab-btn-sg').classList.toggle('active',tab==='groups');
   document.getElementById('tab-btn-dc').classList.toggle('active',tab==='categories');
-  updateSgTabBtn();if(tab==='categories')loadDeviceCategories();
+  document.getElementById('tab-btn-icons').classList.toggle('active',tab==='icons');
+  updateSgTabBtn();
+  if(tab==='categories')loadDeviceCategories();else if(tab==='icons')loadCustomIconsPage();
 }
 function updateSgTabBtn(){
   const btn=document.getElementById('topbar-btn');if(!btn)return;
-  if(activeSgTab==='groups'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Group';btn.onclick=openSystemGroupModal;}
-  else{btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Category';btn.onclick=openDcModal;}
+  const plus='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> ';
+  if(activeSgTab==='groups'){btn.innerHTML=plus+'Add Group';btn.onclick=openSystemGroupModal;}
+  else if(activeSgTab==='icons'){btn.innerHTML=plus+'Add Icon';btn.onclick=openCiModal;}
+  else{btn.innerHTML=plus+'Add Category';btn.onclick=openDcModal;}
+}
+// ── CUSTOM PIN ICONS ──
+// Uploaded SVGs are sanitised with DOMPurify on save AND on render (fail closed: no sanitiser,
+// no custom icon), because raw SVG can carry scripts.
+let customIcons=[];
+function sanitizeSvgIcon(svg){
+  if(!(window.DOMPurify&&DOMPurify.sanitize))return null;
+  const clean=DOMPurify.sanitize(String(svg||''),{USE_PROFILES:{svg:true,svgFilters:true}});
+  return /^\s*<svg[\s>]/i.test(clean)?clean:null;
+}
+async function loadCustomIcons(){
+  if(customIcons.length)return;
+  try{customIcons=await dbGet('custom_icons','order=name.asc');}catch(e){console.warn('Could not load custom icons',e);}
+}
+function gaCustomIcon(key){return customIcons.find(c=>'c:'+c.id===key)||null;}
+async function loadCustomIconsPage(){
+  const c=document.getElementById('custom-icons-container');if(!c)return;
+  c.innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  customIcons=[];await loadCustomIcons();
+  renderCustomIconsPage();
+}
+function renderCustomIconsPage(){
+  const c=document.getElementById('custom-icons-container');if(!c)return;
+  let html='<div style="font-size:13px;color:var(--text-2);margin-bottom:14px">Icons mark devices on GA plans. Pick one per device type on the Device Type editor; Auto picks from the type ID. Upload your own below to extend the built-in set.</div>';
+  if(customIcons.length){
+    html+='<div class="form-section-title" style="margin-bottom:8px">Your icons</div><div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px">';
+    customIcons.forEach(ci=>{
+      const safe=sanitizeSvgIcon(ci.svg);
+      html+='<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;background:var(--surface)">'
+        +'<span style="width:24px;height:24px;display:grid;place-items:center;color:var(--text-2)"><span style="width:22px;height:22px;display:block">'+(safe||'')+'</span></span>'
+        +'<span style="font-size:13px;font-weight:600">'+escHtml(ci.name)+'</span>'
+        +'<button class="btn-icon btn-sm" title="Delete" onclick="confirmDeleteCustomIcon(\''+ci.id+'\',\''+escHtml(escJs(ci.name))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/></svg></button>'
+        +'</div>';
+    });
+    html+='</div>';
+  }else{
+    html+='<div style="font-size:13px;color:var(--text-3);margin-bottom:20px">No uploaded icons yet. Use Add Icon (top right) to upload an SVG.</div>';
+  }
+  html+='<div class="form-section-title" style="margin-bottom:8px">Built-in library</div>';
+  GA_ICON_GROUPS.forEach(g=>{
+    html+='<div style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);margin:10px 0 6px">'+escHtml(g)+'</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
+    Object.keys(GA_ICONS).forEach(k=>{
+      if(GA_ICONS[k].g!==g)return;
+      html+='<div title="'+escHtml(GA_ICONS[k].label)+'" style="width:36px;height:36px;border:1px solid var(--border);border-radius:6px;display:grid;place-items:center;color:var(--text-2);background:var(--surface)"><span style="width:20px;height:20px;display:block">'+gaIconSvg(k)+'</span></div>';
+    });
+    html+='</div>';
+  });
+  c.innerHTML=html;
+}
+function openCiModal(){
+  document.getElementById('ci-name').value='';
+  document.getElementById('ci-file').value='';
+  const p=document.getElementById('ci-preview');p.style.display='none';p.innerHTML='';
+  document.getElementById('ci-modal-overlay').classList.add('open');
+}
+function closeCiModal(){document.getElementById('ci-modal-overlay').classList.remove('open');}
+async function ciPreview(){
+  const f=(document.getElementById('ci-file').files||[])[0];
+  const p=document.getElementById('ci-preview');
+  if(!f){p.style.display='none';return;}
+  const text=await f.text();
+  const safe=sanitizeSvgIcon(text);
+  p.style.display='flex';
+  p.innerHTML=safe?'<span style="width:28px;height:28px;display:block;color:var(--text-1)">'+safe+'</span><span>Preview (shown at pin size)</span>':'<span style="color:var(--red)">This file is not a usable SVG.</span>';
+}
+async function saveCustomIcon(){
+  const name=document.getElementById('ci-name').value.trim();
+  const f=(document.getElementById('ci-file').files||[])[0];
+  if(!name){showToast('Please enter a name','error');return;}
+  if(!f){showToast('Please choose an SVG file','error');return;}
+  if(f.size>20*1024){showToast('SVG too large (20 KB maximum)','error');return;}
+  const btn=document.getElementById('ci-save-btn');btn.disabled=true;
+  try{
+    const text=await f.text();
+    const safe=sanitizeSvgIcon(text);
+    if(!safe){showToast('That file is not a usable SVG','error');return;}
+    const rows=await dbInsert('custom_icons',{name,svg:safe});
+    customIcons.push(rows[0]);customIcons.sort((a,b)=>a.name.localeCompare(b.name));
+    closeCiModal();renderCustomIconsPage();
+    showToast('Icon added','success');
+  }catch(e){showToast('Could not save: '+e.message,'error');}
+  finally{btn.disabled=false;}
+}
+function confirmDeleteCustomIcon(id,name){
+  openConfirm('Delete Icon','Delete "'+name+'"? Device types using it will fall back to their automatic icon.',async()=>{
+    try{
+      await dbDelete('custom_icons',id);
+      customIcons=customIcons.filter(c=>c.id!==id);
+      renderCustomIconsPage();showToast('Icon deleted','success');
+    }catch(e){showToast('Could not delete: '+e.message,'error');}
+  },'Delete','btn-danger');
 }
 async function loadSystemGroups(){
   document.getElementById('system-groups-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
@@ -5301,12 +5417,19 @@ function renderGdIconGrid(){
       html+='<button type="button" class="'+(gdIconSel===k?'sel':'')+'" title="'+escHtml(GA_ICONS[k].label)+'" onclick="gdIconSel=\''+k+'\';renderGdIconGrid()">'+gaIconSvg(k)+'</button>';
     });
   });
+  if(customIcons.length){
+    html+='<div class="ig">Your icons</div>';
+    customIcons.forEach(ci=>{
+      const k='c:'+ci.id;
+      html+='<button type="button" class="'+(gdIconSel===k?'sel':'')+'" title="'+escHtml(ci.name)+'" onclick="gdIconSel=\''+k+'\';renderGdIconGrid()">'+gaIconSvg(k)+'</button>';
+    });
+  }
   c.innerHTML=html;
 }
 async function openGlobalDeviceModal(){
   editingGlobalId=null;document.getElementById('gd-modal-title').textContent='Add Device Type';document.getElementById('gd-save-btn').textContent='Save Device Type';
   ['gd-type-id','gd-desc','gd-spec','gd-spec-text'].forEach(id=>document.getElementById(id).value='');
-  gdIconSel=null;renderGdIconGrid();
+  gdIconSel=null;await loadCustomIcons();renderGdIconGrid();
   document.getElementById('gd-subcat').innerHTML='<option value="">— None —</option>';
   document.getElementById('gd-group').value='';document.getElementById('gd-cat').value='';
   ['gd-lan','gd-poe-ports','gd-spk','gd-spk-watts','gd-power-watts','gd-heat-btu','gd-poe-budget','gd-budget-price'].forEach(id=>document.getElementById(id).value='');
@@ -5326,7 +5449,7 @@ async function openGlobalDeviceModal(){
 async function openEditGlobalDevice(id){
   const d=globalLibrary.find(d=>d.id===id);if(!d)return;editingGlobalId=id;
   document.getElementById('gd-modal-title').textContent='Edit Device Type';document.getElementById('gd-save-btn').textContent='Save Changes';
-  gdIconSel=(d.icon&&GA_ICONS[d.icon])?d.icon:null;renderGdIconGrid();
+  await loadCustomIcons();gdIconSel=(d.icon&&gaIconValid(d.icon))?d.icon:null;renderGdIconGrid();
   document.getElementById('gd-type-id').value=d.device_type_id||'';document.getElementById('gd-desc').value=d.description||'';document.getElementById('gd-spec').value=d.spec_ref||'';document.getElementById('gd-spec-text').value=d.spec_text||'';
   document.getElementById('gd-lan').value=d.lan_ports||'';document.getElementById('gd-poe-ports').value=d.poe_ports||'';
   document.getElementById('gd-poe').value=d.poe_type||'';
