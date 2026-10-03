@@ -2069,6 +2069,7 @@ const GA_ICONS={
   mic:_GI('Audio','Microphone','<rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>'),
   headphones:_GI('Audio','Headphones','<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/>'),
   tv:_GI('Video and control','Display','<rect x="2.5" y="4.5" width="19" height="12" rx="1"/><path d="M8 20.5h8M12 16.5v4"/>'),
+  videowall:_GI('Video and control','Videowall','<rect x="2.5" y="4" width="19" height="14" rx="1"/><path d="M12 4v14M2.5 11h19"/><path d="M8 21h8"/>'),
   projector:_GI('Video and control','Projector','<rect x="2.5" y="8" width="19" height="9" rx="2"/><circle cx="15.5" cy="12.5" r="2.5"/><path d="M6 12.5h4M5 17v2M19 17v2"/>'),
   screen:_GI('Video and control','Projection screen','<path d="M3 4h18M4 4v11h16V4M12 15v5M9 20h6"/>'),
   mediaBox:_GI('Video and control','Media player or decoder','<rect x="3" y="9" width="18" height="7" rx="2"/><path d="M7 19h10"/><circle cx="17" cy="12.5" r="1" fill="currentColor"/>'),
@@ -2090,6 +2091,7 @@ const GA_ICONS={
   phone:_GI('Network and IT','Phone','<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>'),
   antenna:_GI('Network and IT','Antenna','<path d="M12 9v12M8 21h8"/><path d="M8.5 5.5a5 5 0 0 0 0 7M15.5 5.5a5 5 0 0 1 0 7"/><circle cx="12" cy="9" r="1.5"/>'),
   satellite:_GI('Network and IT','Satellite dish','<path d="M4 13a8 8 0 0 0 7 7z"/><path d="M7.5 16.5l5-5M14 6a4 4 0 0 1 4 4M14 2.5a7.5 7.5 0 0 1 7.5 7.5"/>'),
+  radio:_GI('Network and IT','Handheld radio','<rect x="7" y="7" width="10" height="14.5" rx="2"/><path d="M10 7V2.5"/><path d="M10 11h4M10.5 17h3"/>'),
   domeCamera:_GI('Security','Dome camera','<path d="M3.5 8h17"/><path d="M6 8a6 6 0 0 0 12 0"/><circle cx="12" cy="11" r="2"/>'),
   ptz:_GI('Security','PTZ camera','<rect x="7" y="2.5" width="10" height="4" rx="1"/><circle cx="12" cy="14" r="6"/><circle cx="12" cy="14" r="2.2"/>'),
   fisheye:_GI('Security','Panoramic camera','<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22"/>'),
@@ -2130,6 +2132,7 @@ function gaAutoIcon(typeId){
   if(/PDU/.test(id))return 'pdu';
   if(id.startsWith('PWR'))return 'power';
   if(/POLE/.test(id))return 'pole';
+  if(/CABLE|HARNESS/.test(id))return 'generic';
   if(/MNT|^DISP-CM/.test(id))return 'mount';
   if(id.startsWith('LIFT'))return 'motor';
   if(/^REM-10|^SEC-SCS|^SCS/.test(id))return 'touchPanel';
@@ -2148,6 +2151,7 @@ function gaAutoIcon(typeId){
   if(/XBOX|GAME/.test(id))return 'gaming';
   if(/^SRC-(ATV|SAT)/.test(id))return 'mediaBox';
   if(/PROJ/.test(id))return 'projector';
+  if(/VW|VIDEOWALL/.test(id))return 'videowall';
   if(/DISP|^TV|^PC-MON/.test(id))return 'tv';
   if(/^PC/.test(id))return 'pc';
   if(id.startsWith('PRN'))return 'printer';
@@ -2165,9 +2169,10 @@ function gaAutoIcon(typeId){
   if(/INTERCOM/.test(id))return 'intercom';
   if(/^CB-/.test(id))return 'enclosure';
   if(/SENSOR|^LT-LOS/.test(id))return 'sensor';
-  if(/SHADE|^SHD/.test(id))return 'shade';
-  if(/KETRA|DOWNLIGHT/.test(id))return 'downlight';
+  if(/SHADE|^SHD|^LT-(QSPS|WIN)/.test(id))return 'shade';
+  if(/KETRA|DOWNLIGHT|D2/.test(id))return 'downlight';
   if(id.startsWith('LT'))return 'lightPanel';
+  if(/^RAD|RADIO|VHF/.test(id))return 'radio';
   if(/SAT-|^COMS/.test(id))return 'satellite';
   if(/^(NVX|SRC|CTRL|SEC)/.test(id))return 'rackUnit';
   return 'generic';
