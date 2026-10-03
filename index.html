@@ -348,7 +348,17 @@
   .ga-vtx.first { background: #0f6e8c; }
   .ga-vtx.edit { pointer-events: auto; cursor: grab; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-width: 3px; z-index: 3; touch-action: none; }
   #ga-overlay path.ga-cloud { fill: rgba(192,57,43,.05); stroke: #c0392b; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: visiblePainted; cursor: pointer; }
-  .ga-cloud-label { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); pointer-events: none; font-weight: 700; font-size: 12px; color: #fff; background: #c0392b; border-radius: 3px; padding: 1px 7px; white-space: nowrap; z-index: 1; }
+  #ga-overlay path.ga-cloud.flash { stroke-width: 4; fill: rgba(192,57,43,.18); }
+  .ga-delta { position: absolute; transform: translate(-50%,-100%) scale(var(--ga-inv,1)); transform-origin: 50% 100%; cursor: pointer; z-index: 2; width: 34px; height: 30px; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: #c0392b; color: #fff; display: grid; place-items: end center; font-weight: 700; font-size: 11px; padding-bottom: 2px; }
+  .ga-revlog { width: 272px; flex: none; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow-y: auto; }
+  .ga-revlog h3 { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin: 0; padding: 12px 14px 6px; }
+  .ga-revlog .rl-rev { padding: 6px 14px 2px; font-size: 12px; font-weight: 700; color: var(--text-2); border-top: 1px solid var(--border); }
+  .ga-revlog .rl-rev:first-of-type { border-top: 0; }
+  .ga-revlog .rl-row { display: grid; grid-template-columns: 34px 1fr; gap: 8px; width: 100%; text-align: left; border: 0; background: none; padding: 7px 14px; cursor: pointer; align-items: start; }
+  .ga-revlog .rl-row:hover { background: var(--surface2); }
+  .ga-revlog .rl-tag { width: 30px; height: 26px; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: #c0392b; color: #fff; display: grid; place-items: end center; font-weight: 700; font-size: 10px; padding-bottom: 2px; }
+  .ga-revlog .rl-desc { font-size: 12px; color: var(--text-1); line-height: 1.35; }
+  .ga-revlog .rl-meta { font-size: 11px; color: var(--text-3); margin-top: 1px; }
   .ga-blabel { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); pointer-events: none; font-weight: 600; font-size: 12px; color: #0f4e63; background: rgba(255,255,255,.85); border-radius: 3px; padding: 0 5px; white-space: nowrap; z-index: 1; }
   .ga-blabel.unassigned { color: #8a5a12; }
   .gd-icon-grid { display: flex; flex-wrap: wrap; gap: 5px; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; }
@@ -1111,7 +1121,8 @@
   <div class="modal" style="max-width:440px">
     <div class="modal-header"><div class="modal-title">Rev Cloud</div><button class="btn-icon" onclick="closeGaCloudModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-body">
-      <div class="form-group"><label>Label <span class="optional">what changed here</span></label><input type="text" id="ga-cloud-label" placeholder="e.g. CR-004: speakers relocated"></div>
+      <div class="form-group"><label>Change request <span class="optional">optional link</span></label><select id="ga-cloud-cr"><option value="">— No CR link —</option></select></div>
+      <div class="form-group"><label>Reason <span class="optional">free text, shown in the revision log</span></label><input type="text" id="ga-cloud-label" placeholder="e.g. speakers relocated to suit joinery"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-danger" onclick="gaDeleteCloud()" style="margin-right:auto">Delete</button><button class="btn btn-secondary" onclick="closeGaCloudModal()">Cancel</button><button class="btn btn-primary" onclick="gaSaveCloud()">Save</button></div>
   </div>
@@ -2002,6 +2013,7 @@ function resetProjectCaches(){
   roomTemplates=[];templateItems=[];
   plItems=[];plAlreadyPlaced=[];
   gaPlans=[];gaActiveDeckId=null;gaViewRevId=null;_gaSignedCache={};
+  gaCRs=[];gaDeckClouds=[];gaPendingFocus=null;
 }
 function closeProject(){
   currentProject=null;
@@ -2068,7 +2080,8 @@ function switchDeckRoomTab(tab){
 let gaPlans=[], gaActiveDeckId=null, gaViewRevId=null, gaView={s:1,x:0,y:0}, gaImgW=0, gaImgH=0, _gaSignedCache={};
 let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=null, gaEditPinId=null, gaLastLoc=null;
 let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
-let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='';
+let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='', gaLastCloudCrId='';
+let gaCRs=[], gaDeckClouds=[], gaRevLogOpen=true, gaPendingFocus=null;
 // Pin colours by system group, icons by device type prefix
 const GA_GROUP_COLOURS={'Central Systems':'#6b7a89','Power, UPS & Battery':'#b7791f','Audio Visual System':'#c7811a','Control System':'#7b5ea7','IT System':'#2f6fd0','Lighting Control':'#3e8e4e','Motorised Window Treatments':'#8a5aa7','Access Control & Surveillance':'#c23b3b','Cinema System':'#8a2be2','Satellite & Communications':'#1a8fa6','Radio System':'#8a9a2b'};
 // Icon library (ported from the GA demo): 48 icons in 7 groups, picked per device type on the
@@ -2262,17 +2275,21 @@ function renderGaPlans(){
     +'<button class="btn btn-secondary btn-sm" onclick="gaStartDraw()">Draw Room</button>'
     +'<button class="btn btn-secondary btn-sm" onclick="gaStartEdit()">Edit Boundaries</button>'
     +'<button class="btn btn-secondary btn-sm" onclick="gaStartCloud()">Rev Cloud</button>';
+  if(showing)bar+='<button class="btn btn-secondary btn-sm" onclick="gaToggleRevLog()">Rev Log</button>';
   bar+='</div>';
   if(!showing){
     c.innerHTML=bar+'<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No plan for this deck yet</div><div class="empty-state-text">Upload the GA sheet for this deck as an image. Equipment pins and room boundaries will be placed on top of it.</div><button class="btn btn-primary" style="margin-top:12px" onclick="openGaUploadModal()">Upload Plan</button></div>';
     return;
   }
   c.innerHTML=bar
-    +'<div class="ga-viewport" id="ga-viewport">'
+    +'<div style="display:flex;gap:12px;align-items:stretch">'
+    +'<div class="ga-viewport" id="ga-viewport" style="flex:1;min-width:0">'
     +'<div class="ga-banner" id="ga-banner"><span id="ga-banner-text"></span><button id="ga-banner-btn" onclick="gaStopPlacing()">Stop</button></div>'
     +(showing.is_current?'':'<div class="ga-oldrev">Viewing '+escHtml(showing.revision)+' — not the current revision</div>')
     +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan" draggable="false"><svg id="ga-overlay"></svg></div>'
     +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button></div>'
+    +'</div>'
+    +'<div class="ga-revlog" id="ga-revlog" style="display:'+(gaRevLogOpen?'':'none')+'"></div>'
     +'</div>'
     +'<div style="margin-top:8px;font-size:12px;color:var(--text-3)">'+escHtml(showing.revision)+(showing.is_current?' (current)':'')+(showing.notes?' · '+escHtml(showing.notes):'')+' · <span id="ga-pin-count"></span></div>';
   wireGaViewport();
@@ -2288,13 +2305,20 @@ async function loadGaPins(planId){
     if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
     if(!globalLibrary.length)globalLibrary=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
     await loadCustomIcons();
+    if(!gaCRs.length){
+      try{gaCRs=await dbGet('change_requests','project_id=eq.'+currentProject.id+'&select=id,cr_number,title,status&order=created_at.desc');}catch(e){gaCRs=[];}
+    }
+    // Clouds load deck-wide so the revision log shows the whole history for this deck
+    const deckPlanIds=gaDeckPlans(gaActiveDeckId).map(p=>p.id);
     const [pins,bounds,clouds]=await Promise.all([
       dbGet('plan_equipment_pins','deck_plan_id=eq.'+planId),
       dbGet('plan_room_boundaries','deck_plan_id=eq.'+planId),
-      dbGet('plan_rev_clouds','deck_plan_id=eq.'+planId)
+      deckPlanIds.length?dbGet('plan_rev_clouds','deck_plan_id=in.('+deckPlanIds.join(',')+')'+'&order=created_at.asc'):Promise.resolve([])
     ]);
-    gaPins=pins;gaBounds=bounds;gaClouds=clouds;
-    renderGaBounds();renderGaPins();
+    gaPins=pins;gaBounds=bounds;
+    gaDeckClouds=clouds;
+    gaClouds=gaDeckClouds.filter(c=>c.deck_plan_id===planId);
+    renderGaBounds();renderGaPins();renderGaRevLog();
   }catch(e){showToast('Could not load the plan layers: '+e.message,'error');}
 }
 // Point-in-polygon (ray cast) over this plan's boundaries; the smallest boundary containing
@@ -2344,15 +2368,17 @@ function renderGaBounds(){
   gaClouds.forEach(cl=>{
     if(!Array.isArray(cl.points)||cl.points.length<3)return;
     svg+='<path data-cloud="'+cl.id+'" class="ga-cloud" d="'+gaCloudPath(cl.points)+'"/>';
-    if(cl.label){
-      const ty=Math.min.apply(null,cl.points.map(p=>p[1]));
-      const cx=cl.points.reduce((a,p)=>a+p[0],0)/cl.points.length;
-      const lab=document.createElement('div');
-      lab.className='ga-cloud-label';
-      lab.textContent=cl.label;
-      lab.style.left=(cx*100)+'%';lab.style.top=(ty*100)+'%';
-      st.appendChild(lab);
-    }
+    // Standard drafting practice: the cloud carries only a delta tag; the description lives
+    // in the revision log panel.
+    const ty=Math.min.apply(null,cl.points.map(p=>p[1]));
+    const cx=cl.points.reduce((a,p)=>a+p[0],0)/cl.points.length;
+    const tag=document.createElement('div');
+    tag.className='ga-delta';
+    tag.dataset.cloudtag=cl.id;
+    tag.textContent=gaCloudTag(cl);
+    tag.title='Tap for details';
+    tag.style.left=(cx*100)+'%';tag.style.top=(ty*100)+'%';
+    st.appendChild(tag);
   });
   gaBounds.forEach(b=>{
     if(!Array.isArray(b.points)||b.points.length<3)return;
@@ -2427,7 +2453,8 @@ async function gaShowImage(plan){
       img.style.width=gaImgW+'px';img.style.height=gaImgH+'px';
       const ov=document.getElementById('ga-overlay');
       if(ov)ov.setAttribute('viewBox','0 0 '+gaImgW+' '+gaImgH);
-      gaFit();
+      if(gaPendingFocus){const f=gaPendingFocus;gaPendingFocus=null;gaFocusCloud(f);}
+      else gaFit();
       renderGaBounds();
     };
     img.src=url;
@@ -2457,9 +2484,9 @@ function wireGaViewport(){
     // Stop the browser starting its own image drag or selection when a handle/pin drag begins
     if(vtxEl||pinEl)e.preventDefault();
     const boundEl=(gaMode==='edit'&&!pinEl&&!vtxEl&&e.target.closest)?e.target.closest('polygon[data-bound]'):null;
-    const cloudEl=(gaMode==='pan'&&!pinEl&&!vtxEl&&!boundEl&&e.target.closest)?e.target.closest('path[data-cloud]'):null;
+    const cloudEl=(gaMode==='pan'&&!pinEl&&!vtxEl&&!boundEl&&e.target.closest)?(e.target.closest('path[data-cloud]')||e.target.closest('.ga-delta')):null;
     if(ptrs.size===1){
-      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?cloudEl.dataset.cloud:null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null,cloudBox:gaMode==='cloud'};
+      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?(cloudEl.dataset.cloud||cloudEl.dataset.cloudtag):null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null,cloudBox:gaMode==='cloud'};
       if(drag.cloudBox){const [fx,fy]=gaToFraction(e.clientX,e.clientY);drag.fx0=Math.min(1,Math.max(0,fx));drag.fy0=Math.min(1,Math.max(0,fy));}
       pan=(drag.pinId||drag.vtxBound||drag.cloudBox)?null:{sx:e.clientX,sy:e.clientY,vx:gaView.x,vy:gaView.y};
     }
@@ -2515,14 +2542,16 @@ function wireGaViewport(){
       if(Math.abs(x1-d.fx0)*gaImgW*gaView.s<14||Math.abs(y1-d.fy0)*gaImgH*gaView.s<14){renderGaBounds();return;}
       const pts=[[d.fx0,d.fy0],[x1,d.fy0],[x1,y1],[d.fx0,y1]];
       const input=document.getElementById('ga-cloud-live-label');
+      const crSel=document.getElementById('ga-cloud-live-cr');
       const label=(input?input.value.trim():'')||null;
-      gaLastCloudLabel=label||'';
+      const crId=(crSel?crSel.value:'')||null;
+      gaLastCloudLabel=label||'';gaLastCloudCrId=crId||'';
       try{
         const plan=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
-        const rows=await dbInsert('plan_rev_clouds',{deck_plan_id:plan.id,points:pts,label});
-        gaClouds.push(rows[0]);
+        const rows=await dbInsert('plan_rev_clouds',{deck_plan_id:plan.id,points:pts,label,cr_id:crId});
+        gaClouds.push(rows[0]);gaDeckClouds.push(rows[0]);
       }catch(err){showToast('Could not save the cloud: '+err.message,'error');}
-      renderGaBounds();
+      renderGaBounds();renderGaRevLog();
       return;
     }
     if(d.vtxBound){
@@ -2716,6 +2745,81 @@ async function gaCarryForward(fromPlanId,toPlanId){
     renderGaPlans();
   }catch(e){showToast('Carry forward failed: '+e.message,'error');}
 }
+// Revision letter from a plan's revision text: "Rev B" -> "B"
+function gaRevLetter(plan){
+  const m=/([A-Z0-9]+)\s*$/i.exec((plan&&plan.revision||'').trim());
+  return m?m[1].toUpperCase():'?';
+}
+// Delta tag for a cloud: revision letter + its sequence within that revision (B1, B2...)
+function gaCloudTag(cl){
+  const plan=gaPlans.find(p=>p.id===cl.deck_plan_id);
+  const seq=gaDeckClouds.filter(c=>c.deck_plan_id===cl.deck_plan_id).findIndex(c=>c.id===cl.id)+1;
+  return gaRevLetter(plan)+(seq||'');
+}
+function gaCloudDesc(cl){
+  const cr=cl.cr_id?gaCRs.find(c=>c.id===cl.cr_id):null;
+  if(cr&&cl.label)return cr.cr_number+': '+cl.label;
+  if(cr)return cr.cr_number+(cr.title?': '+cr.title:'');
+  return cl.label||'No description';
+}
+function gaCrOptions(selectedId){
+  return '<option value="">— No CR link —</option>'+gaCRs.map(c=>'<option value="'+c.id+'"'+(selectedId===c.id?' selected':'')+'>'+escHtml(c.cr_number+(c.title?' · '+c.title:''))+'</option>').join('');
+}
+function gaToggleRevLog(){
+  gaRevLogOpen=!gaRevLogOpen;
+  const p=document.getElementById('ga-revlog');
+  if(p)p.style.display=gaRevLogOpen?'':'none';
+}
+// The revision log: the drawing's revision table. Clouds grouped by revision, newest first,
+// each row showing the delta tag and its description (CR link or free text).
+function renderGaRevLog(){
+  const p=document.getElementById('ga-revlog');if(!p)return;
+  const revs=gaDeckPlans(gaActiveDeckId);
+  let html='<h3>Revision Log</h3>';
+  let any=false;
+  revs.forEach(plan=>{
+    const clouds=gaDeckClouds.filter(c=>c.deck_plan_id===plan.id);
+    if(!clouds.length)return;
+    any=true;
+    html+='<div class="rl-rev">'+escHtml(plan.revision)+(plan.is_current?' (current)':'')+' · '+formatDate((plan.created_at||'').slice(0,10))+'</div>';
+    clouds.forEach(cl=>{
+      html+='<button class="rl-row" onclick="gaRevLogGo(\''+plan.id+'\',\''+cl.id+'\')">'
+        +'<span class="rl-tag">'+escHtml(gaCloudTag(cl))+'</span>'
+        +'<span><span class="rl-desc">'+escHtml(gaCloudDesc(cl))+'</span><div class="rl-meta">'+formatDate((cl.created_at||'').slice(0,10))+'</div></span>'
+        +'</button>';
+    });
+  });
+  if(!any)html+='<div style="padding:10px 14px;font-size:12px;color:var(--text-3)">No rev clouds yet. Use Rev Cloud to mark changed areas; their reasons appear here.</div>';
+  p.innerHTML=html;
+}
+function gaRevLogGo(planId,cloudId){
+  const showing=gaViewRevId||((gaCurrentPlan(gaActiveDeckId)||{}).id);
+  if(planId===showing){gaFocusCloud(cloudId);return;}
+  gaPendingFocus=cloudId;
+  const current=gaCurrentPlan(gaActiveDeckId);
+  gaViewRevId=(current&&current.id===planId)?null:planId;
+  renderGaPlans();
+}
+// Centre the view on a cloud and flash it
+function gaFocusCloud(cloudId){
+  const cl=gaDeckClouds.find(c=>c.id===cloudId);
+  const vp=document.getElementById('ga-viewport');
+  if(!cl||!vp||!Array.isArray(cl.points))return;
+  const xs=cl.points.map(p=>p[0]),ys=cl.points.map(p=>p[1]);
+  const bx=(Math.min(...xs)+Math.max(...xs))/2*gaImgW, by=(Math.min(...ys)+Math.max(...ys))/2*gaImgH;
+  const bw=Math.max(1,(Math.max(...xs)-Math.min(...xs))*gaImgW), bh=Math.max(1,(Math.max(...ys)-Math.min(...ys))*gaImgH);
+  const r=vp.getBoundingClientRect();
+  gaView.s=Math.min(12,Math.max(0.05,Math.min(r.width/bw,r.height/bh)*0.42));
+  gaView.x=r.width/2-bx*gaView.s;gaView.y=r.height/2-by*gaView.s;
+  gaApply();
+  let tries=0;
+  const flash=()=>{
+    const el=document.querySelector('path[data-cloud="'+cloudId+'"]');
+    if(el){el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),2400);}
+    else if(++tries<5)setTimeout(flash,300);
+  };
+  flash();
+}
 function gaStartCloud(){
   const showing=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
   if(!showing){showToast('Upload a plan first','error');return;}
@@ -2724,35 +2828,40 @@ function gaStartCloud(){
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('drawing');vp.classList.remove('placing');}
   const b=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text'),btn=document.getElementById('ga-banner-btn');
   if(b&&t){
-    t.innerHTML='Drag a box around each changed area.&nbsp;<input id="ga-cloud-live-label" type="text" placeholder="Reason (stamped on every cloud you draw)" value="'+escHtml(gaLastCloudLabel)+'" style="width:260px;max-width:45vw;padding:3px 8px;border:none;border-radius:5px;font-size:13px;color:#1b2a3a">';
+    t.innerHTML='Drag a box around each changed area.&nbsp;'
+      +'<select id="ga-cloud-live-cr" style="max-width:190px;padding:3px 6px;border:none;border-radius:5px;font-size:13px;color:#1b2a3a">'+gaCrOptions(gaLastCloudCrId)+'</select>&nbsp;'
+      +'<input id="ga-cloud-live-label" type="text" placeholder="Reason (goes in the revision log)" value="'+escHtml(gaLastCloudLabel)+'" style="width:220px;max-width:38vw;padding:3px 8px;border:none;border-radius:5px;font-size:13px;color:#1b2a3a">';
     if(btn)btn.textContent='Done';
     b.classList.add('on');
   }
 }
 function openGaCloudEdit(cloudId){
-  const cl=gaClouds.find(c=>c.id===cloudId);if(!cl)return;
+  const cl=gaDeckClouds.find(c=>c.id===cloudId)||gaClouds.find(c=>c.id===cloudId);if(!cl)return;
   gaEditCloudId=cloudId;
   document.getElementById('ga-cloud-label').value=cl.label||'';
+  document.getElementById('ga-cloud-cr').innerHTML=gaCrOptions(cl.cr_id||'');
   document.getElementById('ga-cloud-overlay').classList.add('open');
 }
 function closeGaCloudModal(){document.getElementById('ga-cloud-overlay').classList.remove('open');gaEditCloudId=null;}
 async function gaSaveCloud(){
-  const cl=gaClouds.find(c=>c.id===gaEditCloudId);if(!cl)return;
+  const cl=gaDeckClouds.find(c=>c.id===gaEditCloudId)||gaClouds.find(c=>c.id===gaEditCloudId);if(!cl)return;
   const label=document.getElementById('ga-cloud-label').value.trim()||null;
+  const crId=document.getElementById('ga-cloud-cr').value||null;
   try{
-    await dbUpdate('plan_rev_clouds',cl.id,{label});
-    cl.label=label;
-    closeGaCloudModal();renderGaBounds();
+    await dbUpdate('plan_rev_clouds',cl.id,{label,cr_id:crId});
+    cl.label=label;cl.cr_id=crId;
+    closeGaCloudModal();renderGaBounds();renderGaRevLog();
   }catch(e){showToast('Could not save: '+e.message,'error');}
 }
 function gaDeleteCloud(){
-  const cl=gaClouds.find(c=>c.id===gaEditCloudId);if(!cl)return;
+  const cl=gaDeckClouds.find(c=>c.id===gaEditCloudId)||gaClouds.find(c=>c.id===gaEditCloudId);if(!cl)return;
   closeGaCloudModal();
   openConfirm('Delete Rev Cloud','Delete this rev cloud?',async()=>{
     try{
       await dbDelete('plan_rev_clouds',cl.id);
       gaClouds=gaClouds.filter(c=>c.id!==cl.id);
-      renderGaBounds();showToast('Rev cloud deleted','success');
+      gaDeckClouds=gaDeckClouds.filter(c=>c.id!==cl.id);
+      renderGaBounds();renderGaRevLog();showToast('Rev cloud deleted','success');
     }catch(e){showToast('Could not delete: '+e.message,'error');}
   },'Delete','btn-danger');
 }
