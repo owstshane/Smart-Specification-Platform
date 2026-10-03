@@ -348,6 +348,12 @@
   .ga-vtx.edit { pointer-events: auto; cursor: grab; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-width: 3px; z-index: 3; touch-action: none; }
   .ga-blabel { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); pointer-events: none; font-weight: 600; font-size: 12px; color: #0f4e63; background: rgba(255,255,255,.85); border-radius: 3px; padding: 0 5px; white-space: nowrap; z-index: 1; }
   .ga-blabel.unassigned { color: #8a5a12; }
+  .gd-icon-grid { display: flex; flex-wrap: wrap; gap: 5px; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; }
+  .gd-icon-grid .ig { flex-basis: 100%; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin-top: 4px; }
+  .gd-icon-grid button { width: 34px; height: 34px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); display: grid; place-items: center; cursor: pointer; color: var(--text-2); padding: 0; }
+  .gd-icon-grid button svg { width: 19px; height: 19px; }
+  .gd-icon-grid button.sel { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+  .gd-icon-grid button.auto { width: auto; padding: 0 10px; font-size: 12px; }
   .ga-pick-row { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: center; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border); background: none; padding: 9px 10px; cursor: pointer; }
   .ga-pick-row:hover { background: var(--surface2); }
   .ga-pick-dot { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; background: var(--c); color: #fff; }
@@ -1129,9 +1135,12 @@
   <div class="modal" style="max-width:620px">
     <div class="modal-header"><div class="modal-title" id="gd-modal-title">Add Device Type</div><button class="btn-icon" onclick="closeGlobalDeviceModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-body">
-      <div class="form-row form-row-2"><div><label>Device Type ID <span class="required">*</span></label><input type="text" id="gd-type-id" placeholder="e.g. DISP-65" oninput="this.value=this.value.toUpperCase()"></div><div><label>Description <span class="required">*</span></label><input type="text" id="gd-desc" placeholder='e.g. Display 65"'></div></div>
+      <div class="form-row form-row-2"><div><label>Device Type ID <span class="required">*</span></label><input type="text" id="gd-type-id" placeholder="e.g. DISP-65" oninput="this.value=this.value.toUpperCase();renderGdIconGrid()"></div><div><label>Description <span class="required">*</span></label><input type="text" id="gd-desc" placeholder='e.g. Display 65"'></div></div>
       <div class="form-row form-row-3"><div><label>System Group</label><select id="gd-group" onchange="filterGdCategories()"><option value="">— Select —</option></select></div><div><label>Category</label><select id="gd-cat" onchange="gdPopulateSubcats()"><option value="">— Select —</option></select></div><div><label>Spec Reference</label><input type="text" id="gd-spec" placeholder="e.g. A22"></div></div>
       <div class="form-row form-row-2"><div><label>Sub-category <span class="optional">optional</span></label><select id="gd-subcat"><option value="">— None —</option></select></div><div></div></div>
+      <div class="form-section"><div class="form-section-title">GA Pin Icon</div>
+        <div class="gd-icon-grid" id="gd-icon-grid"></div>
+      </div>
       <div class="form-section"><div class="form-section-title">Specification Text</div>
         <div><label>Features &amp; Functions <span class="optional">one per line; used to generate the specification</span></label><textarea id="gd-spec-text" rows="5" placeholder="e.g.&#10;Shall support 4K UHD resolution with HDR10 and HDR10+&#10;Shall receive sources via the AV-over-IP distribution system&#10;Shall be controllable from the room control device" style="width:100%;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);resize:vertical"></textarea></div>
       </div>
@@ -1371,6 +1380,7 @@
     <div class="modal-header"><div class="modal-title" id="sg-modal-title">Add System Group</div><button class="btn-icon" onclick="closeSgModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-body">
       <div class="form-row form-row-3"><div><label>Group Name <span class="required">*</span></label><input type="text" id="sg-name" placeholder="e.g. Audio Visual System"></div><div><label>Code <span class="required">*</span></label><input type="text" id="sg-code" placeholder="e.g. AV" maxlength="8" oninput="this.value=this.value.toUpperCase()"></div><div><label>Sort Order</label><input type="number" id="sg-order" placeholder="0" min="0"></div></div>
+      <div class="form-row form-row-2" style="margin-top:8px"><div><label>Colour <span class="optional">GA pins and legends</span></label><input type="color" id="sg-colour" value="#6b7280" style="padding:4px;height:38px;cursor:pointer;width:100%"></div><div></div></div>
       <div style="margin-top:4px"><label>General (CSI Part 1) <span class="optional">scope and overview of this system; one point per line</span></label><textarea id="sg-general" rows="4" style="width:100%;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);resize:vertical"></textarea></div>
       <div style="margin-top:8px"><label>Execution (CSI Part 3) <span class="optional">installation, testing, commissioning and training; one point per line</span></label><textarea id="sg-execution" rows="4" style="width:100%;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);resize:vertical"></textarea></div>
     </div>
@@ -2031,33 +2041,134 @@ let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=nul
 let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
 // Pin colours by system group, icons by device type prefix
 const GA_GROUP_COLOURS={'Central Systems':'#6b7a89','Power, UPS & Battery':'#b7791f','Audio Visual System':'#c7811a','Control System':'#7b5ea7','IT System':'#2f6fd0','Lighting Control':'#3e8e4e','Motorised Window Treatments':'#8a5aa7','Access Control & Surveillance':'#c23b3b','Cinema System':'#8a2be2','Satellite & Communications':'#1a8fa6','Radio System':'#8a9a2b'};
+// Icon library (ported from the GA demo): 48 icons in 7 groups, picked per device type on the
+// Device Type modal; a device with no icon falls back to the automatic match on its type ID.
+const GA_ICON_GROUPS=['Audio','Video and control','Network and IT','Security','Lighting and shades','Power and infrastructure','Shapes'];
+const _GI=(g,label,svg,fill)=>({g,label,svg,fill});
 const GA_ICONS={
-  SPK:'<rect x="6" y="3" width="12" height="18" rx="2"/><circle cx="12" cy="14" r="3.5"/><circle cx="12" cy="7" r="1"/>',
-  DISP:'<rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
-  AP:'<path d="M5 13a7 7 0 0 1 14 0"/><path d="M8.5 13a3.5 3.5 0 0 1 7 0"/><circle cx="12" cy="16" r="1.5"/>',
-  CAM:'<rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 10l7-3v10l-7-3"/>',
-  REM:'<rect x="7" y="2" width="10" height="20" rx="2"/><line x1="10" y1="18" x2="14" y2="18"/>',
-  NET:'<rect x="3" y="4" width="18" height="7" rx="1"/><rect x="3" y="13" width="18" height="7" rx="1"/><line x1="7" y1="7.5" x2="7" y2="7.6"/><line x1="7" y1="16.5" x2="7" y2="16.6"/>',
-  AMP:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="8" cy="12" r="2.5"/><circle cx="16" cy="12" r="2.5"/>',
-  LT:'<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>',
-  SEC:'<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/>',
-  DEV:'<rect x="4" y="4" width="16" height="16" rx="2"/>'
+  ceilingSpeaker:_GI('Audio','Ceiling speaker','<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/>'),
+  floorSpeaker:_GI('Audio','Wall or floor speaker','<rect x="6" y="2.5" width="12" height="19" rx="2"/><circle cx="12" cy="15" r="3.5"/><circle cx="12" cy="7" r="1.8"/>'),
+  subwoofer:_GI('Audio','Subwoofer','<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/>'),
+  soundbar:_GI('Audio','Soundbar','<rect x="2" y="9" width="20" height="6" rx="2"/><circle cx="6.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="17.5" cy="12" r="1.2"/>'),
+  amplifier:_GI('Audio','Amplifier','<rect x="2.5" y="7" width="19" height="10" rx="1"/><circle cx="17" cy="12" r="2.5"/><path d="M6 10h5M6 12h5M6 14h5"/>'),
+  mic:_GI('Audio','Microphone','<rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>'),
+  headphones:_GI('Audio','Headphones','<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/>'),
+  tv:_GI('Video and control','Display','<rect x="2.5" y="4.5" width="19" height="12" rx="1"/><path d="M8 20.5h8M12 16.5v4"/>'),
+  projector:_GI('Video and control','Projector','<rect x="2.5" y="8" width="19" height="9" rx="2"/><circle cx="15.5" cy="12.5" r="2.5"/><path d="M6 12.5h4M5 17v2M19 17v2"/>'),
+  screen:_GI('Video and control','Projection screen','<path d="M3 4h18M4 4v11h16V4M12 15v5M9 20h6"/>'),
+  mediaBox:_GI('Video and control','Media player or decoder','<rect x="3" y="9" width="18" height="7" rx="2"/><path d="M7 19h10"/><circle cx="17" cy="12.5" r="1" fill="currentColor"/>'),
+  gaming:_GI('Video and control','Games console','<path d="M7 8h10a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L14.5 13h-5l-1.1 1.8A3 3 0 0 1 3 13v-1a4 4 0 0 1 4-4z"/><path d="M7.5 10.5v3M6 12h3"/>'),
+  touchPanel:_GI('Video and control','Touch panel','<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M7 9.5h6M7 13.5h10"/><circle cx="17" cy="9.5" r="1"/>'),
+  tablet:_GI('Video and control','Tablet','<rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M11 18.5h2"/>'),
+  remote:_GI('Video and control','Remote','<rect x="8" y="2.5" width="8" height="19" rx="3"/><circle cx="12" cy="7" r="1.5"/><path d="M10.5 12h3M10.5 15h3"/>'),
+  keypad:_GI('Video and control','Keypad','<rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M9.5 7h5M9.5 11h5M9.5 15h5"/>'),
+  button:_GI('Video and control','Push button','<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/>'),
+  motor:_GI('Video and control','Motorised lift','<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M12 7v10M8.5 10.5L12 7l3.5 3.5M8.5 13.5L12 17l3.5-3.5"/>'),
+  ap:_GI('Network and IT','Wireless AP','<path d="M4.5 10a11 11 0 0 1 15 0M7.5 13.2a6.5 6.5 0 0 1 9 0M10.3 16.3a2.5 2.5 0 0 1 3.4 0"/><circle cx="12" cy="19.3" r="1" fill="currentColor"/>'),
+  outdoorAp:_GI('Network and IT','Outdoor AP','<path d="M5 8a10 10 0 0 1 14 0M8 11a5.5 5.5 0 0 1 8 0"/><rect x="9" y="14" width="6" height="7" rx="1"/>'),
+  outlet:_GI('Network and IT','Data outlet','<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M8 16v-5h2V9h4v2h2v5z"/>'),
+  switch:_GI('Network and IT','Network switch','<rect x="2.5" y="8" width="19" height="8" rx="1"/><path d="M6 11v2M9 11v2M12 11v2M15 11v2M18 11v2"/>'),
+  firewall:_GI('Network and IT','Firewall','<path d="M12 2.5l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10v-6z"/><path d="M8 11h8M8 14.5h8M12 11v3.5"/>'),
+  fibre:_GI('Network and IT','Fibre panel','<rect x="2.5" y="8" width="19" height="8" rx="1"/><circle cx="7" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="17" cy="12" r="1.5"/>'),
+  pc:_GI('Network and IT','PC','<rect x="2.5" y="4" width="13" height="10" rx="1"/><path d="M6 18h6M9 14v4"/><rect x="17.5" y="4" width="4" height="15" rx="1"/>'),
+  printer:_GI('Network and IT','Printer','<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="1"/><path d="M7 14h10v7H7z"/>'),
+  phone:_GI('Network and IT','Phone','<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>'),
+  antenna:_GI('Network and IT','Antenna','<path d="M12 9v12M8 21h8"/><path d="M8.5 5.5a5 5 0 0 0 0 7M15.5 5.5a5 5 0 0 1 0 7"/><circle cx="12" cy="9" r="1.5"/>'),
+  satellite:_GI('Network and IT','Satellite dish','<path d="M4 13a8 8 0 0 0 7 7z"/><path d="M7.5 16.5l5-5M14 6a4 4 0 0 1 4 4M14 2.5a7.5 7.5 0 0 1 7.5 7.5"/>'),
+  domeCamera:_GI('Security','Dome camera','<path d="M3.5 8h17"/><path d="M6 8a6 6 0 0 0 12 0"/><circle cx="12" cy="11" r="2"/>'),
+  ptz:_GI('Security','PTZ camera','<rect x="7" y="2.5" width="10" height="4" rx="1"/><circle cx="12" cy="14" r="6"/><circle cx="12" cy="14" r="2.2"/>'),
+  fisheye:_GI('Security','Panoramic camera','<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22"/>'),
+  bullet:_GI('Security','Bullet camera','<rect x="3" y="7" width="13" height="7" rx="2"/><path d="M16 9l5-2v7l-5-2M8 14v4H5"/>'),
+  intercom:_GI('Security','Intercom','<rect x="6" y="2.5" width="12" height="19" rx="2"/><circle cx="12" cy="8" r="2.5"/><path d="M9.5 14h5M9.5 17h5"/>'),
+  cardReader:_GI('Security','Access reader','<rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M9.5 9a3.5 3.5 0 0 1 5 0M10.8 11a1.7 1.7 0 0 1 2.4 0"/><circle cx="12" cy="16.5" r="1.2"/>'),
+  doorContact:_GI('Security','Door contact','<path d="M5 21V3h9v18"/><rect x="16" y="9" width="3" height="6" rx="1"/><circle cx="11.5" cy="12" r="1" fill="currentColor"/>'),
+  sensor:_GI('Security','Motion sensor','<path d="M5 13a7 7 0 0 1 14 0z"/><path d="M9 16.5l-1.5 4M15 16.5l1.5 4M12 16.5v4.5"/>'),
+  downlight:_GI('Lighting and shades','Downlight','<path d="M5 7h14l-2.5 4.5h-9z"/><path d="M12 14.5v4M8 14l-2 3.5M16 14l2 3.5"/>'),
+  pendant:_GI('Lighting and shades','Pendant light','<path d="M12 2.5v6M6 15a6 6 0 0 1 12 0z"/><path d="M10 18h4"/>'),
+  wallLight:_GI('Lighting and shades','Wall or bullet light','<path d="M5 4v16"/><path d="M5 8h5l5 4-5 4H5"/><path d="M18 10l2-1M18 14l2 1"/>'),
+  ledStrip:_GI('Lighting and shades','LED strip','<path d="M2.5 14h19"/><circle cx="5" cy="11" r="1.2"/><circle cx="9.5" cy="11" r="1.2"/><circle cx="14.5" cy="11" r="1.2"/><circle cx="19" cy="11" r="1.2"/>'),
+  lightPanel:_GI('Lighting and shades','Lighting panel','<rect x="4" y="2.5" width="16" height="19" rx="1"/><path d="M13.5 6l-3.5 6h4l-2 6"/>'),
+  shade:_GI('Lighting and shades','Shade','<path d="M3 4h18"/><rect x="5" y="4" width="14" height="12"/><path d="M12 16v3"/><circle cx="12" cy="20" r="1"/>'),
+  thermostat:_GI('Lighting and shades','Thermostat','<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>'),
+  rack:_GI('Power and infrastructure','Rack','<rect x="5" y="2.5" width="14" height="19" rx="1"/><path d="M8 6.5h8M8 10h8M8 13.5h8M8 17h8"/>'),
+  rackUnit:_GI('Power and infrastructure','Rack equipment','<rect x="2.5" y="8" width="19" height="8" rx="1"/><circle cx="6.5" cy="12" r="1" fill="currentColor"/><path d="M10 12h8"/>'),
+  enclosure:_GI('Power and infrastructure','Enclosure','<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M12 3v18M10 11v2M14 11v2"/>'),
+  power:_GI('Power and infrastructure','Power','<path d="M13 2.5L6 13.5h5l-1 8 7-11h-5z"/>'),
+  ups:_GI('Power and infrastructure','UPS','<rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M13 6.5l-3 5h3l-1 5 3-5.5h-3z"/>'),
+  pdu:_GI('Power and infrastructure','PDU','<rect x="9" y="2" width="6" height="20" rx="1"/><path d="M11 6h2M11 10h2M11 14h2M11 18h2"/>'),
+  mount:_GI('Power and infrastructure','Mount or bracket','<path d="M4 4v16M4 12h10"/><rect x="14" y="7" width="6" height="10" rx="1"/>'),
+  pole:_GI('Power and infrastructure','Pole','<path d="M12 21V6M8 21h8"/><path d="M12 6h6v4h-6"/>'),
+  generic:_GI('Power and infrastructure','Generic','<rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 12h6"/>'),
+  circle:_GI('Shapes','Circle','<circle cx="12" cy="12" r="8.5"/>',1),
+  square:_GI('Shapes','Square','<rect x="4" y="4" width="16" height="16"/>',1),
+  triangle:_GI('Shapes','Triangle','<path d="M12 3.5L21 20H3z"/>',1),
+  diamond:_GI('Shapes','Diamond','<path d="M12 2.5L21.5 12 12 21.5 2.5 12z"/>',1),
+  hexagon:_GI('Shapes','Hexagon','<path d="M7 3.5h10l5 8.5-5 8.5H7l-5-8.5z"/>',1),
+  star:_GI('Shapes','Star','<path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/>',1),
+  cross:_GI('Shapes','Cross','<path d="M12 4v16M4 12h16"/>')
 };
-function gaIconFor(typeId){
-  const t=String(typeId||'').toUpperCase();
-  if(t.startsWith('SPK')||t.startsWith('SUB'))return GA_ICONS.SPK;
-  if(t.startsWith('DISP')||t.startsWith('TV')||t.startsWith('PROJ'))return GA_ICONS.DISP;
-  if(t.startsWith('AP')||t.startsWith('WAP')||t.startsWith('WIFI'))return GA_ICONS.AP;
-  if(t.startsWith('CAM'))return GA_ICONS.CAM;
-  if(t.startsWith('REM')||t.startsWith('TP')||t.startsWith('KP'))return GA_ICONS.REM;
-  if(t.startsWith('NET')||t.startsWith('SWX')||t.startsWith('LAN')||t.startsWith('NVX'))return GA_ICONS.NET;
-  if(t.startsWith('AMP'))return GA_ICONS.AMP;
-  if(t.startsWith('LT')||t.startsWith('SHD'))return GA_ICONS.LT;
-  if(t.startsWith('SEC')||t.startsWith('ACS')||t.startsWith('CB'))return GA_ICONS.SEC;
-  return GA_ICONS.DEV;
+// Automatic icon from the device type ID, used when no icon is chosen on the Device Type modal.
+function gaAutoIcon(typeId){
+  const id=String(typeId||'').toUpperCase();
+  if(id.startsWith('RACK'))return 'rack';
+  if(/UPS/.test(id))return 'ups';
+  if(/PDU/.test(id))return 'pdu';
+  if(id.startsWith('PWR'))return 'power';
+  if(/POLE/.test(id))return 'pole';
+  if(/MNT|^DISP-CM/.test(id))return 'mount';
+  if(id.startsWith('LIFT'))return 'motor';
+  if(/^REM-10|^SEC-SCS|^SCS/.test(id))return 'touchPanel';
+  if(id.startsWith('REM-IPAD'))return 'tablet';
+  if(id==='REM-HR')return 'remote';
+  if(/BUTTON/.test(id))return 'button';
+  if(id==='SEC-KP')return 'cardReader';
+  if(/-KP|HQWT/.test(id))return 'keypad';
+  if(id.startsWith('SPK-SB'))return 'soundbar';
+  if(id==='SPK-HP')return 'headphones';
+  if(/^SPK-\d+-IC/.test(id))return 'ceilingSpeaker';
+  if(id.startsWith('SPK'))return 'floorSpeaker';
+  if(id.startsWith('SUB'))return 'subwoofer';
+  if(id.startsWith('AMP'))return 'amplifier';
+  if(/MIC/.test(id))return 'mic';
+  if(/XBOX|GAME/.test(id))return 'gaming';
+  if(/^SRC-(ATV|SAT)/.test(id))return 'mediaBox';
+  if(/PROJ/.test(id))return 'projector';
+  if(/DISP|^TV|^PC-MON/.test(id))return 'tv';
+  if(/^PC/.test(id))return 'pc';
+  if(id.startsWith('PRN'))return 'printer';
+  if(id.startsWith('AP-EXT'))return 'outdoorAp';
+  if(id.startsWith('AP')||/^WAP|WIFI/.test(id))return 'ap';
+  if(/^LAN|^SHORE/.test(id))return 'outlet';
+  if(id.startsWith('TEL'))return 'phone';
+  if(/SWX/.test(id))return 'switch';
+  if(/FIREWALL/.test(id))return 'firewall';
+  if(/FIBRE|FIBER/.test(id))return 'fibre';
+  if(id.startsWith('CAM-PANO'))return 'fisheye';
+  if(/^CAM-(BULLET|THERMAL)/.test(id))return 'bullet';
+  if(id.startsWith('CAM-PTZ'))return 'ptz';
+  if(/^CAM-|CONF-CAM/.test(id))return 'domeCamera';
+  if(/INTERCOM/.test(id))return 'intercom';
+  if(/^CB-/.test(id))return 'enclosure';
+  if(/SENSOR|^LT-LOS/.test(id))return 'sensor';
+  if(/SHADE|^SHD/.test(id))return 'shade';
+  if(/KETRA|DOWNLIGHT/.test(id))return 'downlight';
+  if(id.startsWith('LT'))return 'lightPanel';
+  if(/SAT-|^COMS/.test(id))return 'satellite';
+  if(/^(NVX|SRC|CTRL|SEC)/.test(id))return 'rackUnit';
+  return 'generic';
 }
-function gaIconSvg(typeId){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+gaIconFor(typeId)+'</svg>';}
-function gaGroupColour(group){return GA_GROUP_COLOURS[group]||'#6b7280';}
+function gaIconKey(d){return (d&&d.icon&&GA_ICONS[d.icon])?d.icon:gaAutoIcon(d?d.device_type_id:'');}
+function gaIconSvg(key){
+  const i=GA_ICONS[key]||GA_ICONS.generic;
+  return '<svg viewBox="0 0 24 24" fill="'+(i.fill?'currentColor':'none')+'" fill-opacity="'+(i.fill?'.25':'1')+'" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+i.svg+'</svg>';
+}
+// Group colour: the editable colour on the System Group (Groups & Categories page) wins;
+// the built-in palette is the fallback for groups without one.
+function gaGroupColour(group){
+  const g=systemGroups.find(x=>x.name===group);
+  if(g&&g.colour)return safeColour(g.colour,GA_GROUP_COLOURS[group]||'#6b7280');
+  return GA_GROUP_COLOURS[group]||'#6b7280';
+}
 async function storageUpload(path,file){
   await refreshTokenIfNeeded();
   const res=await fetch(SUPABASE_URL+'/storage/v1/object/deck-plans/'+path,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':getAuthHeader(),'Content-Type':file.type||'application/octet-stream'},body:file});
@@ -2125,6 +2236,7 @@ async function loadGaPins(planId){
     if(!projectEquipment.length)projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
     if(!placedEquipment.length)placedEquipment=await dbGet('equipment_instances','project_id=eq.'+currentProject.id+'&order=created_at.asc');
     if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
+    if(!systemGroups.length)systemGroups=await dbGet('system_groups','order=sort_order.asc,name.asc');
     const [pins,bounds]=await Promise.all([
       dbGet('plan_equipment_pins','deck_plan_id=eq.'+planId),
       dbGet('plan_room_boundaries','deck_plan_id=eq.'+planId)
@@ -2206,7 +2318,7 @@ function renderGaPins(){
     el.style.left=(pin.x*100)+'%';el.style.top=(pin.y*100)+'%';
     el.style.setProperty('--c',gaGroupColour(pe.system_group));
     el.title=(inst.device_id||'')+(pe.description?': '+pe.description:'');
-    el.innerHTML='<span class="mark">'+gaIconSvg(pe.device_type_id)+'</span><span class="tag">'+escHtml(inst.device_id||'?')+'</span>';
+    el.innerHTML='<span class="mark">'+gaIconSvg(gaIconKey(pe))+'</span><span class="tag">'+escHtml(inst.device_id||'?')+'</span>';
     st.appendChild(el);shown++;
   });
   const cnt=document.getElementById('ga-pin-count');
@@ -2417,7 +2529,7 @@ function renderGaPickList(){
     const g=d.system_group||'Other';
     if(g!==lastGroup){html+='<div style="padding:7px 10px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);background:var(--surface2)">'+escHtml(g)+'</div>';lastGroup=g;}
     html+='<button class="ga-pick-row" onclick="gaArm(\''+escHtml(escJs(d.device_type_id))+'\')">'
-      +'<span class="ga-pick-dot" style="--c:'+gaGroupColour(d.system_group)+';background:'+gaGroupColour(d.system_group)+'">'+gaIconSvg(d.device_type_id)+'</span>'
+      +'<span class="ga-pick-dot" style="--c:'+gaGroupColour(d.system_group)+';background:'+gaGroupColour(d.system_group)+'">'+gaIconSvg(gaIconKey(d))+'</span>'
       +'<span><span style="font-weight:600;font-size:13px">'+escHtml(d.device_type_id)+'</span> <span style="color:var(--text-3);font-size:12px">'+escHtml(d.description||'')+'</span></span></button>';
   });
   list.innerHTML=html;
@@ -4875,13 +4987,13 @@ async function moveSgItem(id,direction){
   try{await Promise.all(systemGroups.map((g,i)=>dbUpdate('system_groups',g.id,{sort_order:i+1})));}
   catch(e){showToast('Could not save order','error');loadSystemGroups();}
 }
-function openSystemGroupModal(){editingSgId=null;document.getElementById('sg-modal-title').textContent='Add System Group';document.getElementById('sg-save-btn').textContent='Save Group';document.getElementById('sg-name').value='';document.getElementById('sg-code').value='';document.getElementById('sg-order').value=systemGroups.length;document.getElementById('sg-general').value='';document.getElementById('sg-execution').value='';document.getElementById('sg-modal-overlay').classList.add('open');}
-function openEditSgModal(id){const g=systemGroups.find(g=>g.id===id);if(!g)return;editingSgId=id;document.getElementById('sg-modal-title').textContent='Edit System Group';document.getElementById('sg-save-btn').textContent='Save Changes';document.getElementById('sg-name').value=g.name||'';document.getElementById('sg-code').value=g.code||'';document.getElementById('sg-order').value=g.sort_order||0;document.getElementById('sg-general').value=g.general_text||'';document.getElementById('sg-execution').value=g.execution_text||'';document.getElementById('sg-modal-overlay').classList.add('open');}
+function openSystemGroupModal(){editingSgId=null;document.getElementById('sg-modal-title').textContent='Add System Group';document.getElementById('sg-save-btn').textContent='Save Group';document.getElementById('sg-name').value='';document.getElementById('sg-code').value='';document.getElementById('sg-order').value=systemGroups.length;document.getElementById('sg-general').value='';document.getElementById('sg-execution').value='';document.getElementById('sg-colour').value='#6b7280';document.getElementById('sg-modal-overlay').classList.add('open');}
+function openEditSgModal(id){const g=systemGroups.find(g=>g.id===id);if(!g)return;editingSgId=id;document.getElementById('sg-modal-title').textContent='Edit System Group';document.getElementById('sg-save-btn').textContent='Save Changes';document.getElementById('sg-name').value=g.name||'';document.getElementById('sg-code').value=g.code||'';document.getElementById('sg-order').value=g.sort_order||0;document.getElementById('sg-general').value=g.general_text||'';document.getElementById('sg-execution').value=g.execution_text||'';document.getElementById('sg-colour').value=safeColour(g.colour,GA_GROUP_COLOURS[g.name]||'#6b7280');document.getElementById('sg-modal-overlay').classList.add('open');}
 function closeSgModal(){document.getElementById('sg-modal-overlay').classList.remove('open');}
 async function saveSystemGroup(){
   const name=document.getElementById('sg-name').value.trim(),code=document.getElementById('sg-code').value.trim().toUpperCase();
   if(!name){showToast('Please enter a group name','error');return;}if(!code){showToast('Please enter a code','error');return;}
-  const payload={name,code,sort_order:parseInt(document.getElementById('sg-order').value)||0,general_text:document.getElementById('sg-general').value.trim()||null,execution_text:document.getElementById('sg-execution').value.trim()||null};
+  const payload={name,code,sort_order:parseInt(document.getElementById('sg-order').value)||0,general_text:document.getElementById('sg-general').value.trim()||null,execution_text:document.getElementById('sg-execution').value.trim()||null,colour:safeColour(document.getElementById('sg-colour').value,'')||null};
   const btn=document.getElementById('sg-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{
     if(editingSgId){
@@ -5165,9 +5277,26 @@ async function loadCategoryOptions(selectedCode){
   const sel=document.getElementById('gd-cat');
   sel.innerHTML='<option value="">— Select —</option>'+filtered.map(d=>'<option value="'+escHtml(d.code)+'"'+(d.code===selectedCode?' selected':'')+'>'+escHtml(d.code)+' — '+escHtml(d.name)+'</option>').join('');
 }
+// Chosen icon key for the device type being edited (null = automatic from the type ID)
+let gdIconSel=null;
+function renderGdIconGrid(){
+  const c=document.getElementById('gd-icon-grid');if(!c)return;
+  const typeId=document.getElementById('gd-type-id').value;
+  const autoLabel=(GA_ICONS[gaAutoIcon(typeId)]||{}).label||'';
+  let html='<button type="button" class="auto'+(gdIconSel?'':' sel')+'" onclick="gdIconSel=null;renderGdIconGrid()">Auto'+(typeId&&autoLabel?' · '+escHtml(autoLabel):'')+'</button>';
+  GA_ICON_GROUPS.forEach(g=>{
+    html+='<div class="ig">'+escHtml(g)+'</div>';
+    Object.keys(GA_ICONS).forEach(k=>{
+      if(GA_ICONS[k].g!==g)return;
+      html+='<button type="button" class="'+(gdIconSel===k?'sel':'')+'" title="'+escHtml(GA_ICONS[k].label)+'" onclick="gdIconSel=\''+k+'\';renderGdIconGrid()">'+gaIconSvg(k)+'</button>';
+    });
+  });
+  c.innerHTML=html;
+}
 async function openGlobalDeviceModal(){
   editingGlobalId=null;document.getElementById('gd-modal-title').textContent='Add Device Type';document.getElementById('gd-save-btn').textContent='Save Device Type';
   ['gd-type-id','gd-desc','gd-spec','gd-spec-text'].forEach(id=>document.getElementById(id).value='');
+  gdIconSel=null;renderGdIconGrid();
   document.getElementById('gd-subcat').innerHTML='<option value="">— None —</option>';
   document.getElementById('gd-group').value='';document.getElementById('gd-cat').value='';
   ['gd-lan','gd-poe-ports','gd-spk','gd-spk-watts','gd-power-watts','gd-heat-btu','gd-poe-budget','gd-budget-price'].forEach(id=>document.getElementById(id).value='');
@@ -5187,6 +5316,7 @@ async function openGlobalDeviceModal(){
 async function openEditGlobalDevice(id){
   const d=globalLibrary.find(d=>d.id===id);if(!d)return;editingGlobalId=id;
   document.getElementById('gd-modal-title').textContent='Edit Device Type';document.getElementById('gd-save-btn').textContent='Save Changes';
+  gdIconSel=(d.icon&&GA_ICONS[d.icon])?d.icon:null;renderGdIconGrid();
   document.getElementById('gd-type-id').value=d.device_type_id||'';document.getElementById('gd-desc').value=d.description||'';document.getElementById('gd-spec').value=d.spec_ref||'';document.getElementById('gd-spec-text').value=d.spec_text||'';
   document.getElementById('gd-lan').value=d.lan_ports||'';document.getElementById('gd-poe-ports').value=d.poe_ports||'';
   document.getElementById('gd-poe').value=d.poe_type||'';
@@ -5214,7 +5344,7 @@ async function saveGlobalDevice(){
   if(!typeId){showToast('Please enter a device type ID','error');return;}if(!desc){showToast('Please enter a description','error');return;}
   const poePorts=parseInt(document.getElementById('gd-poe-ports').value)||0;
   const pwrType=document.getElementById('gd-pwr-type').value||null;
-  const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value||null,system_group:document.getElementById('gd-group').value||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('gd-poe').value||null:null,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,spk_watts:parseFloat(document.getElementById('gd-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('gd-power-watts').value)||null,poe_budget_watts:parseFloat(document.getElementById('gd-poe-budget').value)||null,heat_btu:parseFloat(document.getElementById('gd-heat-btu').value)||null,ups_protected:document.getElementById('gd-ups-protected').checked,network_role:document.getElementById('gd-network-role').value||'none',avip_role:document.getElementById('gd-avip-role').value||'none',audio_role:document.getElementById('gd-audio-role').value||'none',budget_price:parseFloat(document.getElementById('gd-budget-price').value)||null,currency:document.getElementById('gd-currency').value||'USD',spec_text:document.getElementById('gd-spec-text').value.trim()||null,subcategory_code:document.getElementById('gd-subcat').value||null};
+  const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value||null,system_group:document.getElementById('gd-group').value||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('gd-poe').value||null:null,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,spk_watts:parseFloat(document.getElementById('gd-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('gd-power-watts').value)||null,poe_budget_watts:parseFloat(document.getElementById('gd-poe-budget').value)||null,heat_btu:parseFloat(document.getElementById('gd-heat-btu').value)||null,ups_protected:document.getElementById('gd-ups-protected').checked,network_role:document.getElementById('gd-network-role').value||'none',avip_role:document.getElementById('gd-avip-role').value||'none',audio_role:document.getElementById('gd-audio-role').value||'none',budget_price:parseFloat(document.getElementById('gd-budget-price').value)||null,currency:document.getElementById('gd-currency').value||'USD',spec_text:document.getElementById('gd-spec-text').value.trim()||null,subcategory_code:document.getElementById('gd-subcat').value||null,icon:gdIconSel||null};
   const btn=document.getElementById('gd-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{if(editingGlobalId){await dbUpdate('global_equipment',editingGlobalId,payload);showToast('Device type updated','success');}else{await dbInsert('global_equipment',payload);showToast('Device type added','success');}closeGlobalDeviceModal();loadGlobalLibrary();}
   catch(e){showToast('Could not save: '+e.message,'error');}
@@ -6360,7 +6490,8 @@ function _peFromGlobal(d){
     speaker_channels:d.speaker_channels||null,
     spk_watts:d.spk_watts||null,
     budget_price:d.budget_price||null,
-    currency:d.currency||'USD'
+    currency:d.currency||'USD',
+    icon:d.icon||null
   };
 }
 // ── QUICK PULL (single device type from global library) ──
