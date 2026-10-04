@@ -332,6 +332,8 @@
   .ga-banner.on { display: flex; }
   .ga-banner button { margin-left: auto; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.5); color: #fff; border-radius: 6px; padding: 3px 12px; cursor: pointer; }
   .ga-pin { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); display: flex; align-items: center; cursor: pointer; white-space: nowrap; touch-action: none; z-index: 2; }
+  .ga-pin.prewire { opacity: .55; }
+  .ga-pin.prewire .mark { outline: 2px dashed currentColor; outline-offset: 1px; border-radius: 50%; }
   .ga-pin .mark { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--c); background: #fff; color: var(--c); display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
   .ga-pin .mark svg { width: 17px; height: 17px; }
   .ga-pin .tag { pointer-events: none; position: absolute; left: 34px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,.92); color: #1b2a3a; border: 1px solid var(--c); border-radius: 3px; padding: 0 4px; }
@@ -1130,6 +1132,7 @@
     <div class="modal-body">
       <div id="ga-pin-info" style="font-size:13px;color:var(--text-2);margin-bottom:14px"></div>
       <div class="form-group"><label>Location <span class="required">*</span></label><select id="ga-pin-room"></select></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="ga-pin-prewire" style="width:auto;margin:0"><label for="ga-pin-prewire" style="margin:0;cursor:pointer">Pre-wire only (cabling now, device later)</label></div>
       <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="ga-pin-notes" rows="2"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-danger" id="ga-pin-delete" onclick="gaDeleteSelectedPin()" style="margin-right:auto;display:none">Delete</button><button class="btn btn-secondary" onclick="closeGaPinModal()">Cancel</button><button class="btn btn-primary" onclick="gaSavePin()" id="ga-pin-save">Place Device</button></div>
@@ -1428,6 +1431,10 @@
       <div id="pl-serves-room-row" style="display:none;margin-bottom:16px">
         <label class="form-label">Serves Room <span class="optional">optional — for feature matrix</span></label>
         <select id="pl-serves-room" style="max-width:340px"><option value="">— None / not room-specific —</option></select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <input type="checkbox" id="pl-prewire" style="width:auto;margin:0">
+        <label for="pl-prewire" style="margin:0;font-size:13px;cursor:pointer">Pre-wire only (cabling now, devices later). Excluded from power and network loads.</label>
       </div>
       <div class="tmpl-builder" style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
         <div class="tmpl-browser">
@@ -2632,11 +2639,11 @@ function renderGaPins(){
     if(!inst||inst.change_status==='removed')return;
     const pe=peById[inst.project_equipment_id]||{};
     const el=document.createElement('div');
-    el.className='ga-pin'+(gaSelPinId===pin.id?' sel':'');
+    el.className='ga-pin'+(gaSelPinId===pin.id?' sel':'')+(inst.pre_wire?' prewire':'');
     el.dataset.pin=pin.id;
     el.style.left=(pin.x*100)+'%';el.style.top=(pin.y*100)+'%';
     el.style.setProperty('--c',gaGroupColour(pe.system_group));
-    el.title=(inst.device_id||'')+(pe.description?': '+pe.description:'');
+    el.title=(inst.device_id||'')+(pe.description?': '+pe.description:'')+(inst.pre_wire?' (pre-wire only)':'');
     el.innerHTML='<span class="mark">'+gaIconSvg(gaIconKey(pe))+'</span><span class="tag">'+escHtml(inst.device_id||'?')+'</span>';
     st.appendChild(el);shown++;
   });
@@ -3337,7 +3344,7 @@ async function gaMoveInstanceToRoom(inst,room){
 }
 // Creates the device and its pin in one go (fast path when the tap lands inside a room
 // boundary, and the save path of the location dialog).
-async function gaCreatePinnedDevice(typeId,x,y,room,zone,notes){
+async function gaCreatePinnedDevice(typeId,x,y,room,zone,notes,preWire){
   const plan=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
   if(!plan){showToast('No plan selected','error');return;}
   const isZone=!!zone;
@@ -3360,7 +3367,7 @@ async function gaCreatePinnedDevice(typeId,x,y,room,zone,notes){
   }
   const allIds=new Set(placedEquipment.map(i=>i.device_id).filter(Boolean));
   const deviceId=nextDeviceId(pe.device_type_id,locLabel,allIds,{});
-  const instPayload=stampChange({project_id:currentProject.id,project_equipment_id:pe.id,device_id:deviceId,quantity:1,room_id:isZone?null:(room?room.id:null),rack_zone_id:isZone?zone.id:null,installation_type:isZone?'rack-mounted':'room-mounted',notes:notes||null},'added');
+  const instPayload=stampChange({project_id:currentProject.id,project_equipment_id:pe.id,device_id:deviceId,quantity:1,room_id:isZone?null:(room?room.id:null),rack_zone_id:isZone?zone.id:null,installation_type:isZone?'rack-mounted':'room-mounted',pre_wire:!!preWire,notes:notes||null},'added');
   const instRows=await dbInsert('equipment_instances',instPayload);
   const inst=instRows[0];placedEquipment.push(inst);
   const pinRows=await dbInsert('plan_equipment_pins',{deck_plan_id:plan.id,equipment_instance_id:inst.id,x,y});
@@ -3399,6 +3406,7 @@ async function openGaPinModal(){
   document.getElementById('ga-pin-title').textContent='Place '+gaArmedTypeId;
   document.getElementById('ga-pin-info').innerHTML=escHtml(d?d.description||'':'')+'<br><span style="font-size:12px">The Device ID is assigned from the location you choose.</span>';
   document.getElementById('ga-pin-room').innerHTML=gaLocationOptions(gaLastLoc);
+  document.getElementById('ga-pin-prewire').checked=false;
   document.getElementById('ga-pin-notes').value='';
   document.getElementById('ga-pin-delete').style.display='none';
   document.getElementById('ga-pin-save').textContent='Place Device';
@@ -3413,6 +3421,7 @@ function openGaPinEdit(pinId){
   document.getElementById('ga-pin-info').innerHTML='<strong>'+escHtml(pe.device_type_id||'')+'</strong> '+escHtml(pe.description||'')+'<br><span style="font-size:12px">Changing the location renumbers the Device ID to the new location.</span>';
   const sel=inst.rack_zone_id&&!inst.room_id?'z:'+inst.rack_zone_id:(inst.room_id?'r:'+inst.room_id:null);
   document.getElementById('ga-pin-room').innerHTML=gaLocationOptions(sel);
+  document.getElementById('ga-pin-prewire').checked=!!inst.pre_wire;
   document.getElementById('ga-pin-notes').value=inst.notes||'';
   document.getElementById('ga-pin-delete').style.display='';
   document.getElementById('ga-pin-save').textContent='Save Changes';
@@ -3421,6 +3430,7 @@ function openGaPinEdit(pinId){
 function closeGaPinModal(){document.getElementById('ga-pin-overlay').classList.remove('open');gaPinDraft=null;gaEditPinId=null;}
 async function gaSavePin(){
   const locVal=document.getElementById('ga-pin-room').value;
+  const preWire=document.getElementById('ga-pin-prewire').checked;
   const notes=document.getElementById('ga-pin-notes').value.trim()||null;
   if(!locVal){showToast('Please choose a location','error');return;}
   const isZone=locVal.startsWith('z:');const locId=locVal.slice(2);
@@ -3435,7 +3445,8 @@ async function gaSavePin(){
       const inst=placedEquipment.find(i=>i.id===pin.equipment_instance_id);
       const pe=projectEquipment.find(p=>p.id===inst.project_equipment_id)||{};
       const moved=(isZone?inst.rack_zone_id!==locId||!!inst.room_id:inst.room_id!==locId);
-      const payload={notes};
+      const payload={notes,pre_wire:preWire};
+      if(!moved&&preWire!==!!inst.pre_wire)stampChange(payload,'modified',inst);
       if(moved){
         const allIds=new Set(placedEquipment.map(i=>i.device_id).filter(Boolean));
         allIds.delete(inst.device_id);
@@ -3454,7 +3465,7 @@ async function gaSavePin(){
       const draft=gaPinDraft;
       gaLastLoc=locVal;
       closeGaPinModal();
-      await gaCreatePinnedDevice(gaArmedTypeId,draft.x,draft.y,room,zone,notes);
+      await gaCreatePinnedDevice(gaArmedTypeId,draft.x,draft.y,room,zone,notes,preWire);
     }
   }catch(e){showToast('Could not save: '+e.message,'error');}
   finally{btn.disabled=false;}
@@ -6947,6 +6958,8 @@ function computeZoneLoads(instances, rooms, zones, peLookup){
     // Soft-removed under a CR: no longer part of the design, so it must not demand or supply
     // anything (keeps the on-screen Zone Summary consistent with the generated spec's Annex B).
     if(inst.change_status==='removed')return;
+    // Pre-wire only: cabling exists but no device, so it neither demands nor supplies
+    if(inst.pre_wire)return;
     const pe=peLookup(inst.project_equipment_id);
     if(!pe)return;
     let zoneId=inst.rack_zone_id||null;
@@ -7653,7 +7666,8 @@ function renderPlacedEquipment(){
     const room=roomById[p.room_id];
     const zone=zoneById[p.rack_zone_id];
     const loc=room?escHtml(room.name):zone?escHtml(zone.name):dash;
-    const install=p.installation_type==='rack-mounted'?'<span class="category-badge">Rack</span>':'<span style="font-size:11px;color:var(--text-3)">Room</span>';
+    const install=(p.installation_type==='rack-mounted'?'<span class="category-badge">Rack</span>':'<span style="font-size:11px;color:var(--text-3)">Room</span>')
+      +(p.pre_wire?' <span class="category-badge" style="background:#fff3cd;color:#856404" title="Cabling only, device not supplied yet. Excluded from loads.">Pre-wire</span>':'');
     const isRemoved=p.change_status==='removed';
     const rowStyle=isRemoved?'opacity:0.5;text-decoration:line-through':'';
     const statusCell=changeBadge(p.change_status,p.change_cr_ref);
@@ -7795,6 +7809,7 @@ async function openPlaceModal(){
   if(!currentZones.length)currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
   document.getElementById('pl-loc-type').value='room';
   document.getElementById('pl-install-type').value='room-mounted';
+  document.getElementById('pl-prewire').checked=false;
   document.getElementById('pl-search-input').value='';
   plUpdateLocation();
   plRenderGroupPills();
@@ -7927,6 +7942,7 @@ async function savePlacement(){
     const locZone=locType==='zone'?currentZones.find(z=>z.id===locId):null;
     const locLabel=locType==='room'?((locRoom&&(locRoom.room_number||locRoom.room_id))||'0'):((locZone&&locZone.zone_id)||'Z');
     const servesRoom=locType==='zone'?(document.getElementById('pl-serves-room')||{}).value||null:null;
+    const preWire=document.getElementById('pl-prewire').checked;
     const payloads=[];
     for(const item of plItems){
       for(let i=0;i<item.quantity;i++){
@@ -7938,7 +7954,8 @@ async function savePlacement(){
           quantity:1,
           room_id:locType==='room'?locId:(servesRoom||null),
           rack_zone_id:locType==='zone'?locId:null,
-          installation_type:item.install
+          installation_type:item.install,
+          pre_wire:preWire
         };
         stampChange(instPayload,'added');
         payloads.push(instPayload);
