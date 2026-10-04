@@ -1486,6 +1486,16 @@
   </div>
 </div>
 
+<!-- PRODUCT PICK: choose the product when pulling a family into the project -->
+<div class="confirm-overlay" id="ppk-overlay">
+  <div class="confirm-box" style="max-width:480px;text-align:left">
+    <div class="confirm-title" id="ppk-title">Choose a product</div>
+    <div class="confirm-text" id="ppk-sub" style="margin-bottom:10px"></div>
+    <div id="ppk-list" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
+    <div class="confirm-actions"><button class="btn btn-secondary" onclick="ppkCancel()">Cancel</button><button class="btn btn-primary" onclick="ppkConfirm()">Add to Project</button></div>
+  </div>
+</div>
+
 <!-- PULL FROM GLOBAL LIBRARY MODAL -->
 <div class="modal-overlay" id="pull-library-modal-overlay">
   <div class="modal" style="max-width:900px;width:100%">
@@ -2205,12 +2215,12 @@ function gaAutoIcon(typeId){
   if(/^REM-10|^SEC-SCS|^SCS/.test(id))return 'touchPanel';
   if(id.startsWith('REM-IPAD'))return 'tablet';
   if(id==='REM-HR')return 'remote';
-  if(/BUTTON/.test(id))return 'button';
-  if(id==='SEC-KP')return 'cardReader';
-  if(/-KP|HQWT/.test(id))return 'keypad';
-  if(id.startsWith('SPK-SB'))return 'soundbar';
-  if(id==='SPK-HP')return 'headphones';
-  if(/^SPK-\d+-IC/.test(id))return 'ceilingSpeaker';
+  if(/BUTTON|^PB($|-)/.test(id))return 'button';
+  if(id==='SEC-KP'||id.startsWith('KP-SEC'))return 'cardReader';
+  if(/-KP|^KP-|HQWT/.test(id))return 'keypad';
+  if(id.startsWith('SPK-SB')||id.startsWith('SBAR'))return 'soundbar';
+  if(id.startsWith('SPK-HP'))return 'headphones';
+  if(/^SPK-\d+-IC|^SPK-IC/.test(id))return 'ceilingSpeaker';
   if(id.startsWith('SPK'))return 'floorSpeaker';
   if(id.startsWith('SUB'))return 'subwoofer';
   if(id.startsWith('AMP'))return 'amplifier';
@@ -2227,21 +2237,22 @@ function gaAutoIcon(typeId){
   if(/^LAN|^SHORE/.test(id))return 'outlet';
   if(id.startsWith('TEL'))return 'phone';
   if(/SWX/.test(id))return 'switch';
-  if(/FIREWALL/.test(id))return 'firewall';
-  if(/FIBRE|FIBER/.test(id))return 'fibre';
+  if(/FIREWALL|^FW($|-)/.test(id))return 'firewall';
+  if(/FIBRE|FIBER|^FBR/.test(id))return 'fibre';
   if(id.startsWith('CAM-PANO'))return 'fisheye';
   if(/^CAM-(BULLET|THERMAL)/.test(id))return 'bullet';
   if(id.startsWith('CAM-PTZ'))return 'ptz';
   if(/^CAM-|CONF-CAM/.test(id))return 'domeCamera';
-  if(/INTERCOM/.test(id))return 'intercom';
-  if(/^CB-/.test(id))return 'enclosure';
-  if(/SENSOR|^LT-LOS/.test(id))return 'sensor';
+  if(/INTERCOM|^ICOM/.test(id))return 'intercom';
+  if(/^CB($|-)|^ENC($|-)/.test(id))return 'enclosure';
+  if(/SENSOR|^LT-LOS|^OS($|-)|^SNS/.test(id))return 'sensor';
   if(/SHADE|^SHD|^LT-(QSPS|WIN)/.test(id))return 'shade';
   if(/KETRA|DOWNLIGHT|D2/.test(id))return 'downlight';
   if(id.startsWith('LT'))return 'lightPanel';
   if(/^RAD|RADIO|VHF/.test(id))return 'radio';
   if(/SAT-|^COMS/.test(id))return 'satellite';
-  if(/^(NVX|SRC|CTRL|SEC)/.test(id))return 'rackUnit';
+  if(/^SPD|^POE/.test(id))return 'power';
+  if(/^(NVX|AVOIP|SRC|CTRL|SEC|CONF|PROC|DSP|RLY)/.test(id))return 'rackUnit';
   return 'generic';
 }
 // Icon precedence: the item's own icon, then the global library's icon for that type (so an
@@ -3331,14 +3342,21 @@ async function gaCreatePinnedDevice(typeId,x,y,room,zone,notes){
   if(!plan){showToast('No plan selected','error');return;}
   const isZone=!!zone;
   const locLabel=isZone?(zone.zone_id||'Z'):((room&&(room.room_number||room.room_id))||'0');
-  // The type may already be in the project library (including project-only types with no
-  // global entry); only a brand-new type needs pulling from the global library.
+  // The armed type may be a project numbered type (exact match), a family that already
+  // has numbered types in this project (lowest number wins), or a brand-new family that
+  // needs pulling: product chosen if the catalogue offers more than one, next number assigned.
   let pe=projectEquipment.find(p=>p.device_type_id===typeId);
+  if(!pe){
+    const fams=projectEquipment.filter(p=>familyOf(p.device_type_id)===typeId&&p.change_status!=='removed');
+    if(fams.length)pe=fams.sort((a,b)=>a.device_type_id.localeCompare(b.device_type_id,undefined,{numeric:true}))[0];
+  }
   if(!pe){
     const gd=globalLibrary.find(g=>g.device_type_id===typeId);
     if(!gd){showToast('Device type not found','error');return;}
-    const created=await dbInsert('project_equipment',stampChange(_peFromGlobal(gd),'added'));
-    pe=created[0];projectEquipment.push(pe);
+    const prod=await chooseProductFor(gd);
+    if(prod==='cancel')return;
+    pe=await pullFamilyToProject(gd,prod);
+    projectEquipment.push(pe);
   }
   const allIds=new Set(placedEquipment.map(i=>i.device_id).filter(Boolean));
   const deviceId=nextDeviceId(pe.device_type_id,locLabel,allIds,{});
@@ -3377,7 +3395,7 @@ async function openGaPinModal(){
   // Create mode: confirm the location for the pin just dropped
   if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
   if(!currentZones.length)currentZones=await dbGet('rack_zones','project_id=eq.'+currentProject.id);
-  const d=globalLibrary.find(g=>g.device_type_id===gaArmedTypeId);
+  const d=projectEquipment.find(p=>p.device_type_id===gaArmedTypeId)||globalLibrary.find(g=>g.device_type_id===gaArmedTypeId);
   document.getElementById('ga-pin-title').textContent='Place '+gaArmedTypeId;
   document.getElementById('ga-pin-info').innerHTML=escHtml(d?d.description||'':'')+'<br><span style="font-size:12px">The Device ID is assigned from the location you choose.</span>';
   document.getElementById('ga-pin-room').innerHTML=gaLocationOptions(gaLastLoc);
@@ -6853,19 +6871,21 @@ async function confirmApplyTemplate(){
         for(const roomId of applyTemplateRoomSelections){
           const alreadyPlacedPeIds=placed.filter(p=>p.room_id===roomId).map(p=>p.project_equipment_id);
           for(const item of tItems){
-            // Ensure in project equipment list
-            let peEntry=pe.find(p=>p.device_type_id===item.device_type_id);
+            // Ensure in project equipment list: exact type first, then an existing numbered
+            // type of the family, then pull the family (single product auto, else no product)
+            let peEntry=pe.find(p=>p.device_type_id===item.device_type_id)
+              ||pe.find(p=>familyOf(p.device_type_id)===item.device_type_id);
             if(!peEntry){
               const gd=await dbGet('global_equipment','device_type_id=eq.'+encodeURIComponent(item.device_type_id)+'&limit=1');
               if(!gd.length)continue;
-              const newPe=await dbInsert('project_equipment',stampChange(_peFromGlobal(gd[0]),'added'));
-              peEntry={id:newPe[0].id,device_type_id:gd[0].device_type_id};
+              const newPe=await pullFamilyToProject(gd[0],'auto');
+              peEntry={id:newPe.id,device_type_id:newPe.device_type_id};
               pe.push(peEntry);
             }
             // Skip if already placed in this room
             if(alreadyPlacedPeIds.includes(peEntry.id))continue;
             const tplRoom=currentRooms.find(r=>r.id===roomId);
-            const deviceId=nextDeviceId(item.device_type_id,(tplRoom&&(tplRoom.room_number||tplRoom.room_id))||'0',allTplIds,tplIdCounters);
+            const deviceId=nextDeviceId(peEntry.device_type_id,(tplRoom&&(tplRoom.room_number||tplRoom.room_id))||'0',allTplIds,tplIdCounters);
             await dbInsert('equipment_instances',stampChange({project_id:currentProject.id,project_equipment_id:peEntry.id,room_id:roomId,quantity:item.quantity||1,device_id:deviceId},'added'));
             placed.push({room_id:roomId,project_equipment_id:peEntry.id});
             placed_count++;
@@ -7218,31 +7238,102 @@ async function confirmGtPull(){
 // loses engineering data (power, heat, UPS, PoE budget) or its sub-category on the way into a
 // project. Losing those fields under-reports the Zone Summary loads and drops the device out
 // of the spec's sub-category grouping.
-function _peFromGlobal(d){
+// ── FAMILY MODEL (Oct 2026) ──
+// The global library holds FAMILIES (SPK-IC); projects assign the numbered working
+// type (SPK-IC-1) when a family is pulled in and its product chosen.
+function familyOf(typeId){return String(typeId||'').replace(/-\d+$/,'');}
+// Next free number for a family in this project (reads the live list so parallel tabs stay safe)
+async function nextFamilyTypeId(familyId){
+  const rows=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&select=device_type_id');
+  const re=new RegExp('^'+familyId.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'-(\\d+)$');
+  let max=0;
+  rows.forEach(r=>{const m=(r.device_type_id||'').match(re);if(m)max=Math.max(max,parseInt(m[1],10));});
+  return familyId+'-'+(max+1);
+}
+// Pull a family into the project as the next numbered type.
+// prod: a global_products row, null (no product yet), or 'auto' (single product
+// auto-selected, otherwise none) for bulk paths that must not show a dialog.
+async function pullFamilyToProject(gd,prod){
+  if(prod==='auto'){
+    const ps=await dbGet('global_products','device_type_id=eq.'+encodeURIComponent(gd.device_type_id));
+    prod=ps.length===1?ps[0]:null;
+  }
+  const typeId=await nextFamilyTypeId(gd.device_type_id);
+  const rows=await dbInsert('project_equipment',stampChange(_peFromGlobal(gd,typeId,prod),'added'));
+  return rows[0];
+}
+// Interactive product choice for one family: resolves to a product row, null (TBD)
+// or 'cancel'. Auto-resolves when there is zero or one product in the catalogue.
+function chooseProductFor(gd){
+  return dbGet('global_products','device_type_id=eq.'+encodeURIComponent(gd.device_type_id)+'&order=make.asc,model.asc')
+    .then(ps=>{
+      if(!ps.length)return null;
+      if(ps.length===1)return ps[0];
+      return new Promise(res=>openProductPick(gd,ps,res));
+    });
+}
+let _ppkResolve=null,_ppkProds=[];
+function openProductPick(gd,prods,done){
+  _ppkResolve=done;_ppkProds=prods;
+  document.getElementById('ppk-title').textContent='Choose product — '+gd.device_type_id;
+  document.getElementById('ppk-sub').textContent=(gd.description||'')+'. The project assigns the next type number when it is added.';
+  const row=(val,checked,top,sub)=>'<label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer">'
+    +'<input type="radio" name="ppk-choice" value="'+escHtml(val)+'"'+(checked?' checked':'')+' style="margin-top:2px">'
+    +'<div style="min-width:0"><div style="font-weight:600;font-size:13px">'+top+'</div><div style="font-size:11px;color:var(--text-3)">'+sub+'</div></div></label>';
+  document.getElementById('ppk-list').innerHTML=
+    prods.map((p,i)=>{
+      const price=fmtPriceRange(p.price_min,p.price_max,p.currency);
+      return row(p.id,i===0,escHtml(((p.make||'')+' '+(p.model||'')).trim()||'Unnamed product'),escHtml([p.part_number,price].filter(Boolean).join(' · ')||'—'));
+    }).join('')
+    +row('',false,'No product yet','Decide later; the type is created without a make or model');
+  document.getElementById('ppk-overlay').classList.add('open');
+}
+function ppkConfirm(){
+  const sel=document.querySelector('input[name=ppk-choice]:checked');
+  const prod=sel&&sel.value?(_ppkProds.find(p=>p.id===sel.value)||null):null;
+  document.getElementById('ppk-overlay').classList.remove('open');
+  const r=_ppkResolve;_ppkResolve=null;_ppkProds=[];
+  if(r)r(prod);
+}
+function ppkCancel(){
+  document.getElementById('ppk-overlay').classList.remove('open');
+  const r=_ppkResolve;_ppkResolve=null;_ppkProds=[];
+  if(r)r('cancel');
+}
+// Build the project library payload from a family (d), the assigned numbered type id,
+// and the chosen product (technical fields prefer the product's own values).
+function _peFromGlobal(d,typeId,prod){
+  const p=prod&&prod!=='cancel'?prod:null;
+  const pv=f=>(p&&p[f]!=null&&p[f]!=='')?p[f]:d[f];
+  const mid=p&&(p.price_min||p.price_max)
+    ?(((+p.price_min||+p.price_max)+(+p.price_max||+p.price_min))/2):null;
   return{
     project_id:currentProject.id,
     global_equipment_id:d.id,
-    device_type_id:d.device_type_id,
+    global_product_id:p?p.id:null,
+    device_type_id:typeId||d.device_type_id,
     description:d.description,
+    make:p?(p.make||null):null,
+    model:p?(p.model||null):null,
     category_code:d.category_code||null,
     subcategory_code:d.subcategory_code||null,
     system_group:d.system_group||null,
     spec_ref:d.spec_ref||null,
-    network_role:d.network_role||'none',
-    avip_role:d.avip_role||'none',
-    audio_role:d.audio_role||'none',
-    lan_ports:d.lan_ports||null,
-    poe_ports:d.poe_ports||null,
-    poe_type:d.poe_type||null,
-    poe_budget_watts:d.poe_budget_watts||null,
-    power_types:d.power_types||null,
-    power_watts:d.power_watts||null,
-    heat_btu:d.heat_btu||null,
-    ups_protected:d.ups_protected||false,
-    speaker_channels:d.speaker_channels||null,
-    spk_watts:d.spk_watts||null,
-    budget_price:d.budget_price||null,
-    currency:d.currency||'USD',
+    network_role:pv('network_role')||'none',
+    avip_role:pv('avip_role')||'none',
+    audio_role:pv('audio_role')||'none',
+    lan_ports:pv('lan_ports')||null,
+    poe_ports:pv('poe_ports')||null,
+    poe_type:pv('poe_type')||null,
+    poe_budget_watts:pv('poe_budget_watts')||null,
+    power_types:pv('power_types')||null,
+    power_watts:pv('power_watts')||null,
+    heat_btu:pv('heat_btu')||null,
+    ups_protected:(p&&p.ups_protected!=null?p.ups_protected:d.ups_protected)||false,
+    speaker_channels:pv('speaker_channels')||null,
+    spk_watts:pv('spk_watts')||null,
+    budget_price:mid!=null?mid:(d.budget_price||null),
+    currency:(p&&p.currency)||d.currency||'USD',
     icon:d.icon||null
   };
 }
@@ -7251,26 +7342,28 @@ async function quickPullToProject(globalId){
   if(!currentProject){showToast('Please open a project first','error');return;}
   const d=globalLibrary.find(d=>d.id===globalId);if(!d)return;
   try{
-    const qpPayload=_peFromGlobal(d);
-    stampChange(qpPayload,'added');
-    await dbInsert('project_equipment',qpPayload);
-    showToast(d.device_type_id+' added to project','success');
-    logChange('equipment','added','Pulled '+d.device_type_id+' to Device Types');
+    const prod=await chooseProductFor(d);
+    if(prod==='cancel')return;
+    const newPe=await pullFamilyToProject(d,prod);
+    showToast(newPe.device_type_id+' added to project'+(newPe.make?' ('+newPe.make+' '+(newPe.model||'')+')':''),'success');
+    logChange('equipment','added','Pulled '+d.device_type_id+' to the project as '+newPe.device_type_id);
     projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
     renderGlobalLibrary();
   }catch(e){showToast('Could not pull: '+e.message,'error');}
 }
 
 // ── PULL FROM GLOBAL LIBRARY MODAL ──
-let pglItems=[], pglActiveGroup='all', pglPulledIds=new Set();
+let pglItems=[], pglActiveGroup='all', pglPulledIds=new Map();
 
 async function openPullLibraryModal(){
   pglItems=[];pglActiveGroup='all';
   document.getElementById('pgl-search-input').value='';
   if(!globalLibrary.length)globalLibrary=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
-  // Get already-pulled IDs for this project
+  // Count how many numbered types each family already has in this project (re-pulling
+  // the same family with a different product is allowed and creates the next number)
   const pulled=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&select=global_equipment_id');
-  pglPulledIds=new Set(pulled.map(p=>p.global_equipment_id).filter(Boolean));
+  pglPulledIds=new Map();
+  pulled.forEach(p=>{if(p.global_equipment_id)pglPulledIds.set(p.global_equipment_id,(pglPulledIds.get(p.global_equipment_id)||0)+1);});
   pglRenderGroupPills();pglRenderBrowser();pglRenderItemList();
   document.getElementById('pull-library-modal-overlay').classList.add('open');
 }
@@ -7293,12 +7386,13 @@ function pglRenderBrowser(){
   if(!filtered.length){list.innerHTML='<div class="tmpl-empty-panel">No device types found</div>';return;}
   list.innerHTML=filtered.map(d=>{
     const added=pglItems.find(i=>i.id===d.id);
-    const inProject=pglPulledIds.has(d.id);
-    return '<div class="tmpl-device-row'+(added?' added':'')+(inProject?' added':'')+'" onclick="'+(inProject?'':('pglToggleItem(\''+d.id+'\',\''+escHtml(escJs(d.device_type_id))+'\',\''+escHtml(escJs(d.description||''))+'\')'))+'\">'
-      +'<input type="checkbox" '+(added||inProject?'checked':'')+' '+(inProject?'disabled':'')+' onclick="event.stopPropagation();'+(inProject?'':('pglToggleItem(\''+d.id+'\',\''+escHtml(escJs(d.device_type_id))+'\',\''+escHtml(escJs(d.description||''))+'\')'))+'\">'
+    const inCount=pglPulledIds.get(d.id)||0;
+    const toggle='pglToggleItem(\''+d.id+'\',\''+escHtml(escJs(d.device_type_id))+'\',\''+escHtml(escJs(d.description||''))+'\')';
+    return '<div class="tmpl-device-row'+(added?' added':'')+'" onclick="'+toggle+'">'
+      +'<input type="checkbox" '+(added?'checked':'')+' onclick="event.stopPropagation();'+toggle+'">'
       +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace">'+escHtml(d.device_type_id)+'</div>'
       +'<div style="font-size:11px;color:var(--text-3)">'+escHtml(d.description||'')+'</div></div>'
-      +(inProject?'<span style="font-size:10px;color:var(--green);font-weight:600">✓ In Project</span>':'')
+      +(inCount?'<span style="font-size:10px;color:var(--green);font-weight:600" title="Pulling again adds the next numbered type">✓ In project ×'+inCount+'</span>':'')
       +'</div>';
   }).join('');
 }
@@ -7306,34 +7400,54 @@ function pglRenderBrowser(){
 function pglToggleItem(id,typeId,desc){
   const idx=pglItems.findIndex(i=>i.id===id);
   if(idx>=0)pglItems.splice(idx,1);
-  else pglItems.push({id,typeId,desc});
+  else{
+    const item={id,typeId,desc,prods:null,prodId:''};
+    pglItems.push(item);
+    // Load this family's approved products; one product auto-selects, several show a picker
+    dbGet('global_products','device_type_id=eq.'+encodeURIComponent(typeId)+'&order=make.asc,model.asc')
+      .then(ps=>{item.prods=ps;if(ps.length===1)item.prodId=ps[0].id;pglRenderItemList();})
+      .catch(()=>{item.prods=[];pglRenderItemList();});
+  }
   pglRenderBrowser();pglRenderItemList();
 }
+
+function pglSetProd(id,val){const it=pglItems.find(i=>i.id===id);if(it)it.prodId=val;}
 
 function pglRenderItemList(){
   const c=document.getElementById('pgl-item-list');
   document.getElementById('pgl-selected-header').textContent='Selected — '+pglItems.length;
   if(!pglItems.length){c.innerHTML='<div class="tmpl-empty-panel">Tick device types on the left to pull them into this project</div>';return;}
-  c.innerHTML=pglItems.map(i=>'<div class="tmpl-item-row">'
-    +'<div class="tmpl-item-info" style="min-width:0"><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(i.typeId)+'</div>'
-    +'<div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(i.desc)+'</div></div>'
-    +'<button class="btn-icon btn-sm" style="flex-shrink:0" onclick="pglToggleItem(\''+i.id+'\',\''+escHtml(escJs(i.typeId))+'\',\''+escHtml(escJs(i.desc))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
-    +'</div>').join('');
+  c.innerHTML=pglItems.map(i=>{
+    let prodHtml='';
+    if(i.prods===null)prodHtml='<div style="font-size:10px;color:var(--text-3)">Loading products…</div>';
+    else if(!i.prods.length)prodHtml='<div style="font-size:10px;color:var(--text-3)">No product in the catalogue yet</div>';
+    else if(i.prods.length===1)prodHtml='<div style="font-size:10px;color:var(--text-3)">'+escHtml(((i.prods[0].make||'')+' '+(i.prods[0].model||'')).trim())+'</div>';
+    else prodHtml='<select style="width:100%;font-size:11px;padding:3px 6px;margin-top:3px" onchange="pglSetProd(\''+i.id+'\',this.value)" onclick="event.stopPropagation()">'
+      +'<option value="">No product yet (decide later)</option>'
+      +i.prods.map(p=>'<option value="'+p.id+'"'+(i.prodId===p.id?' selected':'')+'>'+escHtml(((p.make||'')+' '+(p.model||'')).trim())+'</option>').join('')
+      +'</select>';
+    return '<div class="tmpl-item-row">'
+      +'<div class="tmpl-item-info" style="min-width:0;flex:1"><div style="font-size:12px;font-weight:600;font-family:\'DM Mono\',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(i.typeId)+'</div>'
+      +'<div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(i.desc)+'</div>'
+      +prodHtml+'</div>'
+      +'<button class="btn-icon btn-sm" style="flex-shrink:0" onclick="pglToggleItem(\''+i.id+'\',\''+escHtml(escJs(i.typeId))+'\',\''+escHtml(escJs(i.desc))+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+      +'</div>';
+  }).join('');
 }
 
 async function confirmPullFromLibrary(){
   if(!pglItems.length){showToast('Please select at least one device type','error');return;}
   const btn=document.getElementById('pgl-pull-btn');btn.textContent='Pulling…';btn.disabled=true;
   try{
+    const pulledNames=[];
     for(const item of pglItems){
       const d=globalLibrary.find(d=>d.id===item.id);if(!d)continue;
-      const bpPayload=_peFromGlobal(d);
-      stampChange(bpPayload,'added');
-      await dbInsert('project_equipment',bpPayload);
+      const prod=item.prodId&&item.prods?(item.prods.find(p=>p.id===item.prodId)||null):null;
+      const newPe=await pullFamilyToProject(d,prod);
+      pulledNames.push(newPe.device_type_id);
     }
-    const count=pglItems.length;
-    showToast(count+' device type'+(count!==1?'s':'')+' pulled to project','success');
-    logChange('equipment','added','Pulled '+count+' device type'+(count!==1?'s':'')+' to Device Types: '+pglItems.map(i=>i.typeId).join(', '));
+    showToast(pulledNames.length+' device type'+(pulledNames.length!==1?'s':'')+' pulled to project','success');
+    logChange('equipment','added','Pulled '+pulledNames.length+' device type'+(pulledNames.length!==1?'s':'')+' to the project: '+pulledNames.join(', '));
     closePullLibraryModal();
     projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
     renderProjectEquipment();
