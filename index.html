@@ -378,7 +378,18 @@
   .ga-palette { width: 225px; flex: none; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); display: flex; flex-direction: column; overflow: hidden; height: calc(100vh - 310px); min-height: 380px; }
   .ga-palette input[type=search] { margin: 10px 10px 8px; width: calc(100% - 20px); padding: 6px 9px; }
   .ga-palette-list { flex: 1; overflow-y: auto; min-height: 0; }
-  .ga-pal-group { padding: 6px 10px 4px; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); background: var(--surface2); position: sticky; top: 0; }
+  .ga-pal-sec { padding: 8px 10px 4px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); background: var(--surface2); position: sticky; top: 0; z-index: 1; }
+  .ga-pal-chips { display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .ga-pal-chip { width: 36px; height: 36px; border-radius: 8px; border: 2px solid var(--c); background: var(--surface); color: var(--c); display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .ga-pal-chip svg { width: 19px; height: 19px; }
+  .ga-pal-chip.armed { background: var(--c); color: #fff; }
+  .ga-pal-acc { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border); background: var(--surface); padding: 9px 10px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-2); }
+  .ga-pal-acc:hover { background: var(--surface2); }
+  .ga-pal-acc .chev { transition: transform .15s; font-size: 10px; color: var(--text-3); }
+  .ga-pal-acc.open .chev { transform: rotate(90deg); }
+  .ga-pal-acc .gdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .ga-pal-acc .n { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--text-3); }
+  .ga-pick-row { min-height: 46px; }
   .ga-pal-count { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 0 6px; color: var(--text-2); }
   .ga-tbtn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; font-size: 12px; }
   .ga-tbtn svg { flex: none; }
@@ -2109,7 +2120,7 @@ let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
 let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='', gaLastCloudCrId='';
 let gaCRs=[], gaDeckClouds=[], gaRevLogOpen=true, gaPendingFocus=null;
 let gaGridPanelOpen=false, gaGridShow=true, gaGridUnlocked=false, gaGridSnap=true, gaScalePts=[];
-let gaActiveFloorId=null, gaPaletteOpen=true, gaPaletteQuery='';
+let gaActiveFloorId=null, gaPaletteOpen=true, gaPaletteQuery='', gaRecentTypes=[], gaPalOpenGroups=new Set();
 // Pin colours by system group, icons by device type prefix
 const GA_GROUP_COLOURS={'Central Systems':'#6b7a89','Power, UPS & Battery':'#b7791f','Audio Visual System':'#c7811a','Control System':'#7b5ea7','IT System':'#2f6fd0','Lighting Control':'#3e8e4e','Motorised Window Treatments':'#8a5aa7','Access Control & Surveillance':'#c23b3b','Cinema System':'#8a2be2','Satellite & Communications':'#1a8fa6','Radio System':'#8a9a2b'};
 // Icon library (ported from the GA demo): 48 icons in 7 groups, picked per device type on the
@@ -2389,8 +2400,22 @@ function gaToggleFocus(){
   document.body.classList.toggle('ga-focus');
   requestAnimationFrame(()=>gaFit());
 }
-// The device palette: search the global library, tap a type to arm placement, tap again to
-// stop. Counts show how many of each type are already placed in the project.
+// The device palette: recent chips, then the types already in this project (count-sorted),
+// then the full library in collapsible groups. Rows lead with the description, since that is
+// how the team thinks; the type ID and placed count sit underneath.
+function gaPalRow(d,count){
+  const armed=gaMode==='place'&&gaArmedTypeId===d.device_type_id;
+  return '<button class="ga-pick-row'+(armed?' armed':'')+'" onclick="gaArm(\''+escHtml(escJs(d.device_type_id))+'\')">'
+    +'<span class="ga-pick-dot" style="background:'+gaGroupColour(d.system_group)+'">'+gaIconSvg(gaIconKey(d))+'</span>'
+    +'<span style="min-width:0"><span style="font-weight:600;font-size:12.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(d.description||d.device_type_id)+'</span>'
+    +'<span style="color:var(--text-3);font-size:11px">'+escHtml(d.device_type_id)+'</span>'
+    +(count?'<span class="ga-pal-count">'+count+' placed</span>':'')
+    +'</span></button>';
+}
+function gaToggleGroup(name){
+  if(gaPalOpenGroups.has(name))gaPalOpenGroups.delete(name);else gaPalOpenGroups.add(name);
+  renderGaPalette();
+}
 function renderGaPalette(){
   const list=document.getElementById('ga-palette-list');if(!list)return;
   const q=(gaPaletteQuery||'').toLowerCase().trim();
@@ -2400,19 +2425,42 @@ function renderGaPalette(){
     const pe=projectEquipment.find(p=>p.id===i.project_equipment_id);
     if(pe&&pe.device_type_id)counts[pe.device_type_id]=(counts[pe.device_type_id]||0)+1;
   });
-  const items=globalLibrary.filter(d=>!q||(d.device_type_id+' '+(d.description||'')+' '+(d.system_group||'')).toLowerCase().includes(q));
-  if(!items.length){list.innerHTML='<div style="padding:14px;font-size:12px;color:var(--text-3);text-align:center">'+(globalLibrary.length?'No matches':'Loading…')+'</div>';return;}
-  let html='',last='';
-  items.forEach(d=>{
-    const g=d.system_group||'Other';
-    if(g!==last){html+='<div class="ga-pal-group">'+escHtml(g)+'</div>';last=g;}
-    const armed=gaMode==='place'&&gaArmedTypeId===d.device_type_id;
-    html+='<button class="ga-pick-row'+(armed?' armed':'')+'" onclick="gaArm(\''+escHtml(escJs(d.device_type_id))+'\')">'
-      +'<span class="ga-pick-dot" style="background:'+gaGroupColour(d.system_group)+'">'+gaIconSvg(gaIconKey(d))+'</span>'
-      +'<span style="min-width:0"><span style="font-weight:600;font-size:12.5px">'+escHtml(d.device_type_id)+'</span>'
-      +(counts[d.device_type_id]?'<span class="ga-pal-count">'+counts[d.device_type_id]+'</span>':'')
-      +'<br><span style="color:var(--text-3);font-size:11.5px">'+escHtml(d.description||'')+'</span></span></button>';
+  // A type's display data: the global entry, or the project copy for project-only types
+  const typeInfo=t=>globalLibrary.find(d=>d.device_type_id===t)||projectEquipment.find(p=>p.device_type_id===t)||null;
+  const match=d=>!q||(d.device_type_id+' '+(d.description||'')+' '+(d.system_group||'')).toLowerCase().includes(q);
+  let html='';
+  // Recent: the last few types armed this session, as one-tap chips
+  if(!q&&gaRecentTypes.length){
+    html+='<div class="ga-pal-chips">'+gaRecentTypes.map(t=>{
+      const d=typeInfo(t);if(!d)return'';
+      const armed=gaMode==='place'&&gaArmedTypeId===t;
+      return '<button class="ga-pal-chip'+(armed?' armed':'')+'" style="--c:'+gaGroupColour(d.system_group)+'" title="'+escHtml(d.description||t)+'" onclick="gaArm(\''+escHtml(escJs(t))+'\')">'+gaIconSvg(gaIconKey(d))+'</button>';
+    }).join('')+'</div>';
+  }
+  // In this project: its own library, sorted by how many are placed
+  const projTypes=[...new Set(projectEquipment.map(p=>p.device_type_id).filter(Boolean))]
+    .map(t=>typeInfo(t)).filter(d=>d&&match(d))
+    .sort((a,b)=>(counts[b.device_type_id]||0)-(counts[a.device_type_id]||0)||(a.description||'').localeCompare(b.description||''));
+  if(projTypes.length){
+    html+='<div class="ga-pal-sec">In this project</div>'
+      +projTypes.map(d=>gaPalRow(d,counts[d.device_type_id])).join('');
+  }
+  // Full library: collapsible system groups (searching expands everything that matches)
+  html+='<div class="ga-pal-sec">Library</div>';
+  const groups={};
+  globalLibrary.forEach(d=>{(groups[d.system_group||'Other']=groups[d.system_group||'Other']||[]).push(d);});
+  let anyLib=false;
+  Object.keys(groups).sort().forEach(g=>{
+    const items=q?groups[g].filter(match):groups[g];
+    if(!items.length)return;
+    anyLib=true;
+    const open=q?true:gaPalOpenGroups.has(g);
+    html+='<button class="ga-pal-acc'+(open?' open':'')+'" onclick="gaToggleGroup(\''+escHtml(escJs(g))+'\')">'
+      +'<span class="chev">&#9654;</span><span class="gdot" style="background:'+gaGroupColour(g)+'"></span>'+escHtml(g)
+      +'<span class="n">'+items.length+'</span></button>';
+    if(open)html+=items.map(d=>gaPalRow(d,counts[d.device_type_id])).join('');
   });
+  if(!anyLib&&!projTypes.length)html+='<div style="padding:14px;font-size:12px;color:var(--text-3);text-align:center">'+(globalLibrary.length?'No matches':'Loading…')+'</div>';
   list.innerHTML=html;
 }
 // Pins and room boundaries for the plan being shown. One pin = one physical device.
@@ -2905,6 +2953,7 @@ async function saveGaPlan(){
 function gaArm(typeId){
   if(gaMode==='place'&&gaArmedTypeId===typeId){gaStopPlacing();return;}
   gaArmedTypeId=typeId;gaMode='place';gaDraft=[];gaRedrawBoundId=null;
+  gaRecentTypes=[typeId].concat(gaRecentTypes.filter(t=>t!==typeId)).slice(0,5);
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('placing');vp.classList.remove('drawing');vp.classList.remove('editing');}
   gaBanner('Tap the plan to place '+typeId+'. Each tap places one device. Tap it again in the palette to stop.','Stop placing');
   renderGaPalette();
@@ -3280,17 +3329,19 @@ async function gaMoveInstanceToRoom(inst,room){
 async function gaCreatePinnedDevice(typeId,x,y,room,zone,notes){
   const plan=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
   if(!plan){showToast('No plan selected','error');return;}
-  const gd=globalLibrary.find(g=>g.device_type_id===typeId);
-  if(!gd){showToast('Device type not found','error');return;}
   const isZone=!!zone;
   const locLabel=isZone?(zone.zone_id||'Z'):((room&&(room.room_number||room.room_id))||'0');
-  let pe=projectEquipment.find(p=>p.device_type_id===gd.device_type_id);
+  // The type may already be in the project library (including project-only types with no
+  // global entry); only a brand-new type needs pulling from the global library.
+  let pe=projectEquipment.find(p=>p.device_type_id===typeId);
   if(!pe){
+    const gd=globalLibrary.find(g=>g.device_type_id===typeId);
+    if(!gd){showToast('Device type not found','error');return;}
     const created=await dbInsert('project_equipment',stampChange(_peFromGlobal(gd),'added'));
     pe=created[0];projectEquipment.push(pe);
   }
   const allIds=new Set(placedEquipment.map(i=>i.device_id).filter(Boolean));
-  const deviceId=nextDeviceId(gd.device_type_id,locLabel,allIds,{});
+  const deviceId=nextDeviceId(pe.device_type_id,locLabel,allIds,{});
   const instPayload=stampChange({project_id:currentProject.id,project_equipment_id:pe.id,device_id:deviceId,quantity:1,room_id:isZone?null:(room?room.id:null),rack_zone_id:isZone?zone.id:null,installation_type:isZone?'rack-mounted':'room-mounted',notes:notes||null},'added');
   const instRows=await dbInsert('equipment_instances',instPayload);
   const inst=instRows[0];placedEquipment.push(inst);
