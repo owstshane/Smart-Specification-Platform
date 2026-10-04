@@ -2444,7 +2444,7 @@ function renderGaPalette(){
     if(pe&&pe.device_type_id)counts[pe.device_type_id]=(counts[pe.device_type_id]||0)+1;
   });
   // A type's display data: the global entry, or the project copy for project-only types
-  const typeInfo=t=>globalLibrary.find(d=>d.device_type_id===t)||projectEquipment.find(p=>p.device_type_id===t)||null;
+  const typeInfo=t=>projectEquipment.find(p=>p.device_type_id===t)||globalLibrary.find(d=>d.device_type_id===t)||globalLibrary.find(d=>d.device_type_id===familyOf(t))||null;
   const match=d=>!q||(d.device_type_id+' '+(d.description||'')+' '+(d.system_group||'')).toLowerCase().includes(q);
   let html='';
   // Recent: the last few types armed this session, as one-tap chips
@@ -4534,7 +4534,7 @@ function renderFeatureMatrix(){
           content=qty?'<span style="color:var(--green);font-size:14px;font-weight:700">'+qty+'</span>':'<span style="color:var(--green);font-size:16px">&#x2713;</span>';
           title='Ticked (no device type linked — manually confirmed). Click to remove.';
         }else{
-          const placedQty=(instByRoom.get(room.id)||[]).filter(i=>linkedTypes.includes(i.device_type_id)).reduce((s,i)=>s+(i.quantity||1),0);
+          const placedQty=(instByRoom.get(room.id)||[]).filter(i=>!i.pre_wire&&(linkedTypes.includes(i.device_type_id)||linkedTypes.includes(familyOf(i.device_type_id)))).reduce((s,i)=>s+(i.quantity||1),0);
           const hasDevice=placedQty>0;
           const qtyMatchesPlacement=!qty||qty===placedQty;
           if(hasDevice&&qtyMatchesPlacement){
@@ -4712,7 +4712,7 @@ async function syncFeatureMatrix(){
       if(existing&&existing.ticked){skipped++;continue;} // never overwrite manual tick
       // Sum quantities of all placed instances in this room matching a linked type
       const count=fmInstances
-        .filter(i=>i.room_id===room.id&&linkedTypes.includes(i.device_type_id))
+        .filter(i=>i.room_id===room.id&&!i.pre_wire&&(linkedTypes.includes(i.device_type_id)||linkedTypes.includes(familyOf(i.device_type_id))))
         .reduce((sum,i)=>sum+(i.quantity||1),0);
       if(!count)continue; // nothing placed here for this feature
       const qty=f.quantity_tracked?count:null; // only store qty for qty-tracked features
@@ -4784,7 +4784,7 @@ async function exportFeatureMatrix(){
           const qty=cell.quantity;
           const linked=fmFeatureDeviceTypes[f.id]||[];
           if(!linked.length){row.push(qty||'✓');return;}
-          const placedQty=fmInstances.filter(i=>i.room_id===room.id&&linked.includes(i.device_type_id)).reduce((s,i)=>s+(i.quantity||1),0);
+          const placedQty=fmInstances.filter(i=>i.room_id===room.id&&!i.pre_wire&&(linked.includes(i.device_type_id)||linked.includes(familyOf(i.device_type_id)))).reduce((s,i)=>s+(i.quantity||1),0);
           const green=placedQty>0&&(!qty||qty===placedQty);
           row.push(green?qty||'✓':(qty||'✓')+'*');
         });
@@ -9211,7 +9211,9 @@ async function _assembleCsiSpec(){
 
     const peById={};pe.forEach(e=>peById[e.id]=e);
     const peByType={};pe.forEach(e=>{if(!peByType[e.device_type_id])peByType[e.device_type_id]=e;});
-    const devByType={};globalLibrary.forEach(d=>devByType[d.device_type_id]=d);
+    const _devMap={};globalLibrary.forEach(d=>_devMap[d.device_type_id]=d);
+    // Numbered project types (SPK-IC-1) fall back to their FAMILY's global entry (SPK-IC)
+    const devForType=dt=>_devMap[dt]||_devMap[familyOf(dt)];
     const sgByName={};systemGroups.forEach(g=>sgByName[g.name]=g);
     const exampleFor=(dt)=>{const prod=pp.find(p=>p.device_type_id===dt&&(p.make||p.model));if(prod)return [prod.make,prod.model].filter(Boolean).join(' ');const e=pe.find(p=>p.device_type_id===dt&&(p.make||p.model));return e?[e.make,e.model].filter(Boolean).join(' '):'';};
     // Per-project override layer: project text wins over global; blocks are editable in the preview.
@@ -9228,7 +9230,7 @@ async function _assembleCsiSpec(){
     const customs=overrides.filter(o=>o.is_custom).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
     const renderCustoms=(part)=>{let h='';customs.filter(c=>(c.part||'end')===part).forEach(c=>{const bid='b'+(++_bseq);const title=c.title_override||'Untitled section';_specEditBlocks[bid]={st:'custom',sk:c.scope_key,label:'Custom Section: '+title,raw:c.content||'',isHtml:true,overrideId:c.id,overridden:true,isCustom:true,canRenameTitle:true,titleRaw:title};h+='<div class="spec-block" data-block="'+bid+'"><h1 style="page-break-before:always">'+escHtml(title)+'</h1>'+(c.content||'<p style="color:#999">(empty — click Edit to add content)</p>')+'</div>';});return h;};
     // Part 2 (Products): device types are itemised when they have effective text (global or project override).
-    const devOverrides=(types)=>{let h='';types.slice().sort((a,b)=>(((peByType[a]||{}).description||a)).localeCompare(((peByType[b]||{}).description||b))).forEach(dt=>{const dev=devByType[dt],e=peByType[dt];const gtext=(dev&&dev.spec_text)||'';const etext=effText('device',dt,gtext);if(etext||ovMap['device|'+dt]){const desc=(e&&e.description)||(dev&&dev.description)||dt;h+=wrapBlock('device',dt,'Device: '+desc,gtext,false,'<p style="font-weight:600;margin:6px 0 2px">'+escHtml(desc)+'</p>'+(etext?_specLinesToHtml(etext):''));}});return h;};
+    const devOverrides=(types)=>{let h='';types.slice().sort((a,b)=>(((peByType[a]||{}).description||a)).localeCompare(((peByType[b]||{}).description||b))).forEach(dt=>{const dev=devForType(dt),e=peByType[dt];const gtext=(dev&&dev.spec_text)||'';const etext=effText('device',dt,gtext);if(etext||ovMap['device|'+dt]){const desc=(e&&e.description)||(dev&&dev.description)||dt;h+=wrapBlock('device',dt,'Device: '+desc,gtext,false,'<p style="font-weight:600;margin:6px 0 2px">'+escHtml(desc)+'</p>'+(etext?_specLinesToHtml(etext):''));}});return h;};
     const active=instances.filter(i=>i.change_status!=='removed'&&(i.room_id||i.rack_zone_id));
     const usedTypes=new Set(active.map(i=>{const e=peById[i.project_equipment_id];return e?e.device_type_id:null;}).filter(Boolean));
 
