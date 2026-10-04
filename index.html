@@ -1499,7 +1499,7 @@
     <div class="confirm-title" id="ppk-title">Choose a product</div>
     <div class="confirm-text" id="ppk-sub" style="margin-bottom:10px"></div>
     <div id="ppk-list" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
-    <div class="confirm-actions"><button class="btn btn-secondary" onclick="ppkCancel()">Cancel</button><button class="btn btn-primary" onclick="ppkConfirm()">Add to Project</button></div>
+    <div class="confirm-actions"><button class="btn btn-secondary" onclick="ppkCancel()">Cancel</button><button class="btn btn-primary" onclick="ppkConfirm()">Confirm</button></div>
   </div>
 </div>
 
@@ -6345,7 +6345,8 @@ async function loadProjectCatalogue(){
   try{
     projectProducts=await dbGet('project_products','project_id=eq.'+currentProject.id+'&order=device_type_id.asc,make.asc,model.asc');
     if(!globalLibrary.length)globalLibrary=await dbGet('global_equipment','order=system_group.asc,device_type_id.asc');
-    const types=[...new Set(projectProducts.map(p=>p.device_type_id))].sort();
+    if(!projectEquipment.length)projectEquipment=await dbGet('project_equipment','project_id=eq.'+currentProject.id+'&order=system_group.asc,device_type_id.asc');
+    const types=[...new Set(projectEquipment.map(p=>familyOf(p.device_type_id)))].sort();
     const sel=document.getElementById('ppc-filter-type');
     if(sel)sel.innerHTML='<option value="">All device types</option>'+types.map(t=>'<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>').join('');
     renderProjectCatalogue();
@@ -6354,17 +6355,81 @@ async function loadProjectCatalogue(){
 function renderProjectCatalogue(){
   const q=((document.getElementById('ppc-search')||{}).value||'').toLowerCase().trim();
   const type=(document.getElementById('ppc-filter-type')||{}).value||'';
-  const items=projectProducts.filter(p=>(!type||p.device_type_id===type)&&(!q||p.make.toLowerCase().includes(q)||p.model.toLowerCase().includes(q)||(p.device_type_id||'').toLowerCase().includes(q)||(p.part_number||'').toLowerCase().includes(q)));
-  const countEl=document.getElementById('ppc-count');if(countEl)countEl.textContent=items.length+' product'+(items.length!==1?'s':'');
   const c=document.getElementById('proj-catalogue-container');
-  if(!projectProducts.length){
-    c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No products yet</div><div class="empty-state-text">Pull from the global catalogue or add a product from scratch.</div><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-secondary" onclick="openPullGlobalProductsModal()">Pull from Global</button><button class="btn btn-primary" onclick="openAddProjProductModal()">Add from Scratch</button></div></div>';return;
+  // PRIMARY: the numbered type-to-product assignment schedule (one row per project type)
+  const assigns=projectEquipment.filter(p=>
+    (!type||p.device_type_id===type||familyOf(p.device_type_id)===type)
+    &&(!q||(p.device_type_id||'').toLowerCase().includes(q)||(p.description||'').toLowerCase().includes(q)||(p.make||'').toLowerCase().includes(q)||(p.model||'').toLowerCase().includes(q)));
+  const countEl=document.getElementById('ppc-count');if(countEl)countEl.textContent=assigns.length+' type'+(assigns.length!==1?'s':'');
+  if(!projectEquipment.length&&!projectProducts.length){
+    c.innerHTML='<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-title">No device types in this project yet</div><div class="empty-state-text">Pull families from the global library; each pull assigns the next type number and its product.</div><button class="btn btn-primary" onclick="openPullLibraryModal()">Pull from Global Library</button></div>';return;
   }
-  if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-state-title">No products match</div><div class="empty-state-text">Try adjusting the search or filter.</div></div>';return;}
+  const dash='<span style="color:var(--text-3)">—</span>';
+  let html='';
+  if(!assigns.length){
+    html+='<div class="empty-state"><div class="empty-state-title">No types match</div><div class="empty-state-text">Try adjusting the search or filter.</div></div>';
+  }else{
+    const isRem=p=>p.change_status==='removed';
+    html+='<div class="equip-table"><table><thead><tr>'
+      +'<th>Device Type</th><th>Description</th><th>System</th><th>Make</th><th>Model</th>'
+      +'<th style="text-align:right">Budget Price</th><th>Status</th><th style="text-align:right">Actions</th>'
+      +'</tr></thead><tbody>'
+      +assigns.map(p=>{
+        const priceStr=p.budget_price?fmtPriceRange(p.budget_price,null,p.currency||'USD'):null;
+        return '<tr style="'+(isRem(p)?'opacity:.5;text-decoration:line-through':'')+'">'
+          +'<td class="td-mono" style="font-weight:600">'+escHtml(p.device_type_id)+'</td>'
+          +'<td>'+escHtml(p.description||'')+'</td>'
+          +'<td style="font-size:12px">'+escHtml(p.system_group||'')+'</td>'
+          +'<td style="font-weight:500">'+(p.make?escHtml(p.make):'<span class="category-badge" style="background:#fff3cd;color:#856404">TBD</span>')+'</td>'
+          +'<td>'+(p.model?escHtml(p.model):dash)+'</td>'
+          +'<td style="text-align:right;font-weight:600;white-space:nowrap">'+(priceStr?escHtml(priceStr):dash)+'</td>'
+          +'<td>'+changeBadge(p.change_status,p.change_cr_ref)+'</td>'
+          +'<td class="td-actions" style="text-align:right"><button class="btn btn-secondary btn-sm" onclick="pcChangeProduct(\''+p.id+'\')">'+(p.make?'Change Product':'Choose Product')+'</button></td>'
+          +'</tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+  // SECONDARY: the manual products list (custom price entries, legacy pulls)
+  const items=projectProducts.filter(p=>(!type||p.device_type_id===type)&&(!q||p.make.toLowerCase().includes(q)||p.model.toLowerCase().includes(q)||(p.device_type_id||'').toLowerCase().includes(q)||(p.part_number||'').toLowerCase().includes(q)));
+  html+='<div style="margin-top:26px;display:flex;align-items:center;gap:10px"><h3 style="font-size:13px;margin:0;color:var(--text-2)">Additional products list</h3>'
+    +'<button class="btn btn-secondary btn-sm" onclick="openPullGlobalProductsModal()">Pull from Global</button>'
+    +'<button class="btn btn-secondary btn-sm" onclick="openAddProjProductModal()">Add from Scratch</button></div>';
+  if(items.length)html+=_legacyProductsTable(items);
+  else if(projectProducts.length)html+='<div style="font-size:12px;color:var(--text-3);margin-top:8px">No products match the search.</div>';
+  else html+='<div style="font-size:12px;color:var(--text-3);margin-top:8px">Project-specific price entries live here; the table above is the type-to-product assignment.</div>';
+  c.innerHTML=html;
+}
+// Swap or set the product on a numbered project type: picker shows the family's
+// approved products; choosing one copies its make/model/specs/price onto the type.
+async function pcChangeProduct(peId){
+  const pe=projectEquipment.find(p=>p.id===peId);if(!pe)return;
+  const fam=familyOf(pe.device_type_id);
+  const gd=globalLibrary.find(g=>g.id===pe.global_equipment_id)
+    ||globalLibrary.find(g=>g.device_type_id===fam)
+    ||{device_type_id:fam,description:pe.description};
+  try{
+    const prods=await dbGet('global_products','device_type_id=eq.'+encodeURIComponent(gd.device_type_id||fam)+'&order=make.asc,model.asc');
+    if(!prods.length){showToast('No products in the global catalogue for '+(gd.device_type_id||fam)+' yet. Add one on the Global Product Catalogue page.','error');return;}
+    const prod=await new Promise(res=>openProductPick(gd,prods,res));
+    if(prod==='cancel')return;
+    const upd={global_product_id:prod?prod.id:null,make:prod?(prod.make||null):null,model:prod?(prod.model||null):null};
+    if(prod){
+      ['network_role','avip_role','audio_role','lan_ports','poe_ports','poe_type','poe_budget_watts','power_types','power_watts','heat_btu','ups_protected','speaker_channels','spk_watts'].forEach(f=>{if(prod[f]!=null&&prod[f]!=='')upd[f]=prod[f];});
+      const mid=(prod.price_min||prod.price_max)?(((+prod.price_min||+prod.price_max)+(+prod.price_max||+prod.price_min))/2):null;
+      if(mid!=null){upd.budget_price=mid;upd.currency=prod.currency||'USD';}
+    }
+    stampChange(upd,'modified',pe);
+    await dbUpdate('project_equipment',pe.id,upd);
+    Object.assign(pe,upd);
+    logChange('equipment','updated','Product for '+pe.device_type_id+' set to '+(prod?((prod.make||'')+' '+(prod.model||'')).trim():'TBD'));
+    showToast(pe.device_type_id+': product '+(prod?'updated':'cleared'),'success');
+    renderProjectCatalogue();
+  }catch(e){showToast('Could not change product: '+e.message,'error');}
+}
+function _legacyProductsTable(items){
   const svgEdit='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
   const svgDel='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg>';
   const svgRefresh='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23,4 23,10 17,10"/><polyline points="1,20 1,14 7,14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
-  c.innerHTML='<div class="equip-table"><table><thead><tr>'
+  return '<div class="equip-table" style="margin-top:10px"><table><thead><tr>'
     +'<th>Device Type</th><th>Make</th><th>Model</th><th>Part No.</th>'
     +'<th>LAN</th><th>PoE Ports</th><th>PoE Type</th><th>Spk</th><th>Power</th><th>Watts</th><th>Weight</th>'
     +'<th>Price</th><th>Source</th><th style="text-align:right">Actions</th>'
