@@ -334,6 +334,8 @@
   .ga-pin { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); display: flex; align-items: center; cursor: pointer; white-space: nowrap; touch-action: none; z-index: 2; }
   .ga-pin.prewire { opacity: .55; }
   .ga-pin.prewire .mark { outline: 2px dashed currentColor; outline-offset: 1px; border-radius: 50%; }
+  .ga-pin.auto .mark { outline: 2px dashed #e67e22; outline-offset: 3px; border-radius: 50%; }
+  .ga-blabel .ga-bshort { pointer-events: auto; cursor: pointer; background: #fff3cd; color: #856404; border: 1px solid #ffc107; border-radius: 3px; padding: 0 4px; font-size: 10px; margin-left: 3px; display: inline-block; }
   .ga-pin .mark { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--c); background: #fff; color: var(--c); display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
   .ga-pin .mark svg { width: 17px; height: 17px; }
   .ga-pin .tag { pointer-events: none; position: absolute; left: 34px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,.92); color: #1b2a3a; border: 1px solid var(--c); border-radius: 3px; padding: 0 4px; }
@@ -2139,6 +2141,7 @@ let gaPlans=[], gaActiveDeckId=null, gaViewRevId=null, gaView={s:1,x:0,y:0}, gaI
 let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=null, gaEditPinId=null, gaLastLoc=null;
 let gaMultiSel=new Set(), gaSelBox=null;
 let gaRlSelMode=false, gaRlSel=new Set();
+let gaArmedInstId=null;
 let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
 let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='', gaLastCloudCrId='';
 let gaCRs=[], gaDeckClouds=[], gaRevLogOpen=true, gaPendingFocus=null;
@@ -2441,6 +2444,77 @@ function gaToggleGroup(name){
   if(gaPalOpenGroups.has(name))gaPalOpenGroups.delete(name);else gaPalOpenGroups.add(name);
   renderGaPalette();
 }
+// Scheduled devices with no pin on the current plan (rooms on this deck/floor only)
+function gaUnplaced(){
+  const plan=gaShownPlan();
+  if(!plan||!plan.is_current)return[];
+  const pinned=new Set(gaPins.map(p=>p.equipment_instance_id));
+  const roomOk={};
+  currentRooms.forEach(r=>{roomOk[r.id]=r.deck_id===plan.deck_id&&(!isBuildingProj()||!plan.floor_id||r.floor_id===plan.floor_id);});
+  return placedEquipment.filter(i=>i.change_status!=='removed'&&i.room_id&&roomOk[i.room_id]&&!pinned.has(i.id));
+}
+// Arm one EXISTING scheduled device: the next tap pins it, no new instance, ID kept
+function gaArmInst(instId){
+  if(gaMode==='place'&&gaArmedInstId===instId){gaStopPlacing();return;}
+  const inst=placedEquipment.find(i=>i.id===instId);if(!inst)return;
+  gaArmedInstId=instId;gaArmedTypeId=null;gaMode='place';gaDraft=[];gaRedrawBoundId=null;
+  const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('placing');vp.classList.remove('drawing');vp.classList.remove('editing');vp.classList.remove('selecting');}
+  const room=currentRooms.find(r=>r.id===inst.room_id);
+  gaBanner('Tap the plan to place '+(inst.device_id||'this device')+(room?' ('+room.name+')':'')+'. It keeps its ID unless dropped inside a different room.','Stop placing');
+  renderGaPalette();
+}
+// Auto-place: drop unpinned scheduled devices into their drawn room outlines, arranged
+// around the room centre, dashed-ringed until each is dragged into its real position.
+function gaAutoPlaceAll(){_gaAutoPlaceConfirm(null);}
+function gaAutoPlaceRoom(roomId){_gaAutoPlaceConfirm(roomId);}
+function _gaAutoPlaceConfirm(roomId){
+  const plan=gaShownPlan();if(!plan||!plan.is_current)return;
+  const bounded=new Set(gaBounds.filter(b=>b.room_id).map(b=>b.room_id));
+  let all=gaUnplaced();
+  if(roomId)all=all.filter(i=>i.room_id===roomId);
+  const list=all.filter(i=>bounded.has(i.room_id));
+  const skipped=all.length-list.length;
+  if(!list.length){showToast(skipped?'Those devices are in rooms with no drawn outline yet':'Nothing to auto-place','error');return;}
+  const roomsN=new Set(list.map(i=>i.room_id)).size;
+  openConfirm('Auto-place Devices',
+    'Drop '+list.length+' device'+(list.length!==1?'s':'')+' into '+roomsN+' drawn room'+(roomsN!==1?'s':'')+'? They appear with a dashed ring until you drag each one into its real position.'
+    +(skipped?' '+skipped+' stay'+(skipped===1?'s':'')+' on the list (no outline drawn for their room'+(skipped===1?'':'s')+').':''),
+    ()=>_gaAutoPlace(list),'Auto-place','btn-primary');
+}
+async function _gaAutoPlace(list){
+  const plan=gaShownPlan();if(!plan)return;
+  const byRoom={};list.forEach(i=>{(byRoom[i.room_id]=byRoom[i.room_id]||[]).push(i);});
+  const payloads=[];
+  Object.keys(byRoom).forEach(rid=>{
+    const b=gaBounds.find(bb=>bb.room_id===rid&&Array.isArray(bb.points)&&bb.points.length>=3);
+    if(!b)return;
+    const xs=b.points.map(p=>p[0]),ys=b.points.map(p=>p[1]);
+    const cx=xs.reduce((a,v)=>a+v,0)/xs.length, cy=ys.reduce((a,v)=>a+v,0)/ys.length;
+    const w=Math.max(...xs)-Math.min(...xs), h=Math.max(...ys)-Math.min(...ys);
+    const items=byRoom[rid];
+    const cols=Math.ceil(Math.sqrt(items.length));
+    const rowsN=Math.ceil(items.length/cols);
+    const sx=(w*0.5)/Math.max(1,cols), sy=(h*0.5)/Math.max(1,rowsN);
+    items.forEach((inst,k)=>{
+      const col=k%cols,row=Math.floor(k/cols);
+      let px=cx+(col-(cols-1)/2)*sx, py=cy+(row-(rowsN-1)/2)*sy;
+      // Pull toward the room centre until the point sits inside the outline
+      for(let t=0;t<8&&!gaInPoly(px,py,b.points);t++){px=(px+cx)/2;py=(py+cy)/2;}
+      const sn=gaSnapPoint(Math.min(1,Math.max(0,px)),Math.min(1,Math.max(0,py)));
+      // Grid snap can push a point outside a tight outline; keep the unsnapped spot then
+      const ok=gaInPoly(sn[0],sn[1],b.points);
+      payloads.push({deck_plan_id:plan.id,equipment_instance_id:inst.id,x:ok?sn[0]:px,y:ok?sn[1]:py,auto:true});
+    });
+  });
+  if(!payloads.length)return;
+  try{
+    const rows=await dbInsert('plan_equipment_pins',payloads);
+    gaPins.push(...rows);
+    renderGaPins();renderGaBounds();renderGaPalette();
+    logChange('design','added','Auto-placed '+rows.length+' device'+(rows.length!==1?'s':'')+' into drawn rooms on the GA');
+    showToast(rows.length+' device'+(rows.length!==1?'s':'')+' placed. Dashed ring means auto position: drag each to set it.','success');
+  }catch(e){showToast('Auto-place failed: '+e.message,'error');}
+}
 function renderGaPalette(){
   const list=document.getElementById('ga-palette-list');if(!list)return;
   const q=(gaPaletteQuery||'').toLowerCase().trim();
@@ -2454,6 +2528,26 @@ function renderGaPalette(){
   const typeInfo=t=>projectEquipment.find(p=>p.device_type_id===t)||globalLibrary.find(d=>d.device_type_id===t)||globalLibrary.find(d=>d.device_type_id===familyOf(t))||null;
   const match=d=>!q||(d.device_type_id+' '+(d.description||'')+' '+(d.system_group||'')).toLowerCase().includes(q);
   let html='';
+  // On the schedule but not on this drawing: placing from here pins the EXISTING device
+  const unp=q?[]:gaUnplaced();
+  if(unp.length){
+    html+='<div class="ga-pal-sec" style="display:flex;align-items:center;gap:8px">Not on drawing'
+      +'<button class="btn btn-secondary btn-sm" style="margin-left:auto" title="Drop every listed device into its drawn room outline" onclick="gaAutoPlaceAll()">Auto-place '+unp.length+'</button></div>';
+    const byRoom={};unp.forEach(i=>{(byRoom[i.room_id]=byRoom[i.room_id]||[]).push(i);});
+    currentRooms.forEach(room=>{
+      const items=byRoom[room.id];if(!items)return;
+      html+='<div style="padding:5px 12px 1px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)">'+escHtml(room.name)+'</div>';
+      items.forEach(i=>{
+        const pe=projectEquipment.find(p=>p.id===i.project_equipment_id)||{};
+        const armed=gaMode==='place'&&gaArmedInstId===i.id;
+        html+='<button class="ga-pick-row'+(armed?' armed':'')+'" onclick="gaArmInst(\''+i.id+'\')">'
+          +'<span class="ga-pick-dot" style="background:'+gaGroupColour(pe.system_group)+'">'+gaIconSvg(gaIconKey(pe))+'</span>'
+          +'<span style="min-width:0"><span style="font-weight:600;font-size:12.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(i.device_id||'?')+'</span>'
+          +'<span style="color:var(--text-3);font-size:11px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pe.description||pe.device_type_id||'')+'</span>'
+          +'</span></button>';
+      });
+    });
+  }
   // Recent: the last few types armed this session, as one-tap chips
   if(!q&&gaRecentTypes.length){
     html+='<div class="ga-pal-chips">'+gaRecentTypes.map(t=>{
@@ -2595,6 +2689,16 @@ function renderGaBounds(){
     tag.style.left=(cx*100)+'%';tag.style.top=(ty*100)+'%';
     st.appendChild(tag);
   });
+  // Pinned vs scheduled per room (current revision only): shortfalls show an amber badge
+  const schedByRoom={},pinnedByRoom={};
+  if(gplan&&gplan.is_current){
+    const pinnedIds=new Set(gaPins.map(p=>p.equipment_instance_id));
+    placedEquipment.forEach(i=>{
+      if(i.change_status==='removed'||!i.room_id)return;
+      schedByRoom[i.room_id]=(schedByRoom[i.room_id]||0)+1;
+      if(pinnedIds.has(i.id))pinnedByRoom[i.room_id]=(pinnedByRoom[i.room_id]||0)+1;
+    });
+  }
   gaBounds.forEach(b=>{
     if(!Array.isArray(b.points)||b.points.length<3)return;
     const room=currentRooms.find(r=>r.id===b.room_id);
@@ -2603,7 +2707,9 @@ function renderGaBounds(){
     const lab=document.createElement('div');
     lab.className='ga-blabel'+(room?'':' unassigned');
     lab.dataset.bound=b.id;
-    lab.textContent=room?room.name:'Room not assigned';
+    const short=room?((schedByRoom[room.id]||0)-(pinnedByRoom[room.id]||0)):0;
+    lab.innerHTML=(room?escHtml(room.name):'Room not assigned')
+      +(short>0?' <span class="ga-bshort" data-room="'+room.id+'" title="'+short+' scheduled device'+(short!==1?'s':'')+' not on the drawing. Tap to auto-place them.">'+(pinnedByRoom[room.id]||0)+'/'+schedByRoom[room.id]+'</span>':'');
     lab.style.left=(cx*100)+'%';lab.style.top=(cy*100)+'%';
     st.appendChild(lab);
   });
@@ -2661,7 +2767,7 @@ function renderGaPins(){
     if(!inst||inst.change_status==='removed')return;
     const pe=peById[inst.project_equipment_id]||{};
     const el=document.createElement('div');
-    el.className='ga-pin'+(gaSelPinId===pin.id?' sel':'')+(inst.pre_wire?' prewire':'')+(gaMultiSel.has(pin.id)?' msel':'');
+    el.className='ga-pin'+(gaSelPinId===pin.id?' sel':'')+(inst.pre_wire?' prewire':'')+(gaMultiSel.has(pin.id)?' msel':'')+(pin.auto?' auto':'');
     el.dataset.pin=pin.id;
     el.style.left=(pin.x*100)+'%';el.style.top=(pin.y*100)+'%';
     el.style.setProperty('--c',gaGroupColour(pe.system_group));
@@ -2717,8 +2823,9 @@ function wireGaViewport(){
     if(vtxEl||midEl||pinEl)e.preventDefault();
     const boundEl=(gaMode==='edit'&&!pinEl&&!vtxEl&&!midEl&&e.target.closest)?e.target.closest('polygon[data-bound]'):null;
     const cloudEl=(gaMode==='pan'&&!pinEl&&!vtxEl&&!boundEl&&e.target.closest)?(e.target.closest('path[data-cloud]')||e.target.closest('.ga-delta')):null;
+    const shortEl=(gaMode==='pan'&&!pinEl&&e.target.closest)?e.target.closest('.ga-bshort'):null;
     if(ptrs.size===1){
-      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?(cloudEl.dataset.cloud||cloudEl.dataset.cloudtag):null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null,cloudBox:gaMode==='cloud'};
+      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?(cloudEl.dataset.cloud||cloudEl.dataset.cloudtag):null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null,cloudBox:gaMode==='cloud',shortRoom:shortEl?shortEl.dataset.room:null};
       // Dragging a dashed mid-edge handle inserts a new corner there, then drags it live
       if(midEl){
         const mb=gaBounds.find(bb=>bb.id===midEl.dataset.bound);
@@ -2891,8 +2998,8 @@ function wireGaViewport(){
         for(const g of d.group){
           const pin=gaPins.find(p=>p.id===g.id);if(!pin)continue;
           const nx=Math.min(1,Math.max(0,g.x0+d.dx)),ny=Math.min(1,Math.max(0,g.y0+d.dy));
-          await dbUpdate('plan_equipment_pins',pin.id,{x:nx,y:ny});
-          pin.x=nx;pin.y=ny;
+          await dbUpdate('plan_equipment_pins',pin.id,{x:nx,y:ny,auto:false});
+          pin.x=nx;pin.y=ny;pin.auto=false;
           const inst=placedEquipment.find(i=>i.id===pin.equipment_instance_id);
           if(inst&&inst.room_id){
             const room=gaRoomForPoint(nx,ny);
@@ -2906,8 +3013,8 @@ function wireGaViewport(){
     }
     if(d.moved&&d.pinId&&d.x!=null){
       try{
-        await dbUpdate('plan_equipment_pins',d.pinId,{x:d.x,y:d.y});
-        const pin=gaPins.find(p=>p.id===d.pinId);if(pin){pin.x=d.x;pin.y=d.y;}
+        await dbUpdate('plan_equipment_pins',d.pinId,{x:d.x,y:d.y,auto:false});
+        const pin=gaPins.find(p=>p.id===d.pinId);if(pin){pin.x=d.x;pin.y=d.y;pin.auto=false;}
         // Dragged into a different room's boundary: the device takes that room and its ID
         // renumbers (room-mounted devices only; rack kit keeps its zone).
         const inst=pin?placedEquipment.find(i=>i.id===pin.equipment_instance_id):null;
@@ -2948,6 +3055,27 @@ function wireGaViewport(){
       }
       gaSelPinId=d.pinId;renderGaPins();openGaPinEdit(d.pinId);return;
     }
+    if(gaMode==='place'&&gaArmedInstId){
+      // Placing an EXISTING scheduled device: create the pin only, no new instance.
+      // It keeps its room and ID unless dropped inside a different room's outline.
+      if(!inside)return;
+      const inst=placedEquipment.find(i=>i.id===gaArmedInstId);
+      const plan=gaShownPlan();
+      if(!inst||!plan){gaStopPlacing();return;}
+      const [px,py]=gaSnapPoint(x,y);
+      try{
+        const rows=await dbInsert('plan_equipment_pins',{deck_plan_id:plan.id,equipment_instance_id:inst.id,x:px,y:py});
+        gaPins.push(rows[0]);
+        const room=gaRoomForPoint(px,py);
+        if(room&&inst.room_id&&room.id!==inst.room_id)await gaMoveInstanceToRoom(inst,room);
+        else showToast((inst.device_id||'Device')+' placed','success');
+        renderGaPins();renderGaBounds();
+        // Move straight on to the next unplaced device in the same room
+        const next=gaUnplaced().find(i=>i.room_id===inst.room_id);
+        if(next)gaArmInst(next.id);else gaStopPlacing();
+      }catch(err){showToast('Could not place: '+err.message,'error');}
+      return;
+    }
     if(gaMode==='place'&&gaArmedTypeId){
       if(!inside)return;
       // Snap to the design grid when active, then: inside a drawn room boundary places
@@ -2959,6 +3087,7 @@ function wireGaViewport(){
       openGaPinModal();
       return;
     }
+    if(d.shortRoom){gaAutoPlaceRoom(d.shortRoom);return;}
     if(d.boundId){openGaBoundEdit(d.boundId);return;}
     if(d.cloudId){openGaCloudEdit(d.cloudId);return;}
     if(gaSelPinId){gaSelPinId=null;renderGaPins();}
@@ -3085,7 +3214,7 @@ async function saveGaPlan(){
 // ── GA PINS: arm a device type from the palette, tap the plan to place ──
 function gaArm(typeId){
   if(gaMode==='place'&&gaArmedTypeId===typeId){gaStopPlacing();return;}
-  gaArmedTypeId=typeId;gaMode='place';gaDraft=[];gaRedrawBoundId=null;
+  gaArmedTypeId=typeId;gaArmedInstId=null;gaMode='place';gaDraft=[];gaRedrawBoundId=null;
   gaRecentTypes=[typeId].concat(gaRecentTypes.filter(t=>t!==typeId)).slice(0,5);
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('placing');vp.classList.remove('drawing');vp.classList.remove('editing');}
   gaBanner('Tap the plan to place '+typeId+'. Each tap places one device. Tap it again in the palette to stop.','Stop placing');
@@ -3093,7 +3222,7 @@ function gaArm(typeId){
 }
 function gaStopPlacing(){
   const hadSel=gaMode==='select'||gaMultiSel.size;
-  gaArmedTypeId=null;gaMode='pan';gaDraft=[];gaRedrawBoundId=null;gaCloudPreview=null;gaScalePts=[];
+  gaArmedTypeId=null;gaArmedInstId=null;gaMode='pan';gaDraft=[];gaRedrawBoundId=null;gaCloudPreview=null;gaScalePts=[];
   gaMultiSel.clear();gaSelBox=null;
   if(gaGridUnlocked){gaGridUnlocked=false;renderGaGridPanel();}
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');vp.classList.remove('editing');vp.classList.remove('selecting');}
