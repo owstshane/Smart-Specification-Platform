@@ -2701,7 +2701,7 @@ function gaToFraction(cx,cy){
 }
 function wireGaViewport(){
   const vp=document.getElementById('ga-viewport');if(!vp)return;
-  const ptrs=new Map();let pan=null,pinch=null,drag=null;
+  const ptrs=new Map();let pan=null,pinch=null,drag=null,vtxTap=null;
   vp.addEventListener('wheel',e=>{e.preventDefault();const r=vp.getBoundingClientRect();gaZoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.15:1/1.15);},{passive:false});
   vp.addEventListener('pointerdown',e=>{
     if(e.target.closest('.ga-zoom,.ga-banner,.ga-grid-panel'))return;
@@ -2839,7 +2839,24 @@ function wireGaViewport(){
       return;
     }
     if(d.vtxBound){
-      if(!d.moved)return;
+      if(!d.moved){
+        // Double-tap on a corner removes it. Detected here from the pointer events
+        // (pointer capture stops the browser's own dblclick reaching the handle on touch).
+        const now=Date.now();
+        if(vtxTap&&vtxTap.b===d.vtxBound&&vtxTap.vi===d.vtxI&&now-vtxTap.t<450){
+          vtxTap=null;
+          const tb=gaBounds.find(bb=>bb.id===d.vtxBound);if(!tb)return;
+          if(tb.points.length<=3){showToast('An outline needs at least 3 corners','error');return;}
+          tb.points.splice(d.vtxI,1);
+          try{await dbUpdate('plan_room_boundaries',tb.id,{points:tb.points});}
+          catch(err){showToast('Could not update: '+err.message,'error');}
+          renderGaBounds();
+          return;
+        }
+        vtxTap={b:d.vtxBound,vi:d.vtxI,t:now};
+        return;
+      }
+      vtxTap=null;
       const b=gaBounds.find(bb=>bb.id===d.vtxBound);if(!b)return;
       try{await dbUpdate('plan_room_boundaries',b.id,{points:b.points});}
       catch(err){showToast('Could not save the outline: '+err.message,'error');}
@@ -2945,16 +2962,6 @@ function wireGaViewport(){
     if(gaSelPinId){gaSelPinId=null;renderGaPins();}
   };
   vp.addEventListener('pointerup',gaUp);vp.addEventListener('pointercancel',()=>{ptrs.clear();pan=null;pinch=null;drag=null;vp.classList.remove('dragging');});
-  // Double-tap a corner handle in edit mode to remove that corner (minimum 3 stay)
-  vp.addEventListener('dblclick',async e=>{
-    if(gaMode!=='edit')return;
-    const v=e.target.closest&&e.target.closest('.ga-vtx.edit');if(!v)return;
-    const b=gaBounds.find(bb=>bb.id===v.dataset.bound);if(!b)return;
-    if(b.points.length<=3){showToast('An outline needs at least 3 corners','error');return;}
-    b.points.splice(+v.dataset.vi,1);
-    try{await dbUpdate('plan_room_boundaries',b.id,{points:b.points});renderGaBounds();}
-    catch(err){showToast('Could not update: '+err.message,'error');}
-  });
 }
 function openGaUploadModal(){
   if(!currentProject){showToast('Please open a project first','error');return;}
