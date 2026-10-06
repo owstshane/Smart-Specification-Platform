@@ -3025,6 +3025,7 @@ function wireGaViewport(){
           const room=gaRoomForPoint(d.x,d.y);
           if(room&&room.id!==inst.room_id)await gaMoveInstanceToRoom(inst,room);
         }
+        renderGaPins();
       }catch(err){showToast('Could not move pin: '+err.message,'error');renderGaPins();}
       return;
     }
