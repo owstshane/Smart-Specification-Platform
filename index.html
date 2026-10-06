@@ -2842,7 +2842,8 @@ function wireGaViewport(){
       if(!d.moved)return;
       const b=gaBounds.find(bb=>bb.id===d.vtxBound);if(!b)return;
       try{await dbUpdate('plan_room_boundaries',b.id,{points:b.points});}
-      catch(err){showToast('Could not save the outline: '+err.message,'error');renderGaBounds();}
+      catch(err){showToast('Could not save the outline: '+err.message,'error');}
+      renderGaBounds();
       return;
     }
     if(d.selBox){
@@ -3362,6 +3363,16 @@ function gaUpdateBoundVisual(b,vi){
   if(poly)poly.setAttribute('points',b.points.map(p=>(p[0]*gaImgW)+','+(p[1]*gaImgH)).join(' '));
   const v=st.querySelector('.ga-vtx.edit[data-bound="'+b.id+'"][data-vi="'+vi+'"]');
   if(v){v.style.left=(b.points[vi][0]*100)+'%';v.style.top=(b.points[vi][1]*100)+'%';}
+  // The two mid-edge handles either side of the dragged corner follow it live
+  const n=b.points.length;
+  [(vi-1+n)%n,vi].forEach(mi=>{
+    const m=st.querySelector('.ga-vtx.mid[data-bound="'+b.id+'"][data-vi="'+mi+'"]');
+    if(!m)return;
+    const p=b.points[mi],q=b.points[(mi+1)%n];
+    const mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2;
+    m.dataset.px=mx;m.dataset.py=my;
+    m.style.left=(mx*100)+'%';m.style.top=(my*100)+'%';
+  });
   const lab=st.querySelector('.ga-blabel[data-bound="'+b.id+'"]');
   if(lab){
     const cx=b.points.reduce((a,p)=>a+p[0],0)/b.points.length, cy=b.points.reduce((a,p)=>a+p[1],0)/b.points.length;
