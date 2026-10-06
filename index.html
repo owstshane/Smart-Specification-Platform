@@ -2143,7 +2143,7 @@ let gaPlans=[], gaActiveDeckId=null, gaViewRevId=null, gaView={s:1,x:0,y:0}, gaI
 let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=null, gaEditPinId=null, gaLastLoc=null;
 let gaMultiSel=new Set(), gaSelBox=null;
 let gaRlSelMode=false, gaRlSel=new Set();
-let gaArmedInstId=null, gaShowIds=true;
+let gaArmedInstId=null, gaShowType=true, gaShowUid=true;
 let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
 let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='', gaLastCloudCrId='';
 let gaCRs=[], gaDeckClouds=[], gaRevLogOpen=true, gaPendingFocus=null;
@@ -2368,7 +2368,8 @@ function renderGaPlans(){
       +gaTb('gaStartSelect()','Select','Select several devices (box drag or taps) and move them as a group','<rect x="3.5" y="3.5" width="12" height="12" rx="1.5" stroke-dasharray="3 2.4"/><path d="M13 13l7.2 7.2M17.8 20.9H21v-3.2"/>',gaMode==='select','ga-btn-select')
       +gaTb('gaStartCloud()','Cloud','Rev cloud: drag a box around a changed area','<path d="M17.5 18a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.3 1.4A4 4 0 0 0 7 18z"/>')
       +gaDiv
-      +gaTb('gaToggleIds()','IDs','Show or hide the device labels under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowIds,'ga-btn-ids')
+      +gaTb('gaToggleType()','Type','Show or hide the device type (SPK-IC-1) under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
+      +gaTb('gaToggleUid()','ID','Show or hide the unique device ID (SPK-301-02) under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
       +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid');
   }
   if(showing)gaRight+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
@@ -2421,7 +2422,8 @@ function gaSetTbtn(id,on){
   const b=document.getElementById(id);
   if(b){b.classList.toggle('btn-primary',on);b.classList.toggle('btn-secondary',!on);}
 }
-function gaToggleIds(){gaShowIds=!gaShowIds;gaSetTbtn('ga-btn-ids',gaShowIds);renderGaPins();}
+function gaToggleType(){gaShowType=!gaShowType;gaSetTbtn('ga-btn-type',gaShowType);renderGaPins();}
+function gaToggleUid(){gaShowUid=!gaShowUid;gaSetTbtn('ga-btn-uid',gaShowUid);renderGaPins();}
 function gaTogglePalette(){
   gaPaletteOpen=!gaPaletteOpen;
   const p=document.getElementById('ga-palette');
@@ -2779,8 +2781,10 @@ function renderGaPins(){
     el.style.left=(pin.x*100)+'%';el.style.top=(pin.y*100)+'%';
     el.style.setProperty('--c',gaGroupColour(pe.system_group));
     el.title=(inst.device_id||'')+(pe.description?': '+pe.description:'')+(inst.pre_wire?' (pre-wire only)':'');
-    el.innerHTML='<span class="mark">'+gaIconSvg(gaIconKey(pe))+'</span>'
-      +(gaShowIds?'<span class="tag">'+escHtml(pe.device_type_id||'?')+'<span class="tid">'+escHtml(inst.device_id||'')+'</span></span>':'');
+    let tagHtml='';
+    if(gaShowType)tagHtml+=escHtml(pe.device_type_id||'?');
+    if(gaShowUid)tagHtml+=gaShowType?'<span class="tid">'+escHtml(inst.device_id||'')+'</span>':escHtml(inst.device_id||'?');
+    el.innerHTML='<span class="mark">'+gaIconSvg(gaIconKey(pe))+'</span>'+(tagHtml?'<span class="tag">'+tagHtml+'</span>':'');
     st.appendChild(el);shown++;
   });
   const cnt=document.getElementById('ga-pin-count');
