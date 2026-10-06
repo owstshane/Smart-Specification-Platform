@@ -361,6 +361,7 @@
   .ga-grid-panel .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
   .ga-grid-panel label.chk { display: flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; }
   .ga-grid-panel input[type=number] { width: 86px; padding: 4px 8px; }
+  .ga-grid-panel input[type=checkbox] { width: 15px; height: 15px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--accent); }
   .ga-scale-dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); transform: scale(var(--ga-inv,1)); pointer-events: none; z-index: 2; }
   .ga-revlog { width: 272px; flex: none; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow-y: auto; height: calc(100vh - 310px); min-height: 380px; }
   .ga-revlog h3 { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin: 0; padding: 12px 14px 6px; }
@@ -2366,6 +2367,7 @@ function renderGaPlans(){
       +gaTb('gaStartSelect()','Select','Select several devices (box drag or taps) and move them as a group','<rect x="3.5" y="3.5" width="12" height="12" rx="1.5" stroke-dasharray="3 2.4"/><path d="M13 13l7.2 7.2M17.8 20.9H21v-3.2"/>',gaMode==='select','ga-btn-select')
       +gaTb('gaStartCloud()','Cloud','Rev cloud: drag a box around a changed area','<path d="M17.5 18a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.3 1.4A4 4 0 0 0 7 18z"/>')
       +gaDiv
+      +gaTb('gaStartScale()','Scale','Set the drawing scale: tap two points a known distance apart','<path d="M3 21L21 3"/><path d="M6 18l1.8 1.8M9.5 14.5l1.8 1.8M13 11l1.8 1.8M16.5 7.5l1.8 1.8"/>')
       +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid');
   }
   if(showing)gaRight+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
