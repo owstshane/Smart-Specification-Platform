@@ -338,7 +338,8 @@
   .ga-blabel .ga-bshort { pointer-events: auto; cursor: pointer; background: #fff3cd; color: #856404; border: 1px solid #ffc107; border-radius: 3px; padding: 0 4px; font-size: 10px; margin-left: 3px; display: inline-block; }
   .ga-pin .mark { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--c); background: #fff; color: var(--c); display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
   .ga-pin .mark svg { width: 17px; height: 17px; }
-  .ga-pin .tag { pointer-events: none; position: absolute; left: 34px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,.92); color: #1b2a3a; border: 1px solid var(--c); border-radius: 3px; padding: 0 4px; }
+  .ga-pin .tag { pointer-events: none; position: absolute; top: calc(50% + 17px); left: 50%; transform: translateX(-50%); text-align: center; line-height: 1.15; font-size: 11px; font-weight: 700; background: rgba(255,255,255,.92); color: #1b2a3a; border: 1px solid var(--c); border-radius: 3px; padding: 1px 4px; }
+  .ga-pin .tag .tid { display: block; font-weight: 500; font-size: 9.5px; color: #56687a; }
   .ga-pin.sel .mark { box-shadow: 0 0 0 3px var(--c), 0 0 0 5px #fff; }
   #ga-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
   #ga-overlay polygon { fill: rgba(15,110,140,.08); stroke: #0f6e8c; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
@@ -2142,7 +2143,7 @@ let gaPlans=[], gaActiveDeckId=null, gaViewRevId=null, gaView={s:1,x:0,y:0}, gaI
 let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=null, gaEditPinId=null, gaLastLoc=null;
 let gaMultiSel=new Set(), gaSelBox=null;
 let gaRlSelMode=false, gaRlSel=new Set();
-let gaArmedInstId=null;
+let gaArmedInstId=null, gaShowIds=true;
 let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
 let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='', gaLastCloudCrId='';
 let gaCRs=[], gaDeckClouds=[], gaRevLogOpen=true, gaPendingFocus=null;
@@ -2367,7 +2368,7 @@ function renderGaPlans(){
       +gaTb('gaStartSelect()','Select','Select several devices (box drag or taps) and move them as a group','<rect x="3.5" y="3.5" width="12" height="12" rx="1.5" stroke-dasharray="3 2.4"/><path d="M13 13l7.2 7.2M17.8 20.9H21v-3.2"/>',gaMode==='select','ga-btn-select')
       +gaTb('gaStartCloud()','Cloud','Rev cloud: drag a box around a changed area','<path d="M17.5 18a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.3 1.4A4 4 0 0 0 7 18z"/>')
       +gaDiv
-      +gaTb('gaStartScale()','Scale','Set the drawing scale: tap two points a known distance apart','<path d="M3 21L21 3"/><path d="M6 18l1.8 1.8M9.5 14.5l1.8 1.8M13 11l1.8 1.8M16.5 7.5l1.8 1.8"/>')
+      +gaTb('gaToggleIds()','IDs','Show or hide the device labels under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowIds,'ga-btn-ids')
       +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid');
   }
   if(showing)gaRight+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
@@ -2404,7 +2405,7 @@ function renderGaPlans(){
     +'<div class="ga-banner" id="ga-banner"><span id="ga-banner-text"></span><button id="ga-banner-btn" onclick="gaStopPlacing()">Stop</button></div>'
     +(cur?'':'<div class="ga-oldrev">Viewing '+escHtml(showing.revision)+' — not the current revision</div>')
     +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan" draggable="false"><svg id="ga-overlay"></svg></div>'
-    +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button></div>'
+    +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button><button onclick="gaStartScale()" title="Set the drawing scale: tap two points a known distance apart" style="font-size:10px">Scale</button></div>'
     +'<div class="ga-grid-panel" id="ga-grid-panel" style="display:none"></div>'
     +'<button class="ga-focus-exit btn btn-secondary btn-sm" onclick="gaToggleFocus()">Exit full screen</button>'
     +'</div>'
@@ -2420,6 +2421,7 @@ function gaSetTbtn(id,on){
   const b=document.getElementById(id);
   if(b){b.classList.toggle('btn-primary',on);b.classList.toggle('btn-secondary',!on);}
 }
+function gaToggleIds(){gaShowIds=!gaShowIds;gaSetTbtn('ga-btn-ids',gaShowIds);renderGaPins();}
 function gaTogglePalette(){
   gaPaletteOpen=!gaPaletteOpen;
   const p=document.getElementById('ga-palette');
@@ -2777,7 +2779,8 @@ function renderGaPins(){
     el.style.left=(pin.x*100)+'%';el.style.top=(pin.y*100)+'%';
     el.style.setProperty('--c',gaGroupColour(pe.system_group));
     el.title=(inst.device_id||'')+(pe.description?': '+pe.description:'')+(inst.pre_wire?' (pre-wire only)':'');
-    el.innerHTML='<span class="mark">'+gaIconSvg(gaIconKey(pe))+'</span><span class="tag">'+escHtml(inst.device_id||'?')+'</span>';
+    el.innerHTML='<span class="mark">'+gaIconSvg(gaIconKey(pe))+'</span>'
+      +(gaShowIds?'<span class="tag">'+escHtml(pe.device_type_id||'?')+'<span class="tid">'+escHtml(inst.device_id||'')+'</span></span>':'');
     st.appendChild(el);shown++;
   });
   const cnt=document.getElementById('ga-pin-count');
