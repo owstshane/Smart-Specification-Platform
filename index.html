@@ -2444,13 +2444,16 @@ function gaToggleGroup(name){
   if(gaPalOpenGroups.has(name))gaPalOpenGroups.delete(name);else gaPalOpenGroups.add(name);
   renderGaPalette();
 }
-// Scheduled devices with no pin on the current plan (rooms on this deck/floor only)
+// Scheduled devices with no pin on the current plan. A room belongs to this drawing
+// when it is on the plan's deck (and floor), OR when its outline is drawn on this plan
+// (rooms can be assigned to an outline from any deck).
 function gaUnplaced(){
   const plan=gaShownPlan();
   if(!plan||!plan.is_current)return[];
   const pinned=new Set(gaPins.map(p=>p.equipment_instance_id));
+  const bounded=new Set(gaBounds.filter(b=>b.room_id).map(b=>b.room_id));
   const roomOk={};
-  currentRooms.forEach(r=>{roomOk[r.id]=r.deck_id===plan.deck_id&&(!isBuildingProj()||!plan.floor_id||r.floor_id===plan.floor_id);});
+  currentRooms.forEach(r=>{roomOk[r.id]=bounded.has(r.id)||(r.deck_id===plan.deck_id&&(!isBuildingProj()||!plan.floor_id||r.floor_id===plan.floor_id));});
   return placedEquipment.filter(i=>i.change_status!=='removed'&&i.room_id&&roomOk[i.room_id]&&!pinned.has(i.id));
 }
 // Arm one EXISTING scheduled device: the next tap pins it, no new instance, ID kept
