@@ -407,7 +407,8 @@
   body.ga-focus .sidebar { display: none; }
   body.ga-focus .main { margin-left: 0; }
   body.ga-focus .topbar { display: none; }
-  body.ga-focus #page-decks-rooms .section-tabs { display: none; }
+  body.ga-focus #page-decks-rooms .section-tabs { background: none; border: 0; padding: 0; margin-bottom: 8px; }
+  body.ga-focus #page-decks-rooms .section-tab { display: none; }
   body.ga-focus .content { padding: 10px 14px; }
   body.ga-focus .ga-viewport, body.ga-focus .ga-palette, body.ga-focus .ga-revlog { height: calc(100vh - 118px); }
   body.ga-focus .ga-focus-exit { display: inline-flex; }
@@ -429,6 +430,7 @@
 
   /* SECTION TABS */
   .section-tabs { display: flex; gap: 2px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; width: fit-content; margin-bottom: 20px; }
+  .section-tabs.ga-wide { width: auto; }
   .section-tab { padding: 6px 18px; border-radius: 5px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-2); transition: all 0.15s; border: none; background: transparent; font-family: 'DM Sans', sans-serif; }
   .section-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
 
@@ -669,6 +671,7 @@
           <button class="section-tab" id="tab-btn-rooms" onclick="switchDeckRoomTab('rooms')">Rooms</button>
           <button class="section-tab" id="tab-btn-zones" onclick="switchDeckRoomTab('zones')">Rack Zones</button>
           <button class="section-tab" id="tab-btn-ga" onclick="switchDeckRoomTab('ga')">GA Plans</button>
+          <span id="ga-tab-actions" style="display:none;margin-left:auto;gap:7px;align-items:center;flex-wrap:wrap"></span>
         </div>
         <div id="decks-tab-content"><div id="decks-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
         <div id="floors-tab-content" class="hidden"><div id="floors-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
@@ -1213,6 +1216,25 @@
       <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="ga-up-notes" rows="2" placeholder="e.g. Issued by yard 28 Sep, frame grid updated"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaUploadModal()">Cancel</button><button class="btn btn-primary" onclick="saveGaPlan()" id="ga-up-save">Upload Plan</button></div>
+  </div>
+</div>
+
+<!-- GA SHEET INFO (title block properties, saved per plan and carried to new revisions) -->
+<div class="modal-overlay" id="ga-tb-overlay">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header"><div class="modal-title">Sheet Info</div><button class="btn-icon" onclick="closeGaSheetInfo()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">These fill the title block on the exported sheet. Saved with this plan and carried forward to new revisions.</div>
+      <div class="form-group"><label>Drawing subject <span class="optional">third line of the drawing title</span></label><input type="text" id="ga-tb-subject"></div>
+      <div class="form-group"><label>Notes</label><textarea id="ga-tb-notes" rows="2"></textarea></div>
+      <div class="form-row form-row-3">
+        <div><label>Designed</label><input type="text" id="ga-tb-designed"></div>
+        <div><label>Drawn</label><input type="text" id="ga-tb-drawn" placeholder="Initials"></div>
+        <div><label>Checked</label><input type="text" id="ga-tb-checked" placeholder="Initials"></div>
+      </div>
+      <div class="form-group"><label>DWG No <span class="optional">leave blank to auto-generate</span></label><input type="text" id="ga-tb-dwg"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaSheetInfo()">Cancel</button><button class="btn btn-secondary" onclick="saveGaSheetInfo(false)">Save</button><button class="btn btn-primary" onclick="saveGaSheetInfo(true)">Save &amp; Export</button></div>
   </div>
 </div>
 
@@ -2140,6 +2162,9 @@ function switchDeckRoomTab(tab){
     const el=document.getElementById(t+'-tab-content');if(el)el.classList.toggle('hidden',t!==tab);
     const btn=document.getElementById('tab-btn-'+t);if(btn)btn.classList.toggle('active',t===tab);
   });
+  // The GA view and output buttons live in the tab row's spare right side
+  const acts=document.getElementById('ga-tab-actions');
+  if(acts){acts.style.display=tab==='ga'?'flex':'none';acts.parentElement.classList.toggle('ga-wide',tab==='ga');}
   updateDecksRoomsBtn();
   if(tab==='decks')loadDecks();else if(tab==='floors')loadFloors();else if(tab==='rooms')loadRooms();else if(tab==='ga')loadGaPlans();else loadRackZones();
 }
@@ -2368,29 +2393,36 @@ function renderGaPlans(){
   let bar='<div class="ga-toolbar">'
     +currentDecks.map(d=>'<button class="ga-pill'+(d.id===gaActiveDeckId?' active':'')+'" onclick="gaSelectDeck(\''+d.id+'\')">'+escHtml(d.name)+(gaPlans.some(p=>p.deck_id===d.id)?'<span class="ga-dot"></span>':'')+'</button>').join('');
   const gaDiv='<span style="width:1px;align-self:stretch;background:var(--border-strong)"></span>';
+  // Placement tools stay on the toolbar row beside the deck pills; view and output
+  // controls live in the tab row's right side (#ga-tab-actions), set below.
   let gaRight='';
   if(cur){
     gaRight+=gaTb('gaTogglePalette()','Devices','Show or hide the device placement palette','<path d="M4 6h16M4 12h16M4 18h10"/>',gaPaletteOpen,'ga-btn-palette')
       +gaTb('gaStartDraw()','Draw Room','Outline a room on the plan','<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>')
       +gaTb('gaStartEdit()','Edit','Edit boundaries: drag corners, drag a dashed mid-point to add one, double-tap to remove one','<circle cx="5" cy="5" r="1.7"/><circle cx="19" cy="5" r="1.7"/><circle cx="19" cy="19" r="1.7"/><circle cx="5" cy="19" r="1.7"/><path d="M6.7 5h10.6M19 6.7v10.6M17.3 19H6.7M5 17.3V6.7"/>')
       +gaTb('gaStartSelect()','Select','Select several devices (box drag or taps) and move them as a group','<rect x="3.5" y="3.5" width="12" height="12" rx="1.5" stroke-dasharray="3 2.4"/><path d="M13 13l7.2 7.2M17.8 20.9H21v-3.2"/>',gaMode==='select','ga-btn-select')
-      +gaTb('gaStartCloud()','Cloud','Rev cloud: drag a box around a changed area','<path d="M17.5 18a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.3 1.4A4 4 0 0 0 7 18z"/>')
-      +gaDiv
-      +gaTb('gaToggleType()','Type','Show or hide the device type (SPK-IC-1) under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
-      +gaTb('gaToggleUid()','ID','Show or hide the unique device ID (SPK-301-02) under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
-      +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid');
+      +gaTb('gaStartCloud()','Cloud','Rev cloud: drag a box around a changed area','<path d="M17.5 18a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.3 1.4A4 4 0 0 0 7 18z"/>');
   }
-  if(showing)gaRight+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
-    +gaTb('gaExportGa()','Export','Print or save the plan as a PDF with a border and title block','<path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="7" rx="1"/><path d="M7 14h10v7H7z"/>')
-    +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
-  if(showing)gaRight+=gaDiv+'<span style="font-size:12px;color:var(--text-3);white-space:nowrap">'+escHtml(showing.revision)+(cur?' (current)':'')+' · <span id="ga-pin-count"></span></span>';
-  if(revs.length){
-    gaRight+='<select onchange="gaSelectRev(this.value)" style="max-width:170px">'
-      +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
-    if(cur)gaRight+=gaTb('gaUpRev()','Up-rev','New revision on the same drawing','<circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5L12 8l3.5 3.5"/>');
-  }
+  if(showing)gaRight+=(gaRight?gaDiv:'')+'<span style="font-size:12px;color:var(--text-3);white-space:nowrap">'+escHtml(showing.revision)+(cur?' (current)':'')+' · <span id="ga-pin-count"></span></span>';
   if(gaRight)bar+='<span style="margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap">'+gaRight+'</span>';
   bar+='</div>';
+  let acts='';
+  if(cur){
+    acts+=gaTb('gaToggleType()','Type','Show or hide the device type (SPK-IC-1) under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
+      +gaTb('gaToggleUid()','ID','Show or hide the unique device ID (SPK-301-02) under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
+      +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid')
+      +gaDiv;
+  }
+  if(showing)acts+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
+    +gaTb('openGaSheetInfo(true)','Export','Sheet info, then print or save as a PDF with border and title block','<path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="7" rx="1"/><path d="M7 14h10v7H7z"/>')
+    +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
+  if(revs.length){
+    acts+='<select onchange="gaSelectRev(this.value)" style="max-width:170px">'
+      +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
+    if(cur)acts+=gaTb('gaUpRev()','Up-rev','New revision on the same drawing','<circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5L12 8l3.5 3.5"/>');
+  }
+  const actsEl=document.getElementById('ga-tab-actions');
+  if(actsEl)actsEl.innerHTML=acts;
   // Building projects: second pill row for the floors of the selected building
   if(isBuildingProj()){
     const fl=gaFloorsFor(gaActiveDeckId);
@@ -2433,6 +2465,30 @@ function gaSetTbtn(id,on){
 }
 function gaToggleType(){gaShowType=!gaShowType;gaSetTbtn('ga-btn-type',gaShowType);renderGaPins();}
 function gaToggleUid(){gaShowUid=!gaShowUid;gaSetTbtn('ga-btn-uid',gaShowUid);renderGaPins();}
+// Sheet info: the title block properties, stored on the plan and carried to new revisions
+function openGaSheetInfo(){
+  const plan=gaShownPlan();if(!plan){showToast('Upload a plan first','error');return;}
+  const tb=plan.title_block||{};
+  document.getElementById('ga-tb-subject').value=tb.subject||'TECHNOLOGY LAYOUT';
+  document.getElementById('ga-tb-notes').value=tb.notes!=null?tb.notes:(plan.notes||'ALL DEVICE POSITIONS ARE INDICATIVE UNLESS DIMENSIONED');
+  document.getElementById('ga-tb-designed').value=tb.designed||'SMART';
+  document.getElementById('ga-tb-drawn').value=tb.drawn||'';
+  document.getElementById('ga-tb-checked').value=tb.checked||'';
+  document.getElementById('ga-tb-dwg').value=tb.dwg_no||'';
+  document.getElementById('ga-tb-overlay').classList.add('open');
+}
+function closeGaSheetInfo(){document.getElementById('ga-tb-overlay').classList.remove('open');}
+async function saveGaSheetInfo(exportAfter){
+  const plan=gaShownPlan();if(!plan)return;
+  const v=id=>document.getElementById(id).value.trim();
+  const tb={subject:v('ga-tb-subject'),notes:v('ga-tb-notes'),designed:v('ga-tb-designed'),drawn:v('ga-tb-drawn'),checked:v('ga-tb-checked'),dwg_no:v('ga-tb-dwg')};
+  try{
+    await dbUpdate('deck_plans',plan.id,{title_block:tb});
+    plan.title_block=tb;
+    closeGaSheetInfo();
+    if(exportAfter)gaExportGa();else showToast('Sheet info saved','success');
+  }catch(e){showToast('Could not save: '+e.message,'error');}
+}
 // Export the shown plan as a print window (save as PDF from there): drawing frame,
 // everything currently on the plan, and a SMART title block. The image is fetched as a
 // blob so the print window needs no further authentication.
@@ -2454,9 +2510,9 @@ async function gaExportGa(){
     clone.querySelectorAll('.sel,.msel').forEach(n=>{n.classList.remove('sel');n.classList.remove('msel');});
     // Graphic scale bar in drawing units (true at any paper size), kept deliberately small
     if(plan.scale_px_per_m>0){
-      let L=1;[1,2,5,10,20,25,50,100].forEach(c=>{if(c*plan.scale_px_per_m<=gaImgW*0.16)L=c;});
+      let L=1;[1,2,5,10,20,25,50,100].forEach(c=>{if(c*plan.scale_px_per_m<=gaImgW*0.09)L=c;});
       const Lpx=L*plan.scale_px_per_m;
-      const bh=Math.max(5,Lpx*0.035),fs=Math.max(9,Lpx*0.075);
+      const bh=Math.max(4,Lpx*0.025),fs=Math.max(8,Lpx*0.05);
       let segHtml='';for(let i=0;i<4;i++)segHtml+='<div style="flex:1;background:'+(i%2?'#fff':'#111')+'"></div>';
       const bar=document.createElement('div');
       bar.id='xscalebar';
@@ -2481,11 +2537,12 @@ async function gaExportGa(){
       issueRows+='<tr><td>'+String(i).padStart(2,'0')+'</td><td style="text-align:left">'+(p?escHtml((i===1?'Original issue':(p.notes||'Revision'))+' ('+(p.revision||'')+')'):'')+'</td><td>'+(p?dshort(p.created_at):'')+'</td><td></td></tr>';
     }
     const issueTable='<table class="xiss"><tr class="xissh"><td>Issue</td><td style="text-align:left">Description</td><td>Date</td><td>Revised</td></tr>'+issueRows+'</table>';
-    const dwgNo=((currentProject.project_code||'PROJ')+'_GA_'+((deck.name||'')+(fl?'_'+fl.name:'')).replace(/[^A-Za-z0-9]+/g,'')+'_'+(plan.revision||'').replace(/[^A-Za-z0-9]+/g,'')).toUpperCase();
-    const titleLines='<div class="xtt1">'+escHtml((currentProject.name||'').toUpperCase())+'</div><div class="xtt2">GA PLAN - '+escHtml(((deck.name||'')+(fl?' - '+fl.name:'')).toUpperCase())+'</div><div class="xtt2">TECHNOLOGY LAYOUT</div>';
-    const notesTxt=escHtml(plan.notes||'ALL DEVICE POSITIONS ARE INDICATIVE UNLESS DIMENSIONED');
+    const tb=plan.title_block||{};
+    const dwgNo=tb.dwg_no||((currentProject.project_code||'PROJ')+'_GA_'+((deck.name||'')+(fl?'_'+fl.name:'')).replace(/[^A-Za-z0-9]+/g,'')+'_'+(plan.revision||'').replace(/[^A-Za-z0-9]+/g,'')).toUpperCase();
+    const titleLines='<div class="xtt1">'+escHtml((currentProject.name||'').toUpperCase())+'</div><div class="xtt2">GA PLAN - '+escHtml(((deck.name||'')+(fl?' - '+fl.name:'')).toUpperCase())+'</div><div class="xtt2">'+escHtml((tb.subject||'TECHNOLOGY LAYOUT').toUpperCase())+'</div>';
+    const notesTxt=escHtml(tb.notes||plan.notes||'ALL DEVICE POSITIONS ARE INDICATIVE UNLESS DIMENSIONED');
     const kv=(l,v,extra)=>'<div class="xkv'+(extra||'')+'"><span>'+escHtml(l)+'</span><b>'+v+'</b></div>';
-    const metaRows=kv('Project:',escHtml(currentProject.project_code||currentProject.name||''))+kv('Designed:','SMART')+kv('Drawn:','-')+kv('Checked:','-');
+    const metaRows=kv('Project:',escHtml(currentProject.project_code||currentProject.name||''))+kv('Designed:',escHtml(tb.designed||'SMART'))+kv('Drawn:',escHtml(tb.drawn||'-'))+kv('Checked:',escHtml(tb.checked||'-'));
     // Horizontal title block along the bottom (matches the house sheet)
     const tbh='<div class="xtb xtbh">'
       +'<div class="xsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
@@ -2558,9 +2615,13 @@ async function gaExportGa(){
       +'.xmeta .xkv{flex:1;border-bottom:1px solid #111;align-items:center}'
       +'.xmeta .xkv:last-child{border-bottom:0}'
       +'.xconf b{color:#b02a2a}'
-      +'.xbar{position:fixed;top:14px;right:14px;display:flex;gap:8px;align-items:center;z-index:50}'
-      +'.xbar select,.xbar label{padding:8px 10px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid #777;background:#fff;cursor:pointer}'
-      +'.xbar button{padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:8px;background:#0f6e8c;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}'
+      +'.xbar{position:fixed;top:14px;right:14px;z-index:50;width:232px;background:#fff;border:1px solid #8a939d;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.35);padding:12px 14px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#111}'
+      +'.xbart{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#555}'
+      +'.xbar .xrowc{display:flex;align-items:center;justify-content:space-between;gap:10px}'
+      +'.xbar .xrowc>span{color:#333;font-weight:600}'
+      +'.xbar select{padding:6px 8px;font-size:12.5px;border:1px solid #aaa;border-radius:6px;background:#fff;width:118px;cursor:pointer}'
+      +'.xbar label{display:flex;align-items:center;gap:7px;font-weight:600;cursor:pointer}'
+      +'.xbar button{width:100%;padding:11px 0;font-size:14px;font-weight:700;border:0;border-radius:8px;background:#0f6e8c;color:#fff;cursor:pointer;margin-top:2px}'
       +'body.tbb .xtbv{display:none}'
       +'body.tbr .xtbh{display:none}'
       +'@media print{body.ga-export{background:#fff;padding:0}.xsheet{box-shadow:none;max-width:none}.xbar{display:none}}';
@@ -2588,10 +2649,10 @@ async function gaExportGa(){
       +LT+'style>'+appCss+xcss+LT+'/style>'
       +LT+'style id="xpage">@page{size:A3 landscape;margin:8mm}'+LT+'/style>'
       +'</head><body class="ga-export tbb">'
-      +'<div class="xbar">'
-      +(realW>0?'<label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="xnts" style="margin:0" onchange="refresh()"> Not to scale</label>':'')
-      +'<select id="xtbpos" onchange="setTb(this.value)" title="Title block position"><option value="bottom" selected>Title: Bottom</option><option value="right">Title: Right</option></select>'
-      +'<select id="xpapersel" onchange="refresh()" title="Paper size"><option>A4</option><option selected>A3</option><option>A2</option><option>A1</option></select>'
+      +'<div class="xbar"><div class="xbart">Export options</div>'
+      +'<div class="xrowc"><span>Paper size</span><select id="xpapersel" onchange="refresh()"><option>A4</option><option selected>A3</option><option>A2</option><option>A1</option></select></div>'
+      +'<div class="xrowc"><span>Title block</span><select id="xtbpos" onchange="setTb(this.value)"><option value="bottom" selected>Bottom</option><option value="right">Right</option></select></div>'
+      +(realW>0?'<label><input type="checkbox" id="xnts" style="margin:0;width:auto" onchange="refresh()"> Not to scale</label>':'')
       +'<button onclick="window.print()">Print / Save as PDF</button></div>'
       +'<div class="xsheet"><div class="xframe">'
       +'<div class="xgridtop"><div class="xgcorner"></div>'+gtop+'</div>'
@@ -3402,7 +3463,7 @@ function gaUpRev(){
   openConfirm('Up-rev to '+next+'?','Create '+next+' of '+(deck?deck.name:'this '+topNoun())+(fl?' · '+fl.name:'')+' using the same drawing? '+cur.revision+' stays frozen as the issued record, and you can carry its boundaries and pins forward.',async()=>{
     try{
       await supaFetch('PATCH','deck_plans',{is_current:false},null,'deck_id=eq.'+gaActiveDeckId+'&is_current=eq.true&floor_id='+(cur.floor_id?'eq.'+cur.floor_id:'is.null'));
-      const rows=await dbInsert('deck_plans',{project_id:currentProject.id,deck_id:gaActiveDeckId,floor_id:cur.floor_id||null,revision:next,image_path:cur.image_path,image_width:cur.image_width,image_height:cur.image_height,is_current:true,notes:null,scale_px_per_m:cur.scale_px_per_m,grid_spacing_m:cur.grid_spacing_m,grid_offset_x:cur.grid_offset_x||0,grid_offset_y:cur.grid_offset_y||0});
+      const rows=await dbInsert('deck_plans',{project_id:currentProject.id,deck_id:gaActiveDeckId,floor_id:cur.floor_id||null,revision:next,image_path:cur.image_path,image_width:cur.image_width,image_height:cur.image_height,is_current:true,notes:null,scale_px_per_m:cur.scale_px_per_m,grid_spacing_m:cur.grid_spacing_m,grid_offset_x:cur.grid_offset_x||0,grid_offset_y:cur.grid_offset_y||0,title_block:cur.title_block||null});
       logChange('design','added','Up-revved GA plan to '+next+(deck?' for '+deck.name:''));
       gaViewRevId=null;
       showToast(next+' created','success');
@@ -3465,7 +3526,7 @@ async function saveGaPlan(){
     const prevPlan=gaCurrentPlanFor(deckId,floorId);
     // The previous current revision steps down first (one current per deck+floor is DB-enforced)
     await supaFetch('PATCH','deck_plans',{is_current:false},null,'deck_id=eq.'+deckId+'&is_current=eq.true&floor_id='+(floorId?'eq.'+floorId:'is.null'));
-    const newPlanRec={project_id:currentProject.id,deck_id:deckId,floor_id:floorId,revision,image_path:path,image_width:dims.w,image_height:dims.h,is_current:true,notes};
+    const newPlanRec={project_id:currentProject.id,deck_id:deckId,floor_id:floorId,revision,image_path:path,image_width:dims.w,image_height:dims.h,is_current:true,notes,title_block:(prevPlan&&prevPlan.title_block)||null};
     // A new image with identical pixel dimensions keeps the previous scale and grid; a
     // different size needs recalibrating.
     if(prevPlan&&prevPlan.image_width===dims.w&&prevPlan.image_height===dims.h){
