@@ -2459,6 +2459,7 @@ async function gaExportGa(){
       const bh=Math.max(8,Lpx*0.045),fs=Math.max(12,Lpx*0.1);
       let segHtml='';for(let i=0;i<4;i++)segHtml+='<div style="flex:1;background:'+(i%2?'#fff':'#111')+'"></div>';
       const bar=document.createElement('div');
+      bar.id='xscalebar';
       bar.style.cssText='position:absolute;left:'+(gaImgW*0.02)+'px;bottom:'+(gaImgH*0.02)+'px;z-index:4';
       bar.innerHTML='<div style="display:flex;width:'+Lpx+'px;height:'+bh+'px;border:'+Math.max(1,bh*0.14)+'px solid #111;background:#fff;box-sizing:border-box">'+segHtml+'</div>'
         +'<div style="display:flex;justify-content:space-between;width:'+Lpx+'px;font-size:'+fs+'px;font-weight:700;color:#111;font-family:Arial,Helvetica,sans-serif;line-height:1.3;text-shadow:0 0 3px #fff,0 0 3px #fff"><span>0</span><span>'+(L/2)+'</span><span>'+L+' m</span></div>';
@@ -2495,7 +2496,9 @@ async function gaExportGa(){
       +'var PAPER={A4:297,A3:420,A2:594,A1:841};var REAL_W='+realW+';'
       +'function niceRatio(r){if(r>=200)return Math.round(r/10)*10;if(r>=50)return Math.round(r/5)*5;return Math.round(r);}'
       +'function setPaper(p){var st=document.getElementById("xpage");if(st)st.textContent="@page{size:"+p+" landscape;margin:8mm}";'
-      +'var sc=document.getElementById("xscalev");if(sc&&REAL_W>0){var cw=PAPER[p]-16-6-58;sc.textContent="approx 1:"+niceRatio(REAL_W*1000/cw)+" at "+p;}}'
+      +'var nts=document.getElementById("xnts");var ntsOn=REAL_W<=0||(nts&&nts.checked);'
+      +'var bar=document.getElementById("xscalebar");if(bar)bar.style.display=ntsOn?"none":"";'
+      +'var sc=document.getElementById("xscalev");if(sc){var cw=PAPER[p]-16-6-58;sc.textContent=ntsOn?"NOT TO SCALE":"approx 1:"+niceRatio(REAL_W*1000/cw)+" at "+p;}}'
       +'window.addEventListener("load",function(){fit();setPaper(document.getElementById("xpapersel").value);});'
       +'window.addEventListener("resize",fit);window.addEventListener("beforeprint",fit);';
     const LT='<';
@@ -2504,7 +2507,9 @@ async function gaExportGa(){
       +LT+'style>'+appCss+xcss+LT+'/style>'
       +LT+'style id="xpage">@page{size:A3 landscape;margin:8mm}'+LT+'/style>'
       +'</head><body class="ga-export">'
-      +'<div class="xbar"><select id="xpapersel" onchange="setPaper(this.value)" title="Paper size"><option>A4</option><option selected>A3</option><option>A2</option><option>A1</option></select>'
+      +'<div class="xbar">'
+      +(realW>0?'<label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:700;background:#fff;border:1px solid #777;border-radius:8px;padding:8px 10px;cursor:pointer"><input type="checkbox" id="xnts" style="margin:0" onchange="setPaper(document.getElementById(&quot;xpapersel&quot;).value)"> Not to scale</label>':'')
+      +'<select id="xpapersel" onchange="setPaper(this.value)" title="Paper size"><option>A4</option><option selected>A3</option><option>A2</option><option>A1</option></select>'
       +'<button onclick="window.print()">Print / Save as PDF</button></div>'
       +'<div class="xsheet"><div class="xframe">'
       +'<div class="xcontent">'+clone.outerHTML+'</div>'
@@ -2513,7 +2518,7 @@ async function gaExportGa(){
       +cell('Project',escHtml(currentProject.name||'')+'<br><span style="font-weight:500;color:#555">'+escHtml(currentProject.project_code||'')+'</span>')
       +cell(topNoun(true),escHtml(deck.name||'')+(fl?' - '+escHtml(fl.name):''))
       +cell('Revision',escHtml(plan.revision||'')+' <span style="font-weight:500;color:#555">'+escHtml(formatDate((plan.created_at||'').slice(0,10)))+'</span>')
-      +cell('Scale','<span id="xscalev">'+(realW>0?'':'Not set')+'</span>')
+      +cell('Scale','<span id="xscalev"></span>')
       +cell('Grid',plan.grid_spacing_m>0&&plan.scale_px_per_m>0?escHtml(plan.grid_spacing_m+' m'):'Not set')
       +'<div class="xgrow"></div>'
       +'<div class="xcell xconf"><div class="xl">Status</div><div class="xv">CONFIDENTIAL</div></div>'
