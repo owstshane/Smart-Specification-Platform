@@ -1201,7 +1201,15 @@
         <div><label>Floor <span class="required">*</span></label><select id="ga-up-floor" onchange="gaUpdateRevSuggestion()"></select></div>
         <div></div>
       </div>
-      <div class="form-group"><label>Plan image <span class="required">*</span></label><input type="file" id="ga-up-file" accept="image/png,image/jpeg,image/webp"><div style="font-size:12px;color:var(--text-3);margin-top:6px">PNG, JPG or WebP. If the GA is a PDF, export the sheet as an image first. Plans are stored privately; only signed-in team members can view them.</div></div>
+      <div class="form-group"><label>Plan image <span class="required">*</span></label><input type="file" id="ga-up-file" accept="image/png,image/jpeg,image/webp" onchange="gaUpFileChanged()"><div style="font-size:12px;color:var(--text-3);margin-top:6px">PNG, JPG or WebP. If the GA is a PDF, export the sheet as an image first. Plans are stored privately; only signed-in team members can view them.</div></div>
+      <div class="form-group" id="ga-up-crop-wrap" style="display:none">
+        <label>Crop <span class="optional">drag the box to move, drag a corner to resize; everything outside is removed</span></label>
+        <div id="ga-up-crop" style="position:relative;user-select:none;touch-action:none;background:#dfe3e8;border:1px solid var(--border);border-radius:6px;overflow:hidden;display:flex;justify-content:center">
+          <img id="ga-up-crop-img" draggable="false" style="max-width:100%;max-height:300px;display:block">
+          <div id="ga-up-crop-rect" style="position:absolute;border:2px dashed var(--accent);background:rgba(15,110,140,.06);box-shadow:0 0 0 9999px rgba(20,30,40,.35);cursor:move"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:4px" id="ga-up-crop-info"></div>
+      </div>
       <div class="form-group"><label>Notes <span class="optional">optional</span></label><textarea id="ga-up-notes" rows="2" placeholder="e.g. Issued by yard 28 Sep, frame grid updated"></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaUploadModal()">Cancel</button><button class="btn btn-primary" onclick="saveGaPlan()" id="ga-up-save">Upload Plan</button></div>
@@ -2373,6 +2381,7 @@ function renderGaPlans(){
       +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid');
   }
   if(showing)gaRight+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
+    +gaTb('gaExportGa()','Export','Print or save the plan as a PDF with a border and title block','<path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="7" rx="1"/><path d="M7 14h10v7H7z"/>')
     +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
   if(showing)gaRight+=gaDiv+'<span style="font-size:12px;color:var(--text-3);white-space:nowrap">'+escHtml(showing.revision)+(cur?' (current)':'')+' · <span id="ga-pin-count"></span></span>';
   if(revs.length){
@@ -2424,6 +2433,75 @@ function gaSetTbtn(id,on){
 }
 function gaToggleType(){gaShowType=!gaShowType;gaSetTbtn('ga-btn-type',gaShowType);renderGaPins();}
 function gaToggleUid(){gaShowUid=!gaShowUid;gaSetTbtn('ga-btn-uid',gaShowUid);renderGaPins();}
+// Export the shown plan as a print window (save as PDF from there): drawing frame,
+// everything currently on the plan, and a SMART title block. The image is fetched as a
+// blob so the print window needs no further authentication.
+async function gaExportGa(){
+  const plan=gaShownPlan();
+  if(!plan){showToast('Upload a plan first','error');return;}
+  try{
+    const url=await storageSignedUrl(plan.image_path,600);
+    const resp=await fetch(url);
+    if(!resp.ok)throw new Error('Could not load the plan image');
+    const imgUrl=URL.createObjectURL(await resp.blob());
+    const st=document.getElementById('ga-stage');
+    const clone=st.cloneNode(true);
+    clone.classList.add('xstage');
+    clone.style.transform='none';clone.style.position='relative';
+    clone.style.width=gaImgW+'px';clone.style.height=gaImgH+'px';
+    const ci=clone.querySelector('#ga-img');if(ci)ci.src=imgUrl;
+    clone.querySelectorAll('.ga-vtx,.ga-scale-dot,.ga-bshort').forEach(n=>n.remove());
+    clone.querySelectorAll('.sel,.msel').forEach(n=>{n.classList.remove('sel');n.classList.remove('msel');});
+    const deck=currentDecks.find(d=>d.id===plan.deck_id)||{};
+    const fl=plan.floor_id?(currentFloors||[]).find(f=>f.id===plan.floor_id):null;
+    const appCss=(document.querySelector('style')||{}).textContent||'';
+    const cell=(l,v)=>'<div class="xcell"><div class="xl">'+escHtml(l)+'</div><div class="xv">'+v+'</div></div>';
+    const brand=(typeof SPEC_LOGO_SVG!=='undefined'&&SPEC_LOGO_SVG)?'<div class="xbrand">'+SPEC_LOGO_SVG+'</div>':'<div class="xbrand xbrandtxt">SMART TECHNOLOGY ADVISERS</div>';
+    const xcss='body.ga-export{background:#9aa3ad;margin:0;padding:16px;font-family:Arial,Helvetica,sans-serif}'
+      +'.xsheet{background:#fff;margin:0 auto;max-width:1600px;box-shadow:0 4px 18px rgba(0,0,0,.35)}'
+      +'.xframe{border:2.5px solid #111;margin:10px}'
+      +'.xcontent{position:relative;overflow:hidden;border-bottom:2.5px solid #111;background:#fff}'
+      +'.xstage{position:relative}'
+      +'.xtitle{display:flex;align-items:stretch;min-height:64px}'
+      +'.xcell{border-right:1.5px solid #111;padding:7px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px}'
+      +'.xcell:last-child{border-right:0}'
+      +'.xl{font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:#555}'
+      +'.xv{font-size:12.5px;font-weight:700;color:#111}'
+      +'.xbrand{display:flex;align-items:center;padding:7px 14px;border-right:1.5px solid #111}'
+      +'.xbrand svg{height:22px;width:auto}'
+      +'.xbrandtxt{font-size:13px;font-weight:800;letter-spacing:.06em}'
+      +'.xgrow{flex:1}'
+      +'.xconf .xv{color:#b02a2a}'
+      +'.xprint{position:fixed;top:14px;right:14px;padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:8px;background:#0f6e8c;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}'
+      +'@page{size:A3 landscape;margin:8mm}'
+      +'@media print{body.ga-export{background:#fff;padding:0}.xsheet{box-shadow:none;max-width:none}.xprint{display:none}}';
+    const fit='var fit=function(){var s0=document.querySelector(".xstage"),b=document.querySelector(".xcontent");if(!s0||!b)return;'
+      +'var W='+gaImgW+',H='+gaImgH+',s=b.clientWidth/W;'
+      +'s0.style.transform="scale("+s+")";s0.style.transformOrigin="0 0";s0.style.setProperty("--ga-inv",String(1/s));b.style.height=(H*s)+"px";};'
+      +'window.addEventListener("load",fit);window.addEventListener("resize",fit);window.addEventListener("beforeprint",fit);';
+    const LT='<';
+    const today=new Date();
+    const html='<!doctype html><html><head><meta charset="utf-8"><title>'+escHtml((currentProject.project_code||'')+' GA '+(deck.name||'')+' '+(plan.revision||''))+'</title>'
+      +LT+'style>'+appCss+xcss+LT+'/style></head><body class="ga-export">'
+      +'<button class="xprint" onclick="window.print()">Print / Save as PDF</button>'
+      +'<div class="xsheet"><div class="xframe">'
+      +'<div class="xcontent">'+clone.outerHTML+'</div>'
+      +'<div class="xtitle">'
+      +brand
+      +cell('Project',escHtml(currentProject.name||'')+' <span style="font-weight:500;color:#555">'+escHtml(currentProject.project_code||'')+'</span>')
+      +cell(topNoun(true),escHtml(deck.name||'')+(fl?' - '+escHtml(fl.name):''))
+      +cell('Revision',escHtml(plan.revision||'')+' <span style="font-weight:500;color:#555">'+escHtml(formatDate((plan.created_at||'').slice(0,10)))+'</span>')
+      +cell('Grid',plan.grid_spacing_m>0&&plan.scale_px_per_m>0?escHtml(plan.grid_spacing_m+' m'):'Not set')
+      +'<div class="xgrow"></div>'
+      +'<div class="xcell xconf"><div class="xl">Status</div><div class="xv">CONFIDENTIAL</div></div>'
+      +cell('Printed',escHtml(formatDate(today.toISOString().slice(0,10))))
+      +'</div></div></div>'
+      +LT+'script>'+fit+LT+'/script></body></html>';
+    const w=window.open('','_blank');
+    if(!w){showToast('The browser blocked the export window. Please allow pop-ups for this site.','error');return;}
+    w.document.write(html);w.document.close();
+  }catch(e){showToast('Export failed: '+e.message,'error');}
+}
 function gaTogglePalette(){
   gaPaletteOpen=!gaPaletteOpen;
   const p=document.getElementById('ga-palette');
@@ -3116,7 +3194,66 @@ function openGaUploadModal(){
   gaUpDeckChanged();
   document.getElementById('ga-up-file').value='';
   document.getElementById('ga-up-notes').value='';
+  document.getElementById('ga-up-crop-wrap').style.display='none';
+  gaUpCropState=null;
+  wireGaUpCrop();
   document.getElementById('ga-upload-overlay').classList.add('open');
+}
+// ── Crop at upload: fractions of the natural image kept {fx,fy,fw,fh} ──
+let gaUpCropState=null;
+function gaUpFileChanged(){
+  const f=(document.getElementById('ga-up-file').files||[])[0];
+  const wrap=document.getElementById('ga-up-crop-wrap');
+  if(!f||!/^image\//.test(f.type)){wrap.style.display='none';gaUpCropState=null;return;}
+  const img=document.getElementById('ga-up-crop-img');
+  const url=URL.createObjectURL(f);
+  img.onload=()=>{gaUpCropState={fx:0,fy:0,fw:1,fh:1};wrap.style.display='';gaUpCropLayout();};
+  img.src=url;
+}
+function gaUpCropLayout(){
+  const img=document.getElementById('ga-up-crop-img'),rect=document.getElementById('ga-up-crop-rect');
+  if(!gaUpCropState||!img.clientWidth)return;
+  const c=gaUpCropState;
+  const ox=img.offsetLeft,oy=img.offsetTop,w=img.clientWidth,h=img.clientHeight;
+  rect.style.left=(ox+c.fx*w)+'px';rect.style.top=(oy+c.fy*h)+'px';
+  rect.style.width=(c.fw*w)+'px';rect.style.height=(c.fh*h)+'px';
+  rect.innerHTML=['nw','ne','sw','se'].map(hd=>'<div data-h="'+hd+'" style="position:absolute;width:16px;height:16px;background:#fff;border:2px solid var(--accent);border-radius:3px;'+(hd[0]==='n'?'top:-8px;':'bottom:-8px;')+(hd[1]==='w'?'left:-8px;':'right:-8px;')+'cursor:'+(hd==='nw'||hd==='se'?'nwse':'nesw')+'-resize"></div>').join('');
+  const full=c.fw>0.999&&c.fh>0.999&&c.fx<0.001&&c.fy<0.001;
+  document.getElementById('ga-up-crop-info').textContent=(full?'Full image kept: ':'Keeping ')+Math.round(c.fw*img.naturalWidth)+' x '+Math.round(c.fh*img.naturalHeight)+' px';
+}
+function wireGaUpCrop(){
+  const box=document.getElementById('ga-up-crop');
+  if(!box||box.dataset.wired)return;
+  box.dataset.wired='1';
+  let drag=null;
+  box.addEventListener('pointerdown',e=>{
+    if(!gaUpCropState)return;
+    const hd=e.target.dataset?e.target.dataset.h:null;
+    const inRect=e.target.id==='ga-up-crop-rect';
+    if(!hd&&!inRect)return;
+    e.preventDefault();box.setPointerCapture(e.pointerId);
+    const img=document.getElementById('ga-up-crop-img');
+    drag={h:hd||null,sx:e.clientX,sy:e.clientY,c:Object.assign({},gaUpCropState),r:img.getBoundingClientRect()};
+  });
+  box.addEventListener('pointermove',e=>{
+    if(!drag||!drag.r.width)return;
+    const dx=(e.clientX-drag.sx)/drag.r.width, dy=(e.clientY-drag.sy)/drag.r.height;
+    const c=drag.c,min=0.05;
+    let fx,fy,fw,fh;
+    if(!drag.h){
+      fx=Math.min(1-c.fw,Math.max(0,c.fx+dx));fy=Math.min(1-c.fh,Math.max(0,c.fy+dy));fw=c.fw;fh=c.fh;
+    }else{
+      let x1=c.fx,y1=c.fy,x2=c.fx+c.fw,y2=c.fy+c.fh;
+      if(drag.h.indexOf('w')>=0)x1=Math.min(x2-min,Math.max(0,c.fx+dx));
+      if(drag.h.indexOf('e')>=0)x2=Math.max(x1+min,Math.min(1,c.fx+c.fw+dx));
+      if(drag.h.indexOf('n')>=0)y1=Math.min(y2-min,Math.max(0,c.fy+dy));
+      if(drag.h.indexOf('s')>=0)y2=Math.max(y1+min,Math.min(1,c.fy+c.fh+dy));
+      fx=x1;fy=y1;fw=x2-x1;fh=y2-y1;
+    }
+    gaUpCropState={fx,fy,fw,fh};gaUpCropLayout();
+  });
+  const cropUp=()=>{drag=null;};
+  box.addEventListener('pointerup',cropUp);box.addEventListener('pointercancel',cropUp);
 }
 function gaUpDeckChanged(){
   const deckId=document.getElementById('ga-up-deck').value;
@@ -3195,9 +3332,29 @@ async function saveGaPlan(){
   try{
     // Read the image dimensions locally before uploading
     const dims=await new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>{const d={w:im.naturalWidth,h:im.naturalHeight};URL.revokeObjectURL(u);res(d);};im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('Could not read the image file'));};im.src=u;});
-    const ext=file.type==='image/png'?'png':(file.type==='image/webp'?'webp':'jpg');
+    // Apply the crop box, if one was set: only the kept region is uploaded, so nothing
+    // placed later can ever shift (coordinates are fractions of the stored image)
+    let upFile=file,outType=file.type;
+    const crop=gaUpCropState;
+    if(crop&&(crop.fw<0.999||crop.fh<0.999||crop.fx>0.001||crop.fy>0.001)){
+      const cw=Math.max(1,Math.round(crop.fw*dims.w)),ch=Math.max(1,Math.round(crop.fh*dims.h));
+      outType=file.type==='image/jpeg'?'image/jpeg':'image/png';
+      upFile=await new Promise((res,rej)=>{
+        const u=URL.createObjectURL(file);const im=new Image();
+        im.onload=()=>{
+          const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+          cv.getContext('2d').drawImage(im,Math.round(crop.fx*dims.w),Math.round(crop.fy*dims.h),cw,ch,0,0,cw,ch);
+          URL.revokeObjectURL(u);
+          cv.toBlob(b=>b?res(b):rej(new Error('Could not crop the image')),outType,0.92);
+        };
+        im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('Could not read the image file'));};
+        im.src=u;
+      });
+      dims.w=cw;dims.h=ch;
+    }
+    const ext=outType==='image/png'?'png':(outType==='image/webp'?'webp':'jpg');
     const path=currentProject.id+'/'+deckId+'/'+Date.now()+'.'+ext;
-    await storageUpload(path,file);
+    await storageUpload(path,upFile);
     // Remember the outgoing current revision so its boundaries and pins can be carried forward
     const prevPlan=gaCurrentPlanFor(deckId,floorId);
     // The previous current revision steps down first (one current per deck+floor is DB-enforced)
