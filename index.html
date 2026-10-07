@@ -433,6 +433,9 @@
   /* SECTION TABS */
   .section-tabs { display: flex; gap: 2px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; width: fit-content; margin-bottom: 20px; }
   .section-tabs-row.ga-tight { margin-bottom: 8px !important; }
+  /* Pills and buttons sharing the tab row take the tabs' own sizing so heights match */
+  .section-tabs-row .ga-tbgroup { min-height: 0; padding: 3px; }
+  .section-tabs-row .ga-tbgroup .ga-pill { padding: 6px 18px; border-radius: 5px; font-weight: 500; font-family: 'DM Sans', sans-serif; }
   .section-tab { padding: 6px 18px; border-radius: 5px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-2); transition: all 0.15s; border: none; background: transparent; font-family: 'DM Sans', sans-serif; }
   .section-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
 
