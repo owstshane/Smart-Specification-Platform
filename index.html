@@ -2452,42 +2452,117 @@ async function gaExportGa(){
     const ci=clone.querySelector('#ga-img');if(ci)ci.src=imgUrl;
     clone.querySelectorAll('.ga-vtx,.ga-scale-dot,.ga-bshort').forEach(n=>n.remove());
     clone.querySelectorAll('.sel,.msel').forEach(n=>{n.classList.remove('sel');n.classList.remove('msel');});
-    // Graphic scale bar drawn in drawing units: stays true at any paper size or PDF zoom
+    // Graphic scale bar in drawing units (true at any paper size), kept deliberately small
     if(plan.scale_px_per_m>0){
-      let L=1;[1,2,5,10,20,25,50,100].forEach(c=>{if(c*plan.scale_px_per_m<=gaImgW*0.28)L=c;});
+      let L=1;[1,2,5,10,20,25,50,100].forEach(c=>{if(c*plan.scale_px_per_m<=gaImgW*0.16)L=c;});
       const Lpx=L*plan.scale_px_per_m;
-      const bh=Math.max(8,Lpx*0.045),fs=Math.max(12,Lpx*0.1);
+      const bh=Math.max(5,Lpx*0.035),fs=Math.max(9,Lpx*0.075);
       let segHtml='';for(let i=0;i<4;i++)segHtml+='<div style="flex:1;background:'+(i%2?'#fff':'#111')+'"></div>';
       const bar=document.createElement('div');
       bar.id='xscalebar';
-      bar.style.cssText='position:absolute;left:'+(gaImgW*0.02)+'px;bottom:'+(gaImgH*0.02)+'px;z-index:4';
+      bar.style.cssText='position:absolute;left:'+(gaImgW*0.015)+'px;bottom:'+(gaImgH*0.015)+'px;z-index:4';
       bar.innerHTML='<div style="display:flex;width:'+Lpx+'px;height:'+bh+'px;border:'+Math.max(1,bh*0.14)+'px solid #111;background:#fff;box-sizing:border-box">'+segHtml+'</div>'
-        +'<div style="display:flex;justify-content:space-between;width:'+Lpx+'px;font-size:'+fs+'px;font-weight:700;color:#111;font-family:Arial,Helvetica,sans-serif;line-height:1.3;text-shadow:0 0 3px #fff,0 0 3px #fff"><span>0</span><span>'+(L/2)+'</span><span>'+L+' m</span></div>';
+        +'<div style="display:flex;justify-content:space-between;width:'+Lpx+'px;font-size:'+fs+'px;font-weight:700;color:#111;font-family:Arial,Helvetica,sans-serif;line-height:1.25;text-shadow:0 0 3px #fff,0 0 3px #fff"><span>0</span><span>'+(L/2)+'</span><span>'+L+' m</span></div>';
       clone.appendChild(bar);
     }
     const deck=currentDecks.find(d=>d.id===plan.deck_id)||{};
     const fl=plan.floor_id?(currentFloors||[]).find(f=>f.id===plan.floor_id):null;
     const appCss=(document.querySelector('style')||{}).textContent||'';
-    const cell=(l,v)=>'<div class="xcell"><div class="xl">'+escHtml(l)+'</div><div class="xv">'+v+'</div></div>';
-    const brand=(typeof SPEC_LOGO_SVG!=='undefined'&&SPEC_LOGO_SVG)?'<div class="xbrand">'+SPEC_LOGO_SVG+'</div>':'<div class="xbrand xbrandtxt">SMART TECHNOLOGY ADVISERS</div>';
+    const year=new Date().getFullYear();
+    const brandSvg=(typeof SPEC_LOGO_SVG!=='undefined'&&SPEC_LOGO_SVG)?SPEC_LOGO_SVG:'<span class="xbrandtxt">SMART</span>';
+    const copyr='Copyright &copy; '+year+' SMART Technology Advisers Limited. All rights reserved.';
+    // Issue table: this deck and floor's revision lineage, house drawing style
+    const lineage=gaDeckPlans(plan.deck_id).filter(p=>((p.floor_id||null)===(plan.floor_id||null))).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+    const dshort=iso=>{const s=(iso||'').slice(0,10).split('-');return s.length===3?s[2]+'/'+s[1]+'/'+s[0].slice(2):'';};
+    const slots=Math.max(6,lineage.length);
+    let issueRows='';
+    for(let i=slots;i>=1;i--){
+      const p=lineage[i-1];
+      issueRows+='<tr><td>'+String(i).padStart(2,'0')+'</td><td style="text-align:left">'+(p?escHtml((i===1?'Original issue':(p.notes||'Revision'))+' ('+(p.revision||'')+')'):'')+'</td><td>'+(p?dshort(p.created_at):'')+'</td><td></td></tr>';
+    }
+    const issueTable='<table class="xiss"><tr class="xissh"><td>Issue</td><td style="text-align:left">Description</td><td>Date</td><td>Revised</td></tr>'+issueRows+'</table>';
+    const dwgNo=((currentProject.project_code||'PROJ')+'_GA_'+((deck.name||'')+(fl?'_'+fl.name:'')).replace(/[^A-Za-z0-9]+/g,'')+'_'+(plan.revision||'').replace(/[^A-Za-z0-9]+/g,'')).toUpperCase();
+    const titleLines='<div class="xtt1">'+escHtml((currentProject.name||'').toUpperCase())+'</div><div class="xtt2">GA PLAN - '+escHtml(((deck.name||'')+(fl?' - '+fl.name:'')).toUpperCase())+'</div><div class="xtt2">TECHNOLOGY LAYOUT</div>';
+    const notesTxt=escHtml(plan.notes||'ALL DEVICE POSITIONS ARE INDICATIVE UNLESS DIMENSIONED');
+    const kv=(l,v,extra)=>'<div class="xkv'+(extra||'')+'"><span>'+escHtml(l)+'</span><b>'+v+'</b></div>';
+    const metaRows=kv('Project:',escHtml(currentProject.project_code||currentProject.name||''))+kv('Designed:','SMART')+kv('Drawn:','-')+kv('Checked:','-');
+    // Horizontal title block along the bottom (matches the house sheet)
+    const tbh='<div class="xtb xtbh">'
+      +'<div class="xsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
+      +'<div class="xsec" style="flex:1.25;padding:0">'+issueTable+'</div>'
+      +'<div class="xsec" style="flex:1"><div class="xsech">Drawing Title</div>'+titleLines+'</div>'
+      +'<div class="xsec" style="flex:1"><div class="xsech">Notes:</div><div class="xnote">'+notesTxt+'</div></div>'
+      +'<div class="xsec xmeta" style="width:168px;padding:0">'+metaRows+'</div>'
+      +'<div class="xsec" style="width:195px;padding:0;display:flex;flex-direction:column">'
+        +'<div class="xkv" style="flex:1;border-bottom:1px solid #111"><span>DWG No.</span><b style="font-size:9.5px">'+escHtml(dwgNo)+'</b></div>'
+        +'<div style="display:flex;flex:1;border-bottom:1px solid #111"><div class="xkv" style="flex:1;border-right:1px solid #111"><span>Scale:</span><b class="xscalev"></b></div><div class="xkv" style="width:62px"><span>Plot:</span><b class="xplotv">A3</b></div></div>'
+        +'<div class="xkv xconf" style="flex:1"><span>Status</span><b>CONFIDENTIAL</b></div>'
+      +'</div>'
+      +'</div>';
+    // Vertical title block down the right edge, same style stacked
+    const tbv='<div class="xtb xtbv">'
+      +'<div class="xvsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
+      +'<div class="xvsec"><div class="xsech">Drawing Title</div>'+titleLines+'</div>'
+      +'<div class="xvsec" style="padding:0">'+issueTable+'</div>'
+      +'<div class="xvsec"><div class="xsech">Notes:</div><div class="xnote">'+notesTxt+'</div></div>'
+      +'<div class="xvsec" style="padding:4px 0">'+metaRows+'</div>'
+      +'<div class="xvsec" style="padding:4px 0">'
+        +kv('DWG No.','<span style="font-size:9px">'+escHtml(dwgNo)+'</span>')
+        +kv('Scale:','<span class="xscalev"></span>')
+        +kv('Plot:','<span class="xplotv">A3</span>')
+        +kv('Status','CONFIDENTIAL',' xconf')
+      +'</div>'
+      +'<div class="xvgrow"></div>'
+      +'</div>';
+    const gcols=14,grows=10;
+    let gtop='';for(let i=1;i<=gcols;i++)gtop+='<div>'+i+'</div>';
+    let gleft='';for(let i=grows;i>=1;i--)gleft+='<div>'+String.fromCharCode(64+i)+'</div>';
     const xcss='body.ga-export{background:#9aa3ad;margin:0;padding:16px;font-family:Arial,Helvetica,sans-serif}'
-      +'.xsheet{background:#fff;margin:0 auto;max-width:1600px;box-shadow:0 4px 18px rgba(0,0,0,.35)}'
-      +'.xframe{border:2.5px solid #111;margin:10px;display:flex;align-items:stretch}'
-      +'.xcontent{position:relative;overflow:hidden;background:#fff;flex:1;border-right:2.5px solid #111}'
+      +'.xsheet{background:#fff;margin:0 auto;max-width:1700px;box-shadow:0 4px 18px rgba(0,0,0,.35)}'
+      +'.xframe{border:2px solid #111;margin:10px;display:flex;flex-direction:column}'
+      +'.xgridtop{display:flex;height:17px;border-bottom:1px solid #111}'
+      +'.xgcorner{width:17px;border-right:1px solid #111;flex-shrink:0}'
+      +'.xgridtop div{flex:1;border-right:1px solid #111;font-size:8.5px;display:grid;place-items:center;color:#333}'
+      +'.xgridtop div:last-child{border-right:0}'
+      +'.xrow{display:flex;align-items:stretch}'
+      +'.xgridleft{width:17px;display:flex;flex-direction:column;border-right:1px solid #111;flex-shrink:0}'
+      +'.xgridleft div{flex:1;border-bottom:1px solid #111;font-size:8.5px;display:grid;place-items:center;color:#333}'
+      +'.xgridleft div:last-child{border-bottom:0}'
+      +'.xcontent{position:relative;overflow:hidden;background:#fff;flex:1}'
       +'.xstage{position:relative}'
-      +'.xtitle{display:flex;flex-direction:column;width:210px;flex-shrink:0}'
-      +'.xcell{border-bottom:1.5px solid #111;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px}'
-      +'.xl{font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:#555}'
-      +'.xv{font-size:12.5px;font-weight:700;color:#111}'
-      +'.xbrand{display:flex;align-items:center;justify-content:center;padding:12px 14px;border-bottom:1.5px solid #111}'
-      +'.xbrand svg{height:22px;width:auto;max-width:100%}'
-      +'.xbrandtxt{font-size:12px;font-weight:800;letter-spacing:.06em;text-align:center}'
-      +'.xgrow{flex:1;border-bottom:1.5px solid #111}'
-      +'.xconf .xv{color:#b02a2a}'
-      +'.xcell:last-child{border-bottom:0}'
-      +'.xbar{position:fixed;top:14px;right:14px;display:flex;gap:8px;align-items:center}'
-      +'.xbar select{padding:9px 10px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid #777;background:#fff;cursor:pointer}'
+      +'.xtb{font-size:10px;color:#111}'
+      +'.xtbh{border-top:2px solid #111;display:flex;align-items:stretch;min-height:104px}'
+      +'.xtbh .xsec{border-right:1.5px solid #111;padding:6px 10px;display:flex;flex-direction:column}'
+      +'.xtbh .xsec:last-child{border-right:0}'
+      +'.xtbv{width:218px;flex-shrink:0;display:flex;flex-direction:column;border-left:2px solid #111}'
+      +'.xtbv .xvsec{border-bottom:1.5px solid #111;padding:7px 10px}'
+      +'.xvgrow{flex:1}'
+      +'.xlogo{justify-content:space-between;width:185px;flex-shrink:0;display:flex;flex-direction:column}'
+      +'.xtbv .xlogo{width:auto}'
+      +'.xlogoin{display:flex;align-items:center;justify-content:center;flex:1;padding:5px 0}'
+      +'.xlogoin svg{height:26px;width:auto;max-width:100%}'
+      +'.xbrandtxt{font-size:21px;font-weight:800;letter-spacing:.04em}'
+      +'.xcopy{font-size:6.3px;color:#444;text-align:center}'
+      +'.xsech{font-size:9px;font-weight:700;text-decoration:underline;text-align:center;margin-bottom:3px}'
+      +'.xtt1{font-size:11px;font-weight:700;text-align:center;margin-top:2px}'
+      +'.xtt2{font-size:10px;text-align:center;margin-top:2px}'
+      +'.xnote{font-size:9px;text-align:center;flex:1;display:flex;align-items:center;justify-content:center}'
+      +'.xtbv .xnote{display:block}'
+      +'.xiss{border-collapse:collapse;width:100%;height:100%}'
+      +'.xiss td{border:1px solid #111;font-size:8.5px;padding:1px 5px;text-align:center;color:#111}'
+      +'.xiss tr.xissh td{font-weight:700}'
+      +'.xiss td:nth-child(2){width:58%}'
+      +'.xkv{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 10px;font-size:9.5px}'
+      +'.xkv span{color:#333}'
+      +'.xkv b{font-size:10.5px;text-align:right}'
+      +'.xmeta .xkv{flex:1;border-bottom:1px solid #111;align-items:center}'
+      +'.xmeta .xkv:last-child{border-bottom:0}'
+      +'.xconf b{color:#b02a2a}'
+      +'.xbar{position:fixed;top:14px;right:14px;display:flex;gap:8px;align-items:center;z-index:50}'
+      +'.xbar select,.xbar label{padding:8px 10px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid #777;background:#fff;cursor:pointer}'
       +'.xbar button{padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:8px;background:#0f6e8c;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}'
+      +'body.tbb .xtbv{display:none}'
+      +'body.tbr .xtbh{display:none}'
       +'@media print{body.ga-export{background:#fff;padding:0}.xsheet{box-shadow:none;max-width:none}.xbar{display:none}}';
     const realW=plan.scale_px_per_m>0?(gaImgW/plan.scale_px_per_m):0;
     const fit='var fit=function(){var s0=document.querySelector(".xstage"),b=document.querySelector(".xcontent");if(!s0||!b)return;'
@@ -2495,35 +2570,38 @@ async function gaExportGa(){
       +'s0.style.transform="scale("+s+")";s0.style.transformOrigin="0 0";s0.style.setProperty("--ga-inv",String(1/s));b.style.height=(H*s)+"px";};'
       +'var PAPER={A4:297,A3:420,A2:594,A1:841};var REAL_W='+realW+';'
       +'function niceRatio(r){if(r>=200)return Math.round(r/10)*10;if(r>=50)return Math.round(r/5)*5;return Math.round(r);}'
-      +'function setPaper(p){var st=document.getElementById("xpage");if(st)st.textContent="@page{size:"+p+" landscape;margin:8mm}";'
+      +'function refresh(){var p=document.getElementById("xpapersel").value;'
+      +'var st=document.getElementById("xpage");if(st)st.textContent="@page{size:"+p+" landscape;margin:8mm}";'
       +'var nts=document.getElementById("xnts");var ntsOn=REAL_W<=0||(nts&&nts.checked);'
       +'var bar=document.getElementById("xscalebar");if(bar)bar.style.display=ntsOn?"none":"";'
-      +'var sc=document.getElementById("xscalev");if(sc){var cw=PAPER[p]-16-6-58;sc.textContent=ntsOn?"NOT TO SCALE":"approx 1:"+niceRatio(REAL_W*1000/cw)+" at "+p;}}'
-      +'window.addEventListener("load",function(){fit();setPaper(document.getElementById("xpapersel").value);});'
+      +'var right=document.body.className.indexOf("tbr")>=0;'
+      +'var cw=PAPER[p]-16-6-5-(right?58:0);'
+      +'var txt=ntsOn?"NTS":"approx 1:"+niceRatio(REAL_W*1000/cw);'
+      +'document.querySelectorAll(".xscalev").forEach(function(e){e.textContent=txt;});'
+      +'document.querySelectorAll(".xplotv").forEach(function(e){e.textContent=p;});'
+      +'fit();}'
+      +'function setTb(m){document.body.className="ga-export "+(m==="right"?"tbr":"tbb");refresh();}'
+      +'window.addEventListener("load",refresh);'
       +'window.addEventListener("resize",fit);window.addEventListener("beforeprint",fit);';
     const LT='<';
-    const today=new Date();
     const html='<!doctype html><html><head><meta charset="utf-8"><title>'+escHtml((currentProject.project_code||'')+' GA '+(deck.name||'')+' '+(plan.revision||''))+'</title>'
       +LT+'style>'+appCss+xcss+LT+'/style>'
       +LT+'style id="xpage">@page{size:A3 landscape;margin:8mm}'+LT+'/style>'
-      +'</head><body class="ga-export">'
+      +'</head><body class="ga-export tbb">'
       +'<div class="xbar">'
-      +(realW>0?'<label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:700;background:#fff;border:1px solid #777;border-radius:8px;padding:8px 10px;cursor:pointer"><input type="checkbox" id="xnts" style="margin:0" onchange="setPaper(document.getElementById(&quot;xpapersel&quot;).value)"> Not to scale</label>':'')
-      +'<select id="xpapersel" onchange="setPaper(this.value)" title="Paper size"><option>A4</option><option selected>A3</option><option>A2</option><option>A1</option></select>'
+      +(realW>0?'<label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="xnts" style="margin:0" onchange="refresh()"> Not to scale</label>':'')
+      +'<select id="xtbpos" onchange="setTb(this.value)" title="Title block position"><option value="bottom" selected>Title: Bottom</option><option value="right">Title: Right</option></select>'
+      +'<select id="xpapersel" onchange="refresh()" title="Paper size"><option>A4</option><option selected>A3</option><option>A2</option><option>A1</option></select>'
       +'<button onclick="window.print()">Print / Save as PDF</button></div>'
       +'<div class="xsheet"><div class="xframe">'
+      +'<div class="xgridtop"><div class="xgcorner"></div>'+gtop+'</div>'
+      +'<div class="xrow">'
+      +'<div class="xgridleft">'+gleft+'</div>'
       +'<div class="xcontent">'+clone.outerHTML+'</div>'
-      +'<div class="xtitle">'
-      +brand
-      +cell('Project',escHtml(currentProject.name||'')+'<br><span style="font-weight:500;color:#555">'+escHtml(currentProject.project_code||'')+'</span>')
-      +cell(topNoun(true),escHtml(deck.name||'')+(fl?' - '+escHtml(fl.name):''))
-      +cell('Revision',escHtml(plan.revision||'')+' <span style="font-weight:500;color:#555">'+escHtml(formatDate((plan.created_at||'').slice(0,10)))+'</span>')
-      +cell('Scale','<span id="xscalev"></span>')
-      +cell('Grid',plan.grid_spacing_m>0&&plan.scale_px_per_m>0?escHtml(plan.grid_spacing_m+' m'):'Not set')
-      +'<div class="xgrow"></div>'
-      +'<div class="xcell xconf"><div class="xl">Status</div><div class="xv">CONFIDENTIAL</div></div>'
-      +cell('Printed',escHtml(formatDate(today.toISOString().slice(0,10))))
-      +'</div></div></div>'
+      +tbv
+      +'</div>'
+      +tbh
+      +'</div></div>'
       +LT+'script>'+fit+LT+'/script></body></html>';
     const w=window.open('','_blank');
     if(!w){showToast('The browser blocked the export window. Please allow pop-ups for this site.','error');return;}
