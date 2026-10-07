@@ -332,7 +332,7 @@
   .ga-banner { display: none; position: absolute; left: 0; top: 0; right: 0; z-index: 4; align-items: center; gap: 10px; padding: 8px 14px; background: var(--accent); color: #fff; font-size: 13px; }
   .ga-banner.on { display: flex; }
   .ga-banner button { margin-left: auto; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.5); color: #fff; border-radius: 6px; padding: 3px 12px; cursor: pointer; }
-  .ga-pin { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); display: flex; align-items: center; cursor: pointer; white-space: nowrap; touch-action: none; z-index: 2; }
+  .ga-pin { position: absolute; transform: translate(-50%,-50%) scale(calc(var(--ga-inv,1) * var(--ga-mult,1))); display: flex; align-items: center; cursor: pointer; white-space: nowrap; touch-action: none; z-index: 2; }
   .ga-pin.prewire { opacity: .55; }
   .ga-pin.prewire .mark { outline: 2px dashed currentColor; outline-offset: 1px; border-radius: 50%; }
   .ga-pin.auto .mark { outline: 2px dashed #e67e22; outline-offset: 3px; border-radius: 50%; }
@@ -432,6 +432,7 @@
 
   /* SECTION TABS */
   .section-tabs { display: flex; gap: 2px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; width: fit-content; margin-bottom: 20px; }
+  .section-tabs-row.ga-tight { margin-bottom: 8px !important; }
   .section-tab { padding: 6px 18px; border-radius: 5px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-2); transition: all 0.15s; border: none; background: transparent; font-family: 'DM Sans', sans-serif; }
   .section-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
 
@@ -666,7 +667,7 @@
 
       <!-- DESIGN (Decks / Rooms / Rack Zones / GA Plans) -->
       <div id="page-decks-rooms" class="hidden">
-        <div class="section-tabs-row" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+        <div class="section-tabs-row" style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:20px">
           <div class="section-tabs" style="margin-bottom:0">
             <button class="section-tab active" id="tab-btn-decks" onclick="switchDeckRoomTab('decks')">Decks</button>
             <button class="section-tab" id="tab-btn-floors" onclick="switchDeckRoomTab('floors')" style="display:none">Floors</button>
@@ -674,7 +675,8 @@
             <button class="section-tab" id="tab-btn-zones" onclick="switchDeckRoomTab('zones')">Rack Zones</button>
             <button class="section-tab" id="tab-btn-ga" onclick="switchDeckRoomTab('ga')">GA Plans</button>
           </div>
-          <span id="ga-tab-actions" class="ga-tbgroup" style="display:none"></span>
+          <span id="ga-tab-decks" class="ga-tbgroup" style="display:none"></span>
+          <span id="ga-tab-actions" class="ga-tbgroup" style="display:none;margin-left:auto"></span>
         </div>
         <div id="decks-tab-content"><div id="decks-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
         <div id="floors-tab-content" class="hidden"><div id="floors-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
@@ -2168,9 +2170,13 @@ function switchDeckRoomTab(tab){
     const el=document.getElementById(t+'-tab-content');if(el)el.classList.toggle('hidden',t!==tab);
     const btn=document.getElementById('tab-btn-'+t);if(btn)btn.classList.toggle('active',t===tab);
   });
-  // The GA view and output buttons live in their own card to the right of the tabs
+  // GA extras in the tab row: deck pills beside the tabs, view/output buttons on the right
   const acts=document.getElementById('ga-tab-actions');
   if(acts)acts.style.display=tab==='ga'?'flex':'none';
+  const dks=document.getElementById('ga-tab-decks');
+  if(dks)dks.style.display=tab==='ga'?'flex':'none';
+  const tRow=document.querySelector('.section-tabs-row');
+  if(tRow)tRow.classList.toggle('ga-tight',tab==='ga');
   updateDecksRoomsBtn();
   if(tab==='decks')loadDecks();else if(tab==='floors')loadFloors();else if(tab==='rooms')loadRooms();else if(tab==='ga')loadGaPlans();else loadRackZones();
 }
@@ -2396,10 +2402,10 @@ function renderGaPlans(){
   // Compact icon toolbar: location pills | actions | view tools | status + revision management
   const gaIco=s=>'<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">'+s+'</svg>';
   const gaTb=(fn,short,label,svg,on,id)=>'<button '+(id?'id="'+id+'" ':'')+'class="btn '+(on?'btn-primary':'btn-secondary')+' btn-sm ga-tbtn" onclick="'+fn+'" title="'+label+'" aria-label="'+label+'">'+gaIco(svg)+'<span>'+short+'</span></button>';
-  let bar='<div class="ga-toolbar">'
-    +'<span class="ga-tbgroup">'
-    +currentDecks.map(d=>'<button class="ga-pill'+(d.id===gaActiveDeckId?' active':'')+'" onclick="gaSelectDeck(\''+d.id+'\')">'+escHtml(d.name)+(gaPlans.some(p=>p.deck_id===d.id)?'<span class="ga-dot"></span>':'')+'</button>').join('')
-    +'</span>';
+  // Deck pills live in the tab row, joined to the main navigation
+  const dksEl=document.getElementById('ga-tab-decks');
+  if(dksEl)dksEl.innerHTML=currentDecks.map(d=>'<button class="ga-pill'+(d.id===gaActiveDeckId?' active':'')+'" onclick="gaSelectDeck(\''+d.id+'\')">'+escHtml(d.name)+(gaPlans.some(p=>p.deck_id===d.id)?'<span class="ga-dot"></span>':'')+'</button>').join('');
+  let bar='<div class="ga-toolbar">';
   const gaDiv='<span style="width:1px;align-self:stretch;background:var(--border-strong)"></span>';
   // Placement tools stay on the toolbar row beside the deck pills; view and output
   // controls live in the tab row's right side (#ga-tab-actions), set below.
@@ -2424,6 +2430,8 @@ function renderGaPlans(){
   if(showing)acts+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
     +gaTb('openGaSheetInfo(true)','Export','Sheet info, then print or save as a PDF with border and title block','<path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="7" rx="1"/><path d="M7 14h10v7H7z"/>')
     +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
+  if(showing)acts+='<select onchange="gaSetPinSize(this.value)" title="Pin size on the drawing" style="width:auto">'
+    +[[0.7,'Pins: S'],[1,'Pins: M'],[1.4,'Pins: L']].map(o=>'<option value="'+o[0]+'"'+(Math.abs(gaPinScale-o[0])<0.01?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
   if(revs.length){
     acts+='<select onchange="gaSelectRev(this.value)" style="max-width:170px">'
       +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
@@ -3089,12 +3097,20 @@ async function gaShowImage(plan){
 // Pins keep a constant on-screen size through working zooms, but zooming out beyond
 // fit-to-view stops the compensation so they shrink with the drawing (clamped at the
 // fit zoom); labels auto-hide around fit zoom and below to keep overviews readable.
+// gaPinScale: the user's preset pin size (S/M/L), remembered on this device.
 let gaFitS=0;
+let gaPinScale=parseFloat((function(){try{return localStorage.getItem('gaPinScale');}catch(e){return null;}})())||1;
+function gaSetPinSize(v){
+  gaPinScale=parseFloat(v)||1;
+  try{localStorage.setItem('gaPinScale',String(gaPinScale));}catch(e){}
+  gaApply();
+}
 function gaApply(){
   const st=document.getElementById('ga-stage');if(!st)return;
   st.style.transform='translate('+gaView.x+'px,'+gaView.y+'px) scale('+gaView.s+')';
   const inv=gaFitS>0?Math.min(1/gaView.s,1/gaFitS):1/gaView.s;
   st.style.setProperty('--ga-inv',inv);
+  st.style.setProperty('--ga-mult',gaPinScale);
   const vp=document.getElementById('ga-viewport');
   if(vp)vp.classList.toggle('ga-zoomedout',gaFitS>0&&gaView.s<gaFitS*1.15);
 }
