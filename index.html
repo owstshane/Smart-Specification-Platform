@@ -675,7 +675,6 @@
             <button class="section-tab" id="tab-btn-zones" onclick="switchDeckRoomTab('zones')">Rack Zones</button>
             <button class="section-tab" id="tab-btn-ga" onclick="switchDeckRoomTab('ga')">GA Plans</button>
           </div>
-          <span id="ga-tab-decks" class="ga-tbgroup" style="display:none"></span>
           <span id="ga-tab-actions" class="ga-tbgroup" style="display:none;margin-left:auto"></span>
         </div>
         <div id="decks-tab-content"><div id="decks-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
@@ -2170,11 +2169,9 @@ function switchDeckRoomTab(tab){
     const el=document.getElementById(t+'-tab-content');if(el)el.classList.toggle('hidden',t!==tab);
     const btn=document.getElementById('tab-btn-'+t);if(btn)btn.classList.toggle('active',t===tab);
   });
-  // GA extras in the tab row: deck pills beside the tabs, view/output buttons on the right
+  // GA view/output buttons live in their own card on the tab row's right
   const acts=document.getElementById('ga-tab-actions');
   if(acts)acts.style.display=tab==='ga'?'flex':'none';
-  const dks=document.getElementById('ga-tab-decks');
-  if(dks)dks.style.display=tab==='ga'?'flex':'none';
   const tRow=document.querySelector('.section-tabs-row');
   if(tRow)tRow.classList.toggle('ga-tight',tab==='ga');
   updateDecksRoomsBtn();
@@ -2402,10 +2399,10 @@ function renderGaPlans(){
   // Compact icon toolbar: location pills | actions | view tools | status + revision management
   const gaIco=s=>'<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">'+s+'</svg>';
   const gaTb=(fn,short,label,svg,on,id)=>'<button '+(id?'id="'+id+'" ':'')+'class="btn '+(on?'btn-primary':'btn-secondary')+' btn-sm ga-tbtn" onclick="'+fn+'" title="'+label+'" aria-label="'+label+'">'+gaIco(svg)+'<span>'+short+'</span></button>';
-  // Deck pills live in the tab row, joined to the main navigation
-  const dksEl=document.getElementById('ga-tab-decks');
-  if(dksEl)dksEl.innerHTML=currentDecks.map(d=>'<button class="ga-pill'+(d.id===gaActiveDeckId?' active':'')+'" onclick="gaSelectDeck(\''+d.id+'\')">'+escHtml(d.name)+(gaPlans.some(p=>p.deck_id===d.id)?'<span class="ga-dot"></span>':'')+'</button>').join('');
-  let bar='<div class="ga-toolbar">';
+  let bar='<div class="ga-toolbar">'
+    +'<span class="ga-tbgroup">'
+    +currentDecks.map(d=>'<button class="ga-pill'+(d.id===gaActiveDeckId?' active':'')+'" onclick="gaSelectDeck(\''+d.id+'\')">'+escHtml(d.name)+(gaPlans.some(p=>p.deck_id===d.id)?'<span class="ga-dot"></span>':'')+'</button>').join('')
+    +'</span>';
   const gaDiv='<span style="width:1px;align-self:stretch;background:var(--border-strong)"></span>';
   // Placement tools stay on the toolbar row beside the deck pills; view and output
   // controls live in the tab row's right side (#ga-tab-actions), set below.
