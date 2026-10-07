@@ -251,6 +251,11 @@ Actions: **Rename** (1 to 1), **Merge** (becomes a product under a shared family
 
 ## 4. Gap review: latest project schedule vs the global library
 
+> **STATUS: IMPORTED 7 Oct 2026** (migration `gap_families_import`). The library now holds
+> 195 families and 188 products. Open questions settled: AP-EXT-D is its own family; the
+> drone defence and RF transceiver prefixes are DRONE and SEC-RF; the Lyngdorf MXA-8400 is
+> filed as an 8-channel amplifier under AMP-8CH.
+
 Shane shared the latest project's device schedule (approx. 250 rows, 4 Oct 2026). Comparing it to the global library after the Section 3 restructure, the rows fall into four buckets.
 
 ### 4a. Covered by placement behaviour, not types (approx. 50 rows)

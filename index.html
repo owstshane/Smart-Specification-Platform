@@ -755,6 +755,12 @@
               </div>
             </div>
           </div>
+          <div class="ie-table" style="margin-top:14px">
+            <div class="ie-row">
+              <div class="ie-row-meta"><div class="ie-row-title">Storage Maintenance</div><div class="ie-row-desc">Remove GA drawing images left in private storage by deleted projects</div></div>
+              <div class="ie-row-btns"><button class="btn btn-secondary btn-sm" onclick="gaCleanOrphanImages()">Clean Up Orphaned Images</button></div>
+            </div>
+          </div>
         </div>
 
         <!-- PROJECT TAB -->
@@ -2350,6 +2356,48 @@ async function storageUpload(path,file){
   await refreshTokenIfNeeded();
   const res=await fetch(SUPABASE_URL+'/storage/v1/object/deck-plans/'+path,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':getAuthHeader(),'Content-Type':file.type||'application/octet-stream'},body:file});
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.message||'Upload failed (HTTP '+res.status+')');}
+}
+async function storageListFolder(prefix){
+  await refreshTokenIfNeeded();
+  const res=await fetch(SUPABASE_URL+'/storage/v1/object/list/deck-plans',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':getAuthHeader(),'Content-Type':'application/json'},body:JSON.stringify({prefix:prefix||'',limit:1000,offset:0,sortBy:{column:'name',order:'asc'}})});
+  if(!res.ok)throw new Error('Could not list stored plans (HTTP '+res.status+')');
+  return res.json();
+}
+async function storageDeletePaths(paths){
+  if(!paths.length)return;
+  await refreshTokenIfNeeded();
+  const res=await fetch(SUPABASE_URL+'/storage/v1/object/deck-plans',{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':getAuthHeader(),'Content-Type':'application/json'},body:JSON.stringify({prefixes:paths})});
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.message||'Could not delete stored images (HTTP '+res.status+')');}
+}
+// Every stored image path for one project: deck-plans/<projectId>/<deckId>/<file>
+async function gaProjectImagePaths(projectId){
+  const paths=[];
+  const top=await storageListFolder(projectId);
+  for(const d of top){
+    if(d.id){paths.push(projectId+'/'+d.name);continue;}
+    const files=await storageListFolder(projectId+'/'+d.name);
+    files.forEach(f=>{if(f.id)paths.push(projectId+'/'+d.name+'/'+f.name);});
+  }
+  return paths;
+}
+// Maintenance: delete stored GA images whose project no longer exists (deleting rows in
+// the storage table by SQL is blocked by Supabase, so this runs with the signed-in user)
+async function gaCleanOrphanImages(){
+  try{
+    const projs=await dbGet('projects','select=id');
+    const live=new Set(projs.map(p=>p.id));
+    const top=await storageListFolder('');
+    const orphanPrefixes=top.filter(e=>!e.id&&!live.has(e.name)).map(e=>e.name);
+    let paths=[];
+    for(const pre of orphanPrefixes)paths=paths.concat(await gaProjectImagePaths(pre));
+    if(!paths.length){showToast('No orphaned images found','success');return;}
+    openConfirm('Clean Up Stored Images','Permanently delete '+paths.length+' stored GA image'+(paths.length!==1?'s':'')+' belonging to deleted projects? Live projects are not touched.',async()=>{
+      try{
+        await storageDeletePaths(paths);
+        showToast(paths.length+' orphaned image'+(paths.length!==1?'s':'')+' deleted','success');
+      }catch(e){showToast('Clean up failed: '+e.message,'error');}
+    },'Delete','btn-danger');
+  }catch(e){showToast('Could not check storage: '+e.message,'error');}
 }
 async function storageSignedUrl(path,expiresSec){
   const ttl=expiresSec||3600;
@@ -4865,7 +4913,11 @@ async function saveProject(){
   }catch(e){showToast(e.message.includes('unique')?'Project code already in use':'Could not save: '+e.message,'error');}
   finally{btn.textContent=editingProjectId?'Save Changes':'Save Project';btn.disabled=false;}
 }
-function confirmDeleteProject(id,name){openConfirm('Delete Project','Delete "'+name+'"? All data will be removed.',async()=>{try{await dbDelete('projects',id);showToast('Project deleted','success');if(currentProject&&currentProject.id===id){currentProject=null;updateSidebarProject();}loadProjects();showPage('dashboard');}catch(e){showToast('Could not delete: '+e.message,'error');}});}
+function confirmDeleteProject(id,name){openConfirm('Delete Project','Delete "'+name+'"? All data and its stored GA drawings will be removed.',async()=>{try{
+  let imgs=[];try{imgs=await gaProjectImagePaths(id);}catch(e){}
+  await dbDelete('projects',id);
+  if(imgs.length){try{await storageDeletePaths(imgs);}catch(e){showToast('Project deleted, but its GA images could not be removed: '+e.message,'error');}}
+  showToast('Project deleted','success');if(currentProject&&currentProject.id===id){currentProject=null;updateSidebarProject();}loadProjects();showPage('dashboard');}catch(e){showToast('Could not delete: '+e.message,'error');}});}
 
 // ── DECKS ──
 async function loadDecks(){
