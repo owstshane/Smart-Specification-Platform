@@ -2541,14 +2541,9 @@ async function loadGaPlans(){
     if(isBuildingProj()&&!currentFloors.length)currentFloors=await dbGet('floors','project_id=eq.'+currentProject.id+'&order=name.asc');
     gaPlans=await dbGet('deck_plans','project_id=eq.'+currentProject.id+'&order=created_at.desc');
     try{gaSavedViews=await dbGet('ga_views','project_id=eq.'+currentProject.id+'&order=sort_order.asc,created_at.asc');}catch(e){gaSavedViews=[];}
-    // Open review-comment counts per plan, for the Review tab badge and deck pills
-    gaCmtOpenCounts={};
-    try{
-      if(gaPlans.length){
-        const roots=await dbGet('plan_comments','parent_id=is.null&status=eq.open&deck_plan_id=in.('+gaPlans.map(p=>p.id).join(',')+')&select=id,deck_plan_id');
-        roots.forEach(r=>{gaCmtOpenCounts[r.deck_plan_id]=(gaCmtOpenCounts[r.deck_plan_id]||0)+1;});
-      }
-    }catch(e){}
+    // Review comments load project-wide so one comment can span several decks
+    try{gaComments=await dbGet('plan_comments','project_id=eq.'+currentProject.id+'&order=created_at.asc');}catch(e){gaComments=[];}
+    gaCmtRecountOpen();
     if(!currentDecks.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No '+topNoun()+'s yet</div><div class="empty-state-text">Add '+topNoun()+'s on the '+topNoun(true)+'s tab first, then upload a GA plan here.</div></div>';return;}
     if(!gaActiveDeckId||!currentDecks.find(d=>d.id===gaActiveDeckId))gaActiveDeckId=currentDecks[0].id;
     if(isBuildingProj()){
@@ -2664,6 +2659,12 @@ function renderGaPlans(){
   if(!review&&gaGridPanelOpen){const gp=document.getElementById('ga-grid-panel');if(gp){gp.style.display='';renderGaGridPanel();}}
   renderGaPalette();
   if(review)renderGaCmtPanel();
+  // A comment capture survives deck switches so one comment can span several decks
+  if(review&&gaMode==='comment'){
+    const vp2=document.getElementById('ga-viewport');
+    if(vp2)vp2.classList.add('placing');
+    gaCmtBasketBanner();
+  }
   gaUpdateReviewBadge();
   gaShowImage(showing);
   loadGaPins(showing.id);
@@ -3312,18 +3313,17 @@ async function loadGaPins(planId){
     }
     // Clouds load deck-wide so the revision log shows the whole history for this deck
     const deckPlanIds=gaDeckPlans(gaActiveDeckId).map(p=>p.id);
-    const [pins,bounds,clouds,cmts]=await Promise.all([
+    const [pins,bounds,clouds]=await Promise.all([
       dbGet('plan_equipment_pins','deck_plan_id=eq.'+planId),
       dbGet('plan_room_boundaries','deck_plan_id=eq.'+planId),
-      deckPlanIds.length?dbGet('plan_rev_clouds','deck_plan_id=in.('+deckPlanIds.join(',')+')'+'&order=created_at.asc'):Promise.resolve([]),
-      dbGet('plan_comments','deck_plan_id=eq.'+planId+'&order=created_at.asc').catch(()=>[])
+      deckPlanIds.length?dbGet('plan_rev_clouds','deck_plan_id=in.('+deckPlanIds.join(',')+')'+'&order=created_at.asc'):Promise.resolve([])
     ]);
     gaPins=pins;gaBounds=bounds;
     gaDeckClouds=clouds;
     gaClouds=gaDeckClouds.filter(c=>c.deck_plan_id===planId);
-    gaComments=cmts;
     renderGaBounds();renderGaPins();renderGaComments();renderGaRevLog();renderGaPalette();
     if(gaDesignTab==='review')renderGaCmtPanel();
+    if(gaMode==='comment')gaCmtBasketDraw();
     gaUpdateReviewBadge();
   }catch(e){showToast('Could not load the plan layers: '+e.message,'error');}
 }
@@ -3812,7 +3812,8 @@ function wireGaViewport(){
       // Ignore accidental tiny drags (under ~14 screen px either way)
       if(Math.abs(bx1-d.fx0)*gaImgW*gaView.s<14||Math.abs(by1-d.fy0)*gaImgH*gaView.s<14)return;
       const ax0=Math.min(d.fx0,bx1),ax1=Math.max(d.fx0,bx1),ay0=Math.min(d.fy0,by1),ay1=Math.max(d.fy0,by1);
-      gaCmtAreas.push([ax0,ay0,ax1,ay1]);
+      const cPlan=gaShownPlan();
+      gaCmtAreas.push({p:cPlan?cPlan.id:null,b:[ax0,ay0,ax1,ay1]});
       gaPins.forEach(p=>{
         if(p.x>=ax0&&p.x<=ax1&&p.y>=ay0&&p.y<=ay1){
           const inst=gaPinVisibleInst(p);
@@ -4183,7 +4184,8 @@ async function gaCarryForward(fromPlanId,toPlanId){
     if(bounds.length)await dbInsert('plan_room_boundaries',bounds.map(b=>({deck_plan_id:toPlanId,room_id:b.room_id,points:b.points})));
     if(pins.length)await dbInsert('plan_equipment_pins',pins.map(p=>({deck_plan_id:toPlanId,equipment_instance_id:p.equipment_instance_id,x:p.x,y:p.y})));
     // OPEN review comments move onto the new revision (the thread moves whole, replies
-    // included); resolved ones stay behind as the old revision's history.
+    // included); resolved ones stay behind as the old revision's history. Area boxes
+    // tagged with the old plan are re-tagged so cross-deck comments follow too.
     let movedCmts=0;
     try{
       const openRoots=await dbGet('plan_comments','deck_plan_id=eq.'+fromPlanId+'&parent_id=is.null&status=eq.open&select=id');
@@ -4191,9 +4193,20 @@ async function gaCarryForward(fromPlanId,toPlanId){
         const ids=openRoots.map(r=>r.id).join(',');
         await supaFetch('PATCH','plan_comments',{deck_plan_id:toPlanId},null,'id=in.('+ids+')');
         await supaFetch('PATCH','plan_comments',{deck_plan_id:toPlanId},null,'parent_id=in.('+ids+')');
-        if(gaCmtOpenCounts[fromPlanId]){gaCmtOpenCounts[toPlanId]=(gaCmtOpenCounts[toPlanId]||0)+openRoots.length;gaCmtOpenCounts[fromPlanId]=0;}
         movedCmts=openRoots.length;
       }
+      const openAll=await dbGet('plan_comments','project_id=eq.'+currentProject.id+'&parent_id=is.null&status=eq.open&select=id,area');
+      for(const r of openAll){
+        if(!Array.isArray(r.area))continue;
+        let changed=false;
+        const na=r.area.map(e=>{
+          if(e&&!Array.isArray(e)&&e.p===fromPlanId){changed=true;return{p:toPlanId,b:e.b};}
+          return e;
+        });
+        if(changed)await dbUpdate('plan_comments',r.id,{area:na});
+      }
+      gaComments=await dbGet('plan_comments','project_id=eq.'+currentProject.id+'&order=created_at.asc');
+      gaCmtRecountOpen();
     }catch(err){console.warn('Could not move open review comments',err);}
     showToast('Carried forward '+bounds.length+' boundar'+(bounds.length===1?'y':'ies')+' and '+pins.length+' pin'+(pins.length===1?'':'s')+(movedCmts?'; '+movedCmts+' open comment'+(movedCmts!==1?'s':'')+' moved over':''),'success');
     renderGaPlans();
@@ -4328,6 +4341,36 @@ function gaCmtRoots(){return gaComments.filter(c=>!c.parent_id).sort((a,b)=>new 
 function gaCmtReplies(id){return gaComments.filter(c=>c.parent_id===id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));}
 function gaCmtWho(c){const e=c.created_by||'';return e.includes('@')?e.split('@')[0]:(e||'Unknown');}
 function gaCmtVisible(c){return gaCmtFilter==='all'||c.status===gaCmtFilter;}
+// Normalise a comment's boxes to [{p: deck_plan_id, b:[x0,y0,x1,y1]}]. Legacy shapes
+// (one flat box, or a list of flat boxes) belong to the comment's home plan.
+function gaCmtBoxes(c){
+  if(!Array.isArray(c.area)||!c.area.length)return[];
+  if(c.area.length===4&&typeof c.area[0]==='number')return[{p:c.deck_plan_id,b:c.area}];
+  return c.area.map(e=>{
+    if(Array.isArray(e)&&e.length===4)return{p:c.deck_plan_id,b:e};
+    if(e&&Array.isArray(e.b)&&e.b.length===4)return{p:e.p||c.deck_plan_id,b:e.b};
+    return null;
+  }).filter(Boolean);
+}
+// Does this comment belong on the shown plan? Home plan, a box drawn on it, or a
+// captured/attached device pinned on it.
+function gaCmtTouches(c,planId){
+  if(c.deck_plan_id===planId)return true;
+  if(gaCmtBoxes(c).some(e=>e.p===planId))return true;
+  if(c.equipment_instance_id&&gaPins.some(p=>p.equipment_instance_id===c.equipment_instance_id))return true;
+  const tg=Array.isArray(c.targets)?c.targets:[];
+  return tg.some(tid=>gaPins.some(p=>p.equipment_instance_id===tid));
+}
+// Open counts per plan for the badges: a cross-deck comment counts on every plan
+// it has a box or its home on (device pins elsewhere are not tracked here).
+function gaCmtRecountOpen(){
+  gaCmtOpenCounts={};
+  gaComments.filter(c=>!c.parent_id&&c.status==='open').forEach(c=>{
+    const plans=new Set([c.deck_plan_id]);
+    gaCmtBoxes(c).forEach(e=>plans.add(e.p));
+    plans.forEach(pid=>{gaCmtOpenCounts[pid]=(gaCmtOpenCounts[pid]||0)+1;});
+  });
+}
 function gaUpdateReviewBadge(){
   const b=document.getElementById('review-badge');if(!b)return;
   const plan=gaShownPlan();
@@ -4347,13 +4390,14 @@ function renderGaComments(){
   const st=document.getElementById('ga-stage');if(!st)return;
   st.querySelectorAll('.ga-cmark,.ga-carea').forEach(n=>n.remove());
   if(gaDesignTab!=='review')return;
+  const plan=gaShownPlan();if(!plan)return;
+  // Numbering is the comment's position in the whole project's list, so number 3 is
+  // number 3 on every deck it appears on.
   gaCmtRoots().forEach((c,i)=>{
-    if(!gaCmtVisible(c))return;
+    if(!gaCmtVisible(c)||!gaCmtTouches(c,plan.id))return;
     const sel=gaCmtSel===c.id;
-    // area holds one box [x0,y0,x1,y1] or several [[...],[...]] when drawn as a multi-capture
-    const boxes=Array.isArray(c.area)?(Array.isArray(c.area[0])?c.area:[c.area]):[];
-    boxes.forEach(bx=>{
-      if(!Array.isArray(bx)||bx.length!==4)return;
+    const localBoxes=gaCmtBoxes(c).filter(e=>e.p===plan.id).map(e=>e.b);
+    localBoxes.forEach(bx=>{
       const a=document.createElement('div');
       a.className='ga-carea'+(c.status==='resolved'?' resolved':'')+(sel?' sel':'');
       a.style.left=(bx[0]*100)+'%';a.style.top=(bx[1]*100)+'%';
@@ -4373,19 +4417,20 @@ function renderGaComments(){
       el.title=title;
       st.appendChild(el);
     };
-    // Area comments wear their number on EVERY box (top-left corner) AND on each
-    // captured device that sits outside the boxes; point and device comments keep
-    // the single marker at their anchor.
-    if(boxes.length||tn){
+    // Boxes on this plan wear the number on their top-left corner; captured devices
+    // pinned on this plan outside those boxes wear it too. Point and device comments
+    // keep the single marker; nothing local to show means no marker here (the comment
+    // lives on another deck's elements).
+    if(gaCmtBoxes(c).length||tn){
       let placed=0;
-      boxes.forEach(bx=>{if(Array.isArray(bx)&&bx.length===4){mk(bx[0],bx[1]);placed++;}});
+      localBoxes.forEach(bx=>{mk(bx[0],bx[1]);placed++;});
       (Array.isArray(c.targets)?c.targets:[]).forEach(tid=>{
         const pin=gaPins.find(p=>p.equipment_instance_id===tid);
         if(!pin)return;
-        const inBox=boxes.some(bx=>Array.isArray(bx)&&bx.length===4&&pin.x>=bx[0]&&pin.x<=bx[2]&&pin.y>=bx[1]&&pin.y<=bx[3]);
+        const inBox=localBoxes.some(bx=>pin.x>=bx[0]&&pin.x<=bx[2]&&pin.y>=bx[1]&&pin.y<=bx[3]);
         if(!inBox){mk(pin.x,pin.y);placed++;}
       });
-      if(!placed)mk(ax,ay);
+      if(!placed&&c.deck_plan_id===plan.id)mk(ax,ay);
     }
     else mk(ax,ay);
   });
@@ -4415,29 +4460,39 @@ function gaPinVisibleInst(pin){
 // The capture: boxes dragged in comment mode accumulate here (with the devices they
 // snapshotted) until "Write the comment" turns the lot into ONE comment.
 function gaCmtBasketDraw(){
-  const st=document.getElementById('ga-stage');if(!st)return;
+  const st=document.getElementById('ga-stage'),vp=document.getElementById('ga-viewport');
+  if(!st)return;
   st.querySelectorAll('.ga-carea.basket,.ga-cmt-cta').forEach(n=>n.remove());
+  if(vp)vp.querySelectorAll('.ga-cmt-cta').forEach(n=>n.remove());
+  const plan=gaShownPlan();
   gaCmtAreas.forEach(a=>{
+    if(!plan||a.p!==plan.id)return;
     const el=document.createElement('div');
     el.className='ga-carea basket';
-    el.style.left=(a[0]*100)+'%';el.style.top=(a[1]*100)+'%';
-    el.style.width=((a[2]-a[0])*100)+'%';el.style.height=((a[3]-a[1])*100)+'%';
+    el.style.left=(a.b[0]*100)+'%';el.style.top=(a.b[1]*100)+'%';
+    el.style.width=((a.b[2]-a.b[0])*100)+'%';el.style.height=((a.b[3]-a.b[1])*100)+'%';
     st.appendChild(el);
   });
   st.querySelectorAll('.ga-pin').forEach(el=>{
     const pin=gaPins.find(p=>p.id===el.dataset.pin);
     el.classList.toggle('msel',!!(pin&&gaCmtPicked.has(pin.equipment_instance_id)));
   });
-  // The main call to action sits right under the capture, where the eye already is
-  const ext=(gaCmtAreas.length||gaCmtPicked.size)?gaCmtBasketExtents():null;
+  if(!gaCmtAreas.length&&!gaCmtPicked.size)return;
+  // The main call to action sits right under this plan's share of the capture; when
+  // the capture so far lives on OTHER decks, it floats at the bottom of the viewport
+  const ctaHtml='<button class="btn btn-primary btn-sm" onclick="gaCmtComposeBasket()">Write comment ('+gaCmtPicked.size+' device'+(gaCmtPicked.size!==1?'s':'')+')</button>'
+    +'<button class="btn btn-secondary btn-sm" onclick="gaStopPlacing()" title="Discard this capture">&#10005;</button>';
+  const ext=gaCmtBasketExtents();
+  const cta=document.createElement('div');
+  cta.className='ga-cmt-cta';
+  cta.innerHTML=ctaHtml;
   if(ext){
-    const cta=document.createElement('div');
-    cta.className='ga-cmt-cta';
     cta.style.left=((ext.x0+ext.x1)/2*100)+'%';
     cta.style.top=(ext.y1*100)+'%';
-    cta.innerHTML='<button class="btn btn-primary btn-sm" onclick="gaCmtComposeBasket()">Write comment ('+gaCmtPicked.size+' device'+(gaCmtPicked.size!==1?'s':'')+')</button>'
-      +'<button class="btn btn-secondary btn-sm" onclick="gaStopPlacing()" title="Discard this capture">&#10005;</button>';
     st.appendChild(cta);
+  }else if(vp){
+    cta.style.cssText='left:50%;bottom:14px;top:auto;transform:translateX(-50%)';
+    vp.appendChild(cta);
   }
 }
 function gaCmtBasketBanner(){
@@ -4447,13 +4502,18 @@ function gaCmtBasketBanner(){
   }
   const b=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text'),btn=document.getElementById('ga-banner-btn');
   if(!b||!t)return;
-  t.textContent=gaCmtAreas.length+' area'+(gaCmtAreas.length!==1?'s':'')+' · '+gaCmtPicked.size+' device'+(gaCmtPicked.size!==1?'s':'')+' captured. Drag more boxes or tap pins to add or remove, then press Write comment under the boxes.';
+  t.textContent=gaCmtAreas.length+' area'+(gaCmtAreas.length!==1?'s':'')+' · '+gaCmtPicked.size+' device'+(gaCmtPicked.size!==1?'s':'')+' captured. Drag more boxes or tap pins to add or remove (switching deck keeps the capture), then press Write comment.';
   if(btn)btn.textContent='Cancel';
   b.classList.add('on');
 }
-// Combined extents of the capture: every box corner plus every picked device's pin
+// Extents of the capture ON THE SHOWN PLAN: its box corners plus picked devices
+// pinned here (a cross-deck capture may have nothing local, giving null)
 function gaCmtBasketExtents(){
-  const xs=gaCmtAreas.flatMap(a=>[a[0],a[2]]),ys=gaCmtAreas.flatMap(a=>[a[1],a[3]]);
+  const plan=gaShownPlan();
+  const xs=[],ys=[];
+  gaCmtAreas.forEach(a=>{
+    if(plan&&a.p===plan.id){xs.push(a.b[0],a.b[2]);ys.push(a.b[1],a.b[3]);}
+  });
   gaCmtPicked.forEach(tid=>{
     const pin=gaPins.find(p=>p.equipment_instance_id===tid);
     if(pin){xs.push(pin.x);ys.push(pin.y);}
@@ -4486,7 +4546,7 @@ function openGaCmtCompose(x,y,opts){
       roomName=r2?r2.name:roomName;
     }
   }
-  if(opts.areas&&opts.areas.length)areaVal=opts.areas.length===1?opts.areas[0]:opts.areas;
+  if(opts.areas&&opts.areas.length)areaVal=opts.areas.slice();
   if(opts.picked&&opts.picked.length)targets=opts.picked.slice();
   gaCmtDraft={x,y,instId:opts.instId||null,area:areaVal,roomId,targets};
   const ctx=document.getElementById('ga-cmt-ctx');
@@ -4497,7 +4557,8 @@ function openGaCmtCompose(x,y,opts){
     }
     else if(areaVal){
       const nA=opts.areas.length,nT=targets?targets.length:0;
-      ctx.innerHTML='Marked '+(nA===1?'area':nA+' areas')+(nT?' capturing <strong>'+nT+' device'+(nT!==1?'s':'')+'</strong>':'')+(roomName?' in '+escHtml(roomName):'')+'. The captured list is fixed as of now.';
+      const nDecks=new Set(opts.areas.map(a=>a.p)).size;
+      ctx.innerHTML='Marked '+(nA===1?'area':nA+' areas')+(nDecks>1?' across '+nDecks+' plans':'')+(nT?' capturing <strong>'+nT+' device'+(nT!==1?'s':'')+'</strong>':'')+(roomName?' in '+escHtml(roomName):'')+'. The captured list is fixed as of now.';
     }
     else if(targets)ctx.innerHTML='Comment on <strong>'+targets.length+' selected device'+(targets.length!==1?'s':'')+'</strong>'+(roomName?' in '+escHtml(roomName):'')+'. Each one gets this comment’s number badge.';
     else ctx.textContent='General comment pinned to this point'+(roomName?' in '+roomName:' on the drawing')+'.';
@@ -4526,9 +4587,9 @@ async function saveGaCmt(){
   if(!plan||!gaCmtDraft){closeGaCmtCompose();return;}
   const btn=document.getElementById('ga-cmt-save');btn.disabled=true;
   try{
-    const rows=await dbInsert('plan_comments',{deck_plan_id:plan.id,x:gaCmtDraft.x,y:gaCmtDraft.y,body,created_by:currentUser?.email||null,equipment_instance_id:gaCmtDraft.instId,area:gaCmtDraft.area,room_id:gaCmtDraft.roomId,targets:gaCmtDraft.targets});
+    const rows=await dbInsert('plan_comments',{deck_plan_id:plan.id,project_id:currentProject.id,x:gaCmtDraft.x,y:gaCmtDraft.y,body,created_by:currentUser?.email||null,equipment_instance_id:gaCmtDraft.instId,area:gaCmtDraft.area,room_id:gaCmtDraft.roomId,targets:gaCmtDraft.targets});
     gaComments.push(rows[0]);
-    gaCmtOpenCounts[plan.id]=(gaCmtOpenCounts[plan.id]||0)+1;
+    gaCmtRecountOpen();
     gaCmtSel=rows[0].id;
     closeGaCmtCompose();
     if(gaCmtAreas.length||gaCmtPicked.size){gaCmtAreas=[];gaCmtPicked.clear();gaCmtBasketDraw();if(gaMode==='comment')gaCmtBasketBanner();}
@@ -4557,7 +4618,8 @@ function gaCmtFocus(id){
   if(!c||!vp||!gaImgW)return;
   const[ax,ay]=gaCmtAnchor(c);
   const r=vp.getBoundingClientRect();
-  const fboxes=Array.isArray(c.area)?(Array.isArray(c.area[0])?c.area:[c.area]):[];
+  const shownP=gaShownPlan();
+  const fboxes=gaCmtBoxes(c).filter(e=>shownP&&e.p===shownP.id).map(e=>e.b);
   if(fboxes.length){
     const xs=fboxes.flatMap(b=>[b[0],b[2]]),ys=fboxes.flatMap(b=>[b[1],b[3]]);
     const bw=Math.max(1,(Math.max(...xs)-Math.min(...xs))*gaImgW),bh=Math.max(1,(Math.max(...ys)-Math.min(...ys))*gaImgH);
@@ -4574,9 +4636,12 @@ function gaCmtFocus(id){
 }
 function renderGaCmtPanel(){
   const p=document.getElementById('ga-cmt-panel');if(!p)return;
-  const roots=gaCmtRoots();
-  const openN=roots.filter(c=>c.status==='open').length;
-  const shownRoots=roots.map((c,i)=>({c,n:i+1})).filter(r=>gaCmtVisible(r.c));
+  const plan=gaShownPlan();
+  // Only threads that belong on this plan; numbers are project-wide so they match
+  // across decks (the list can legitimately skip numbers).
+  const roots=gaCmtRoots().map((c,i)=>({c,n:i+1})).filter(r=>plan&&gaCmtTouches(r.c,plan.id));
+  const openN=roots.filter(r=>r.c.status==='open').length;
+  const shownRoots=roots.filter(r=>gaCmtVisible(r.c));
   let html='<h3>Comments'
     +'<select onchange="gaCmtSetFilter(this.value)" style="margin-left:auto;width:auto;padding:4px 7px;font-size:11.5px;text-transform:none;letter-spacing:0">'
     +[['open','Open ('+openN+')'],['resolved','Resolved ('+(roots.length-openN)+')'],['all','All ('+roots.length+')']].map(o=>'<option value="'+o[0]+'"'+(gaCmtFilter===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')
@@ -4592,7 +4657,7 @@ function renderGaCmtPanel(){
     let chips='';
     if(inst)chips+='<span class="cmt-chip">'+escHtml(inst.device_id||'device')+'</span>';
     else if(c.equipment_instance_id)chips+='<span class="cmt-chip">device removed</span>';
-    const nBoxes=Array.isArray(c.area)?(Array.isArray(c.area[0])?c.area.length:1):0;
+    const nBoxes=gaCmtBoxes(c).length;
     if(tgts.length)chips+='<span class="cmt-chip">'+tgts.length+' device'+(tgts.length!==1?'s':'')+'</span>';
     else if(nBoxes&&!c.equipment_instance_id)chips+='<span class="cmt-chip">'+(nBoxes>1?nBoxes+' areas':'Area')+'</span>';
     if(room)chips+='<span class="cmt-chip">'+escHtml(room.name)+'</span>';
@@ -4648,7 +4713,7 @@ async function saveGaCmtResolve(){
     const payload={status:'resolved',resolved_by:currentUser?.email||null,resolved_at:new Date().toISOString(),resolve_note:note,cr_id:crId};
     await dbUpdate('plan_comments',c.id,payload);
     Object.assign(c,payload);
-    if(gaCmtOpenCounts[c.deck_plan_id])gaCmtOpenCounts[c.deck_plan_id]--;
+    gaCmtRecountOpen();
     closeGaCmtResolve();
     renderGaComments();renderGaCmtPanel();gaUpdateReviewBadge();
     showToast('Comment resolved','success');
@@ -4661,17 +4726,16 @@ async function gaCmtReopen(id){
     const payload={status:'open',resolved_by:null,resolved_at:null,resolve_note:null,cr_id:null};
     await dbUpdate('plan_comments',id,payload);
     Object.assign(c,payload);
-    gaCmtOpenCounts[c.deck_plan_id]=(gaCmtOpenCounts[c.deck_plan_id]||0)+1;
+    gaCmtRecountOpen();
     renderGaComments();renderGaCmtPanel();gaUpdateReviewBadge();
   }catch(e){showToast('Could not reopen: '+e.message,'error');}
 }
 function gaCmtDelete(id){
   openConfirm('Delete Comment','Delete this comment and its replies? This cannot be undone.',async()=>{
     try{
-      const c=gaComments.find(x=>x.id===id);
       await dbDelete('plan_comments',id);
-      if(c&&c.status==='open'&&gaCmtOpenCounts[c.deck_plan_id])gaCmtOpenCounts[c.deck_plan_id]--;
       gaComments=gaComments.filter(x=>x.id!==id&&x.parent_id!==id);
+      gaCmtRecountOpen();
       if(gaCmtSel===id)gaCmtSel=null;
       renderGaComments();renderGaCmtPanel();gaUpdateReviewBadge();
     }catch(e){showToast('Could not delete: '+e.message,'error');}
