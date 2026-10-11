@@ -400,6 +400,7 @@
   .ga-carea { position: absolute; border: dashed #d97706; border-width: calc(2px * var(--ga-inv,1)); border-radius: 4px; pointer-events: none; z-index: 3; }
   .ga-carea.resolved { border-color: #2f855a; }
   .ga-carea.sel { border-style: solid; background: rgba(217,119,6,.08); }
+  .ga-carea.basket { border-style: solid; background: rgba(217,119,6,.07); }
   .cmt-chip { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); font-size: 10.5px; font-weight: 600; color: var(--text-2); margin: 0 4px 3px 0; }
   .ga-cmt-panel { width: 300px; flex: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-y: auto; height: calc(100vh - 310px); min-height: 380px; box-sizing: border-box; }
   .ga-cmt-panel h3 { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin: 0; padding: 12px 14px 8px; display: flex; align-items: center; gap: 8px; }
@@ -2214,7 +2215,7 @@ function resetProjectCaches(){
   plItems=[];plAlreadyPlaced=[];
   gaPlans=[];gaActiveDeckId=null;gaActiveFloorId=null;gaViewRevId=null;_gaSignedCache={};
   gaCRs=[];gaDeckClouds=[];gaPendingFocus=null;
-  gaDesignTab='ga';gaComments=[];gaCmtSel=null;gaCmtOpenCounts={};gaCmtDraft=null;gaCmtResolveId=null;
+  gaDesignTab='ga';gaComments=[];gaCmtSel=null;gaCmtOpenCounts={};gaCmtDraft=null;gaCmtResolveId=null;gaCmtAreas=[];gaCmtPicked=new Set();
   document.body.classList.remove('ga-focus');
 }
 function closeProject(){
@@ -2292,6 +2293,7 @@ let gaGridPanelOpen=false, gaGridShow=true, gaGridUnlocked=false, gaGridSnap=tru
 let gaActiveFloorId=null, gaPaletteOpen=true, gaPaletteQuery='', gaRecentTypes=[], gaPalOpenGroups=new Set();
 // Review tab: Pinpoint-style comment threads pinned to the plan
 let gaDesignTab='ga', gaComments=[], gaCmtFilter='open', gaCmtSel=null, gaCmtOpenCounts={}, gaCmtDraft=null, gaCmtResolveId=null, gaCmtPreview=null;
+let gaCmtAreas=[], gaCmtPicked=new Set();
 // Pin colours by system group, icons by device type prefix
 const GA_GROUP_COLOURS={'Central Systems':'#6b7a89','Power, UPS & Battery':'#b7791f','Audio Visual System':'#c7811a','Control System':'#7b5ea7','IT System':'#2f6fd0','Lighting Control':'#3e8e4e','Motorised Window Treatments':'#8a5aa7','Access Control & Surveillance':'#c23b3b','Cinema System':'#8a2be2','Satellite & Communications':'#1a8fa6','Radio System':'#8a9a2b'};
 // Icon library (ported from the GA demo): 48 icons in 7 groups, picked per device type on the
@@ -3799,7 +3801,8 @@ function wireGaViewport(){
       }catch(err){showToast('Could not move pin: '+err.message,'error');renderGaPins();}
       return;
     }
-    // Comment mode, drag finished: a big enough box becomes an AREA comment
+    // Comment mode, drag finished: the box joins the capture (several boxes can build
+    // one comment); its visible devices are snapshotted into the capture as it lands
     if(d.cmtBox&&d.moved){
       gaCmtPreview=null;gaCmtPreviewDraw();
       const [fx,fy]=gaToFraction(e.clientX,e.clientY);
@@ -3807,16 +3810,35 @@ function wireGaViewport(){
       // Ignore accidental tiny drags (under ~14 screen px either way)
       if(Math.abs(bx1-d.fx0)*gaImgW*gaView.s<14||Math.abs(by1-d.fy0)*gaImgH*gaView.s<14)return;
       const ax0=Math.min(d.fx0,bx1),ax1=Math.max(d.fx0,bx1),ay0=Math.min(d.fy0,by1),ay1=Math.max(d.fy0,by1);
-      openGaCmtCompose((ax0+ax1)/2,(ay0+ay1)/2,{area:[ax0,ay0,ax1,ay1]});
+      gaCmtAreas.push([ax0,ay0,ax1,ay1]);
+      gaPins.forEach(p=>{
+        if(p.x>=ax0&&p.x<=ax1&&p.y>=ay0&&p.y<=ay1){
+          const inst=gaPinVisibleInst(p);
+          if(inst)gaCmtPicked.add(inst.id);
+        }
+      });
+      gaCmtBasketDraw();gaCmtBasketBanner();
       return;
     }
     if(d.moved)return;
     const [x,y]=gaToFraction(e.clientX,e.clientY);
     const inside=x>=0&&x<=1&&y>=0&&y<=1;
     // Review: tap a comment marker to open its thread; in comment mode a tap drops a new one,
-    // on a device pin it attaches to that device, elsewhere it is a general point comment
+    // on a device pin it attaches to that device, elsewhere it is a general point comment.
+    // While a capture is building, pin taps add or remove devices instead.
     if(d.cmId){gaCmtSelectFromPlan(d.cmId);return;}
     if(gaMode==='comment'){
+      if(gaCmtAreas.length||gaCmtPicked.size){
+        if(d.cmtPin){
+          const pin=gaPins.find(p=>p.id===d.cmtPin);
+          const inst=pin?gaPinVisibleInst(pin):null;
+          if(inst){
+            if(gaCmtPicked.has(inst.id))gaCmtPicked.delete(inst.id);else gaCmtPicked.add(inst.id);
+            gaCmtBasketDraw();gaCmtBasketBanner();
+          }
+        }
+        return;
+      }
       if(d.cmtPin){
         const pin=gaPins.find(p=>p.id===d.cmtPin);
         const inst=pin?placedEquipment.find(i=>i.id===pin.equipment_instance_id):null;
@@ -4101,6 +4123,7 @@ function gaStopPlacing(){
   const hadSel=gaMode==='select'||gaMultiSel.size;
   gaArmedTypeId=null;gaArmedInstId=null;gaMode='pan';gaDraft=[];gaRedrawBoundId=null;gaCloudPreview=null;gaScalePts=[];
   gaCmtPreview=null;gaCmtPreviewDraw();
+  if(gaCmtAreas.length||gaCmtPicked.size){gaCmtAreas=[];gaCmtPicked.clear();gaCmtBasketDraw();}
   gaMultiSel.clear();gaSelBox=null;
   if(gaGridUnlocked){gaGridUnlocked=false;renderGaGridPanel();}
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');vp.classList.remove('editing');vp.classList.remove('selecting');}
@@ -4325,13 +4348,16 @@ function renderGaComments(){
   gaCmtRoots().forEach((c,i)=>{
     if(!gaCmtVisible(c))return;
     const sel=gaCmtSel===c.id;
-    if(Array.isArray(c.area)&&c.area.length===4){
+    // area holds one box [x0,y0,x1,y1] or several [[...],[...]] when drawn as a multi-capture
+    const boxes=Array.isArray(c.area)?(Array.isArray(c.area[0])?c.area:[c.area]):[];
+    boxes.forEach(bx=>{
+      if(!Array.isArray(bx)||bx.length!==4)return;
       const a=document.createElement('div');
       a.className='ga-carea'+(c.status==='resolved'?' resolved':'')+(sel?' sel':'');
-      a.style.left=(c.area[0]*100)+'%';a.style.top=(c.area[1]*100)+'%';
-      a.style.width=((c.area[2]-c.area[0])*100)+'%';a.style.height=((c.area[3]-c.area[1])*100)+'%';
+      a.style.left=(bx[0]*100)+'%';a.style.top=(bx[1]*100)+'%';
+      a.style.width=((bx[2]-bx[0])*100)+'%';a.style.height=((bx[3]-bx[1])*100)+'%';
       st.appendChild(a);
-    }
+    });
     const[ax,ay]=gaCmtAnchor(c);
     const inst=gaCmtInst(c);
     const el=document.createElement('div');
@@ -4353,7 +4379,7 @@ function gaStartComment(){
   gaMode='comment';
   const vp=document.getElementById('ga-viewport');if(vp)vp.classList.add('placing');
   gaSetTbtn('ga-btn-comment',true);
-  gaBanner('Tap the drawing for a general comment, tap a device pin to attach it to that device, or drag a box to mark an area. Tap Comment again to stop.','Stop');
+  gaCmtBasketBanner();
 }
 // Same visibility rules as renderGaPins, for deciding what an area box captures
 function gaPinVisibleInst(pin){
@@ -4366,12 +4392,48 @@ function gaPinVisibleInst(pin){
   if(gaHiddenGroups.has(pe.system_group||''))return null;
   return inst;
 }
+// The capture: boxes dragged in comment mode accumulate here (with the devices they
+// snapshotted) until "Write the comment" turns the lot into ONE comment.
+function gaCmtBasketDraw(){
+  const st=document.getElementById('ga-stage');if(!st)return;
+  st.querySelectorAll('.ga-carea.basket').forEach(n=>n.remove());
+  gaCmtAreas.forEach(a=>{
+    const el=document.createElement('div');
+    el.className='ga-carea basket';
+    el.style.left=(a[0]*100)+'%';el.style.top=(a[1]*100)+'%';
+    el.style.width=((a[2]-a[0])*100)+'%';el.style.height=((a[3]-a[1])*100)+'%';
+    st.appendChild(el);
+  });
+  st.querySelectorAll('.ga-pin').forEach(el=>{
+    const pin=gaPins.find(p=>p.id===el.dataset.pin);
+    el.classList.toggle('msel',!!(pin&&gaCmtPicked.has(pin.equipment_instance_id)));
+  });
+}
+function gaCmtBasketBanner(){
+  if(!gaCmtAreas.length&&!gaCmtPicked.size){
+    gaBanner('Tap the drawing for a general comment, tap a device pin to attach it to that device, or drag a box to mark an area. Drag more boxes to cover several areas in one comment.','Stop');
+    return;
+  }
+  const b=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text'),btn=document.getElementById('ga-banner-btn');
+  if(!b||!t)return;
+  t.innerHTML=gaCmtAreas.length+' area'+(gaCmtAreas.length!==1?'s':'')+' · '+gaCmtPicked.size+' device'+(gaCmtPicked.size!==1?'s':'')+' captured. Drag more boxes or tap pins to add or remove, then&nbsp;'
+    +'<button class="btn btn-primary btn-sm" style="vertical-align:middle" onclick="gaCmtComposeBasket()">Write the comment</button>';
+  if(btn)btn.textContent='Cancel';
+  b.classList.add('on');
+}
+function gaCmtComposeBasket(){
+  if(!gaCmtAreas.length&&!gaCmtPicked.size)return;
+  const xs=gaCmtAreas.flatMap(a=>[a[0],a[2]]),ys=gaCmtAreas.flatMap(a=>[a[1],a[3]]);
+  const cx=xs.length?(Math.min(...xs)+Math.max(...xs))/2:0.5;
+  const cy=ys.length?(Math.min(...ys)+Math.max(...ys))/2:0.5;
+  openGaCmtCompose(cx,cy,{areas:gaCmtAreas.slice(),picked:[...gaCmtPicked]});
+}
 function openGaCmtCompose(x,y,opts){
   opts=opts||{};
   // Every comment records what it is about: the room at the point (or the device's own
-  // room), and for an area box a SNAPSHOT of the devices inside it when it was drawn.
+  // room), and for area boxes the SNAPSHOT of devices captured when they were drawn.
   const room=gaRoomForPoint(x,y);
-  let roomId=room?room.id:null,roomName=room?room.name:null,targets=null;
+  let roomId=room?room.id:null,roomName=room?room.name:null,targets=null,areaVal=null;
   if(opts.instId){
     const inst=placedEquipment.find(i=>i.id===opts.instId);
     if(inst&&inst.room_id){
@@ -4380,24 +4442,21 @@ function openGaCmtCompose(x,y,opts){
       roomName=r2?r2.name:roomName;
     }
   }
-  if(opts.area){
-    targets=[];
-    gaPins.forEach(p=>{
-      if(p.x>=opts.area[0]&&p.x<=opts.area[2]&&p.y>=opts.area[1]&&p.y<=opts.area[3]){
-        const inst=gaPinVisibleInst(p);
-        if(inst&&!targets.includes(inst.id))targets.push(inst.id);
-      }
-    });
-    if(!targets.length)targets=null;
+  if(opts.areas&&opts.areas.length){
+    areaVal=opts.areas.length===1?opts.areas[0]:opts.areas;
+    targets=(opts.picked&&opts.picked.length)?opts.picked.slice():null;
   }
-  gaCmtDraft={x,y,instId:opts.instId||null,area:opts.area||null,roomId,targets};
+  gaCmtDraft={x,y,instId:opts.instId||null,area:areaVal,roomId,targets};
   const ctx=document.getElementById('ga-cmt-ctx');
   if(ctx){
     if(opts.instId){
       const inst=placedEquipment.find(i=>i.id===opts.instId);
       ctx.innerHTML='Attached to <strong>'+escHtml(inst?inst.device_id||'device':'device')+'</strong>'+(inst&&inst.description?' · '+escHtml(inst.description):'')+'. The marker follows this device if it moves.';
     }
-    else if(opts.area)ctx.innerHTML='Marked area'+(targets?' capturing <strong>'+targets.length+' device'+(targets.length!==1?'s':'')+'</strong>':'')+(roomName?' in '+escHtml(roomName):'')+'. The captured list is fixed as of now.';
+    else if(areaVal){
+      const nA=opts.areas.length,nT=targets?targets.length:0;
+      ctx.innerHTML='Marked '+(nA===1?'area':nA+' areas')+(nT?' capturing <strong>'+nT+' device'+(nT!==1?'s':'')+'</strong>':'')+(roomName?' in '+escHtml(roomName):'')+'. The captured list is fixed as of now.';
+    }
     else ctx.textContent='General comment pinned to this point'+(roomName?' in '+roomName:' on the drawing')+'.';
   }
   document.getElementById('ga-cmt-body').value='';
@@ -4427,6 +4486,7 @@ async function saveGaCmt(){
     gaCmtOpenCounts[plan.id]=(gaCmtOpenCounts[plan.id]||0)+1;
     gaCmtSel=rows[0].id;
     closeGaCmtCompose();
+    if(gaCmtAreas.length||gaCmtPicked.size){gaCmtAreas=[];gaCmtPicked.clear();gaCmtBasketDraw();if(gaMode==='comment')gaCmtBasketBanner();}
     renderGaComments();renderGaCmtPanel();gaUpdateReviewBadge();
     showToast('Comment added','success');
   }catch(e){showToast('Could not save the comment: '+e.message,'error');}
@@ -4452,8 +4512,10 @@ function gaCmtFocus(id){
   if(!c||!vp||!gaImgW)return;
   const[ax,ay]=gaCmtAnchor(c);
   const r=vp.getBoundingClientRect();
-  if(Array.isArray(c.area)&&c.area.length===4){
-    const bw=Math.max(1,(c.area[2]-c.area[0])*gaImgW),bh=Math.max(1,(c.area[3]-c.area[1])*gaImgH);
+  const fboxes=Array.isArray(c.area)?(Array.isArray(c.area[0])?c.area:[c.area]):[];
+  if(fboxes.length){
+    const xs=fboxes.flatMap(b=>[b[0],b[2]]),ys=fboxes.flatMap(b=>[b[1],b[3]]);
+    const bw=Math.max(1,(Math.max(...xs)-Math.min(...xs))*gaImgW),bh=Math.max(1,(Math.max(...ys)-Math.min(...ys))*gaImgH);
     gaView.s=Math.min(12,Math.max(0.05,Math.min(r.width/bw,r.height/bh)*0.42));
   }else{
     gaView.s=Math.min(12,Math.max(gaView.s,(gaFitS||gaView.s)*2.2));
@@ -4484,8 +4546,9 @@ function renderGaCmtPanel(){
     let chips='';
     if(inst)chips+='<span class="cmt-chip">'+escHtml(inst.device_id||'device')+'</span>';
     else if(c.equipment_instance_id)chips+='<span class="cmt-chip">device removed</span>';
+    const nBoxes=Array.isArray(c.area)?(Array.isArray(c.area[0])?c.area.length:1):0;
     if(tgts.length)chips+='<span class="cmt-chip">'+tgts.length+' device'+(tgts.length!==1?'s':'')+'</span>';
-    else if(Array.isArray(c.area)&&!c.equipment_instance_id)chips+='<span class="cmt-chip">Area</span>';
+    else if(nBoxes&&!c.equipment_instance_id)chips+='<span class="cmt-chip">'+(nBoxes>1?nBoxes+' areas':'Area')+'</span>';
     if(room)chips+='<span class="cmt-chip">'+escHtml(room.name)+'</span>';
     html+='<div class="cmt-card'+(c.status==='resolved'?' resolved':'')+(sel?' sel':'')+'" data-cmt="'+c.id+'" onclick="gaCmtSelectFromPanel(\''+c.id+'\')">'
       +'<div style="display:flex;gap:6px;align-items:flex-start"><span class="cmt-num">'+n+'</span>'
