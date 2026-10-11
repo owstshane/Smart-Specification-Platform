@@ -1316,7 +1316,7 @@
       <div id="ga-cmt-ctx" style="font-size:12px;color:var(--text-3);margin-bottom:10px"></div>
       <div class="form-group"><label>Comment <span class="required">*</span></label><textarea id="ga-cmt-body" rows="3" placeholder="What needs attention here?"></textarea></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaCmtCompose()">Cancel</button><button class="btn btn-primary" id="ga-cmt-save" onclick="saveGaCmt()">Add Comment</button></div>
+    <div class="modal-footer"><button class="btn btn-secondary" id="ga-cmt-more" style="display:none;margin-right:auto" onclick="gaCmtMore()">+ Select more devices</button><button class="btn btn-secondary" onclick="closeGaCmtCompose()">Cancel</button><button class="btn btn-primary" id="ga-cmt-save" onclick="saveGaCmt()">Add Comment</button></div>
   </div>
 </div>
 
@@ -4373,9 +4373,20 @@ function renderGaComments(){
       el.title=title;
       st.appendChild(el);
     };
-    // Area comments wear their number on EVERY box (top-left corner); point and
-    // device comments keep the single marker at their anchor.
-    if(boxes.length)boxes.forEach(bx=>{if(Array.isArray(bx)&&bx.length===4)mk(bx[0],bx[1]);});
+    // Area comments wear their number on EVERY box (top-left corner) AND on each
+    // captured device that sits outside the boxes; point and device comments keep
+    // the single marker at their anchor.
+    if(boxes.length||tn){
+      let placed=0;
+      boxes.forEach(bx=>{if(Array.isArray(bx)&&bx.length===4){mk(bx[0],bx[1]);placed++;}});
+      (Array.isArray(c.targets)?c.targets:[]).forEach(tid=>{
+        const pin=gaPins.find(p=>p.equipment_instance_id===tid);
+        if(!pin)return;
+        const inBox=boxes.some(bx=>Array.isArray(bx)&&bx.length===4&&pin.x>=bx[0]&&pin.x<=bx[2]&&pin.y>=bx[1]&&pin.y<=bx[3]);
+        if(!inBox){mk(pin.x,pin.y);placed++;}
+      });
+      if(!placed)mk(ax,ay);
+    }
     else mk(ax,ay);
   });
 }
@@ -4418,12 +4429,12 @@ function gaCmtBasketDraw(){
     el.classList.toggle('msel',!!(pin&&gaCmtPicked.has(pin.equipment_instance_id)));
   });
   // The main call to action sits right under the capture, where the eye already is
-  if(gaCmtAreas.length){
-    const xs=gaCmtAreas.flatMap(a=>[a[0],a[2]]),ys=gaCmtAreas.flatMap(a=>[a[1],a[3]]);
+  const ext=(gaCmtAreas.length||gaCmtPicked.size)?gaCmtBasketExtents():null;
+  if(ext){
     const cta=document.createElement('div');
     cta.className='ga-cmt-cta';
-    cta.style.left=((Math.min(...xs)+Math.max(...xs))/2*100)+'%';
-    cta.style.top=(Math.max(...ys)*100)+'%';
+    cta.style.left=((ext.x0+ext.x1)/2*100)+'%';
+    cta.style.top=(ext.y1*100)+'%';
     cta.innerHTML='<button class="btn btn-primary btn-sm" onclick="gaCmtComposeBasket()">Write comment ('+gaCmtPicked.size+' device'+(gaCmtPicked.size!==1?'s':'')+')</button>'
       +'<button class="btn btn-secondary btn-sm" onclick="gaStopPlacing()" title="Discard this capture">&#10005;</button>';
     st.appendChild(cta);
@@ -4440,12 +4451,26 @@ function gaCmtBasketBanner(){
   if(btn)btn.textContent='Cancel';
   b.classList.add('on');
 }
+// Combined extents of the capture: every box corner plus every picked device's pin
+function gaCmtBasketExtents(){
+  const xs=gaCmtAreas.flatMap(a=>[a[0],a[2]]),ys=gaCmtAreas.flatMap(a=>[a[1],a[3]]);
+  gaCmtPicked.forEach(tid=>{
+    const pin=gaPins.find(p=>p.equipment_instance_id===tid);
+    if(pin){xs.push(pin.x);ys.push(pin.y);}
+  });
+  return xs.length?{x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)}:null;
+}
+// After the compose popup for a tapped device: keep selecting instead of writing now
+function gaCmtMore(){
+  const instId=gaCmtDraft&&gaCmtDraft.instId;
+  closeGaCmtCompose();
+  if(instId)gaCmtPicked.add(instId);
+  gaCmtBasketDraw();gaCmtBasketBanner();
+}
 function gaCmtComposeBasket(){
   if(!gaCmtAreas.length&&!gaCmtPicked.size)return;
-  const xs=gaCmtAreas.flatMap(a=>[a[0],a[2]]),ys=gaCmtAreas.flatMap(a=>[a[1],a[3]]);
-  const cx=xs.length?(Math.min(...xs)+Math.max(...xs))/2:0.5;
-  const cy=ys.length?(Math.min(...ys)+Math.max(...ys))/2:0.5;
-  openGaCmtCompose(cx,cy,{areas:gaCmtAreas.slice(),picked:[...gaCmtPicked]});
+  const ext=gaCmtBasketExtents();
+  openGaCmtCompose(ext?(ext.x0+ext.x1)/2:0.5,ext?(ext.y0+ext.y1)/2:0.5,{areas:gaCmtAreas.slice(),picked:[...gaCmtPicked]});
 }
 function openGaCmtCompose(x,y,opts){
   opts=opts||{};
@@ -4461,10 +4486,8 @@ function openGaCmtCompose(x,y,opts){
       roomName=r2?r2.name:roomName;
     }
   }
-  if(opts.areas&&opts.areas.length){
-    areaVal=opts.areas.length===1?opts.areas[0]:opts.areas;
-    targets=(opts.picked&&opts.picked.length)?opts.picked.slice():null;
-  }
+  if(opts.areas&&opts.areas.length)areaVal=opts.areas.length===1?opts.areas[0]:opts.areas;
+  if(opts.picked&&opts.picked.length)targets=opts.picked.slice();
   gaCmtDraft={x,y,instId:opts.instId||null,area:areaVal,roomId,targets};
   const ctx=document.getElementById('ga-cmt-ctx');
   if(ctx){
@@ -4476,8 +4499,11 @@ function openGaCmtCompose(x,y,opts){
       const nA=opts.areas.length,nT=targets?targets.length:0;
       ctx.innerHTML='Marked '+(nA===1?'area':nA+' areas')+(nT?' capturing <strong>'+nT+' device'+(nT!==1?'s':'')+'</strong>':'')+(roomName?' in '+escHtml(roomName):'')+'. The captured list is fixed as of now.';
     }
+    else if(targets)ctx.innerHTML='Comment on <strong>'+targets.length+' selected device'+(targets.length!==1?'s':'')+'</strong>'+(roomName?' in '+escHtml(roomName):'')+'. Each one gets this comment’s number badge.';
     else ctx.textContent='General comment pinned to this point'+(roomName?' in '+roomName:' on the drawing')+'.';
   }
+  const moreBtn=document.getElementById('ga-cmt-more');
+  if(moreBtn)moreBtn.style.display=opts.instId?'':'none';
   document.getElementById('ga-cmt-body').value='';
   document.getElementById('ga-cmt-overlay').classList.add('open');
   setTimeout(()=>{const t=document.getElementById('ga-cmt-body');if(t)t.focus();},60);
