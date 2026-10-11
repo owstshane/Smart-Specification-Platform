@@ -367,6 +367,11 @@
   #ga-overlay path.ga-cloud.flash { stroke-width: 4; fill: rgba(192,57,43,.18); }
   .ga-delta { position: absolute; transform: translate(-50%,-100%) scale(var(--ga-inv,1)); transform-origin: 50% 100%; cursor: pointer; z-index: 2; width: 34px; height: 30px; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: #c0392b; color: #fff; display: grid; place-items: end center; font-weight: 700; font-size: 11px; padding-bottom: 2px; }
   .ga-grid-panel { position: absolute; right: 62px; bottom: 12px; z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 12px 14px; width: 230px; font-size: 13px; }
+  .ga-views-panel { position: absolute; left: 12px; bottom: 12px; z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 12px 14px; width: 250px; font-size: 13px; max-height: 70%; overflow-y: auto; }
+  .ga-views-panel h4 { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin: 10px 0 5px; }
+  .ga-views-panel h4:first-child { margin-top: 0; }
+  .ga-views-panel label.vrow { display: flex; align-items: center; gap: 7px; padding: 2px 0; cursor: pointer; font-size: 13px; }
+  .ga-views-panel label.vrow input { width: 15px; height: 15px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--accent); }
   .ga-grid-panel .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
   .ga-grid-panel label.chk { display: flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; }
   .ga-grid-panel input[type=number] { width: 86px; padding: 4px 8px; }
@@ -2204,6 +2209,7 @@ let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=nul
 let gaMultiSel=new Set(), gaSelBox=null;
 let gaRlSelMode=false, gaRlSel=new Set();
 let gaArmedInstId=null, gaShowType=true, gaShowUid=true;
+let gaPlanView='all', gaHiddenGroups=new Set(), gaViewsPanelOpen=false, gaSavedViews=[];
 let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
 let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='', gaLastCloudCrId='';
 let gaCRs=[], gaDeckClouds=[], gaRevLogOpen=true, gaPendingFocus=null;
@@ -2495,6 +2501,7 @@ function renderGaPlans(){
     acts+=gaTb('gaToggleType()','Type','Show or hide the device type (SPK-IC-1) under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
       +gaTb('gaToggleUid()','ID','Show or hide the unique device ID (SPK-301-02) under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
       +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid')
+      +gaTb('gaToggleViewsPanel()','Views','Plan views (floor/ceiling), show or hide systems, saved views','<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/>',gaViewsPanelOpen,'ga-btn-views')
       +gaDiv;
   }
   if(showing)acts+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
@@ -2531,6 +2538,7 @@ function renderGaPlans(){
     +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan" draggable="false"><svg id="ga-overlay"></svg></div>'
     +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button><button onclick="gaStartScale()" title="Set the drawing scale: tap two points a known distance apart" style="font-size:10px">Scale</button></div>'
     +'<div class="ga-grid-panel" id="ga-grid-panel" style="display:none"></div>'
+    +'<div class="ga-views-panel" id="ga-views-panel" style="display:none"></div>'
     +'<button class="ga-focus-exit btn btn-secondary btn-sm" onclick="gaToggleFocus()">Exit full screen</button>'
     +'</div>'
     +'<div class="ga-revlog" id="ga-revlog" style="display:'+(gaRevLogOpen?'':'none')+'"></div>'
@@ -2547,6 +2555,28 @@ function gaSetTbtn(id,on){
 }
 function gaToggleType(){gaShowType=!gaShowType;gaSetTbtn('ga-btn-type',gaShowType);renderGaPins();}
 function gaToggleUid(){gaShowUid=!gaShowUid;gaSetTbtn('ga-btn-uid',gaShowUid);renderGaPins();}
+// ── VIEWS: plan view (floor/ceiling) and per-system show/hide ──
+function gaToggleViewsPanel(){
+  gaViewsPanelOpen=!gaViewsPanelOpen;
+  const p=document.getElementById('ga-views-panel');
+  if(p){p.style.display=gaViewsPanelOpen?'':'none';if(gaViewsPanelOpen)renderGaViewsPanel();}
+  gaSetTbtn('ga-btn-views',gaViewsPanelOpen);
+}
+function gaSetPlanView(v){gaPlanView=v;renderGaPins();renderGaViewsPanel();}
+function gaToggleGroupVis(name){
+  if(gaHiddenGroups.has(name))gaHiddenGroups.delete(name);else gaHiddenGroups.add(name);
+  renderGaPins();renderGaViewsPanel();
+}
+function renderGaViewsPanel(){
+  const p=document.getElementById('ga-views-panel');if(!p||p.style.display==='none')return;
+  const groups=[...new Set(projectEquipment.map(e=>e.system_group).filter(Boolean))].sort();
+  let html='<h4>Plan view</h4>'
+    +[['all','All devices'],['floor','Floor plan'],['ceiling','Ceiling plan']].map(o=>'<label class="vrow"><input type="radio" name="ga-pv" value="'+o[0]+'"'+(gaPlanView===o[0]?' checked':'')+' onchange="gaSetPlanView(\''+o[0]+'\')"> '+o[1]+'</label>').join('');
+  html+='<h4>Systems</h4>'+(groups.length
+    ?groups.map(g=>'<label class="vrow"><input type="checkbox"'+(gaHiddenGroups.has(g)?'':' checked')+' onchange="gaToggleGroupVis(\''+escHtml(escJs(g))+'\')"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+gaGroupColour(g)+';flex-shrink:0"></span>'+escHtml(g)+'</label>').join('')
+    :'<div style="font-size:12px;color:var(--text-3)">No devices in the project yet</div>');
+  p.innerHTML=html;
+}
 // Sheet info: the title block properties, stored on the plan and carried to new revisions
 function openGaSheetInfo(){
   const plan=gaShownPlan();if(!plan){showToast('Upload a plan first','error');return;}
@@ -3129,6 +3159,11 @@ function renderGaPins(){
     // Soft-removed devices keep their pin row (a rejected CR resurrects them) but are hidden.
     if(!inst||inst.change_status==='removed')return;
     const pe=peById[inst.project_equipment_id]||{};
+    // Plan view: the ceiling plan shows ceiling devices; the floor plan everything else
+    const mnt=pe.mount||'wall';
+    if(gaPlanView==='ceiling'&&mnt!=='ceiling')return;
+    if(gaPlanView==='floor'&&mnt==='ceiling')return;
+    if(gaHiddenGroups.has(pe.system_group||''))return;
     const el=document.createElement('div');
     el.className='ga-pin'+(gaSelPinId===pin.id?' sel':'')+(inst.pre_wire?' prewire':'')+(gaMultiSel.has(pin.id)?' msel':'')+(pin.auto?' auto':'');
     el.dataset.pin=pin.id;
@@ -3218,7 +3253,7 @@ function wireGaViewport(){
   const ptrs=new Map();let pan=null,pinch=null,drag=null,vtxTap=null;
   vp.addEventListener('wheel',e=>{e.preventDefault();const r=vp.getBoundingClientRect();gaZoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.15:1/1.15);},{passive:false});
   vp.addEventListener('pointerdown',e=>{
-    if(e.target.closest('.ga-zoom,.ga-banner,.ga-grid-panel'))return;
+    if(e.target.closest('.ga-zoom,.ga-banner,.ga-grid-panel,.ga-views-panel'))return;
     vp.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
     const gridMove=gaMode==='pan'&&gaGridUnlocked;
