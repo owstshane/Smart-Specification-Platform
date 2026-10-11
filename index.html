@@ -401,6 +401,8 @@
   .ga-carea.resolved { border-color: #2f855a; }
   .ga-carea.sel { border-style: solid; background: rgba(217,119,6,.08); }
   .ga-carea.basket { border-style: solid; background: rgba(217,119,6,.07); }
+  .ga-cmt-cta { position: absolute; transform: translate(-50%,10px) scale(var(--ga-inv,1)); transform-origin: top center; display: flex; gap: 6px; z-index: 6; white-space: nowrap; }
+  .ga-cmt-cta .btn { box-shadow: 0 2px 8px rgba(0,0,0,.35); }
   .cmt-chip { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); font-size: 10.5px; font-weight: 600; color: var(--text-2); margin: 0 4px 3px 0; }
   .ga-cmt-panel { width: 300px; flex: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-y: auto; height: calc(100vh - 310px); min-height: 380px; box-sizing: border-box; }
   .ga-cmt-panel h3 { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin: 0; padding: 12px 14px 8px; display: flex; align-items: center; gap: 8px; }
@@ -3578,7 +3580,7 @@ function wireGaViewport(){
   const ptrs=new Map();let pan=null,pinch=null,drag=null,vtxTap=null;
   vp.addEventListener('wheel',e=>{e.preventDefault();const r=vp.getBoundingClientRect();gaZoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.15:1/1.15);},{passive:false});
   vp.addEventListener('pointerdown',e=>{
-    if(e.target.closest('.ga-zoom,.ga-banner,.ga-grid-panel,.ga-views-panel'))return;
+    if(e.target.closest('.ga-zoom,.ga-banner,.ga-grid-panel,.ga-views-panel,.ga-cmt-cta'))return;
     vp.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
     const gridMove=gaMode==='pan'&&gaGridUnlocked;
@@ -4396,7 +4398,7 @@ function gaPinVisibleInst(pin){
 // snapshotted) until "Write the comment" turns the lot into ONE comment.
 function gaCmtBasketDraw(){
   const st=document.getElementById('ga-stage');if(!st)return;
-  st.querySelectorAll('.ga-carea.basket').forEach(n=>n.remove());
+  st.querySelectorAll('.ga-carea.basket,.ga-cmt-cta').forEach(n=>n.remove());
   gaCmtAreas.forEach(a=>{
     const el=document.createElement('div');
     el.className='ga-carea basket';
@@ -4408,6 +4410,17 @@ function gaCmtBasketDraw(){
     const pin=gaPins.find(p=>p.id===el.dataset.pin);
     el.classList.toggle('msel',!!(pin&&gaCmtPicked.has(pin.equipment_instance_id)));
   });
+  // The main call to action sits right under the capture, where the eye already is
+  if(gaCmtAreas.length){
+    const xs=gaCmtAreas.flatMap(a=>[a[0],a[2]]),ys=gaCmtAreas.flatMap(a=>[a[1],a[3]]);
+    const cta=document.createElement('div');
+    cta.className='ga-cmt-cta';
+    cta.style.left=((Math.min(...xs)+Math.max(...xs))/2*100)+'%';
+    cta.style.top=(Math.max(...ys)*100)+'%';
+    cta.innerHTML='<button class="btn btn-primary btn-sm" onclick="gaCmtComposeBasket()">Write comment ('+gaCmtPicked.size+' device'+(gaCmtPicked.size!==1?'s':'')+')</button>'
+      +'<button class="btn btn-secondary btn-sm" onclick="gaStopPlacing()" title="Discard this capture">&#10005;</button>';
+    st.appendChild(cta);
+  }
 }
 function gaCmtBasketBanner(){
   if(!gaCmtAreas.length&&!gaCmtPicked.size){
@@ -4416,8 +4429,7 @@ function gaCmtBasketBanner(){
   }
   const b=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text'),btn=document.getElementById('ga-banner-btn');
   if(!b||!t)return;
-  t.innerHTML=gaCmtAreas.length+' area'+(gaCmtAreas.length!==1?'s':'')+' · '+gaCmtPicked.size+' device'+(gaCmtPicked.size!==1?'s':'')+' captured. Drag more boxes or tap pins to add or remove, then&nbsp;'
-    +'<button class="btn btn-primary btn-sm" style="vertical-align:middle" onclick="gaCmtComposeBasket()">Write the comment</button>';
+  t.textContent=gaCmtAreas.length+' area'+(gaCmtAreas.length!==1?'s':'')+' · '+gaCmtPicked.size+' device'+(gaCmtPicked.size!==1?'s':'')+' captured. Drag more boxes or tap pins to add or remove, then press Write comment under the boxes.';
   if(btn)btn.textContent='Cancel';
   b.classList.add('on');
 }
