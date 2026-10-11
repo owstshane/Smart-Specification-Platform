@@ -4362,14 +4362,21 @@ function renderGaComments(){
     });
     const[ax,ay]=gaCmtAnchor(c);
     const inst=gaCmtInst(c);
-    const el=document.createElement('div');
-    el.className='ga-cmark'+(c.status==='resolved'?' resolved':'')+(sel?' sel':'');
-    el.dataset.cmt=c.id;
-    el.style.left=(ax*100)+'%';el.style.top=(ay*100)+'%';
-    el.textContent=i+1;
     const tn=Array.isArray(c.targets)?c.targets.length:0;
-    el.title=(inst?(inst.device_id||'')+': ':(tn?tn+' devices: ':''))+(c.body||'').slice(0,120);
-    st.appendChild(el);
+    const title=(inst?(inst.device_id||'')+': ':(tn?tn+' devices: ':''))+(c.body||'').slice(0,120);
+    const mk=(mx,my)=>{
+      const el=document.createElement('div');
+      el.className='ga-cmark'+(c.status==='resolved'?' resolved':'')+(sel?' sel':'');
+      el.dataset.cmt=c.id;
+      el.style.left=(mx*100)+'%';el.style.top=(my*100)+'%';
+      el.textContent=i+1;
+      el.title=title;
+      st.appendChild(el);
+    };
+    // Area comments wear their number on EVERY box (top-left corner); point and
+    // device comments keep the single marker at their anchor.
+    if(boxes.length)boxes.forEach(bx=>{if(Array.isArray(bx)&&bx.length===4)mk(bx[0],bx[1]);});
+    else mk(ax,ay);
   });
 }
 function gaStartComment(){
@@ -4535,8 +4542,9 @@ function gaCmtFocus(id){
   gaView.x=r.width/2-ax*gaImgW*gaView.s;
   gaView.y=r.height/2-ay*gaImgH*gaView.s;
   gaApply();
-  const el=document.querySelector('.ga-cmark[data-cmt="'+id+'"]');
-  if(el){el.classList.add('cflash');setTimeout(()=>el.classList.remove('cflash'),2100);}
+  document.querySelectorAll('.ga-cmark[data-cmt="'+id+'"]').forEach(el=>{
+    el.classList.add('cflash');setTimeout(()=>el.classList.remove('cflash'),2100);
+  });
 }
 function renderGaCmtPanel(){
   const p=document.getElementById('ga-cmt-panel');if(!p)return;
