@@ -332,15 +332,21 @@
   .ga-banner { display: none; position: absolute; left: 0; top: 0; right: 0; z-index: 4; align-items: center; gap: 10px; padding: 8px 14px; background: var(--accent); color: #fff; font-size: 13px; }
   .ga-banner.on { display: flex; }
   .ga-banner button { margin-left: auto; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.5); color: #fff; border-radius: 6px; padding: 3px 12px; cursor: pointer; }
-  .ga-pin { position: absolute; transform: translate(-50%,-50%) scale(calc(var(--ga-inv,1) * var(--ga-mult,1))); display: flex; align-items: center; cursor: pointer; white-space: nowrap; touch-action: none; z-index: 2; }
+  .ga-pin { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-pininv,var(--ga-inv,1))); display: flex; align-items: center; cursor: pointer; white-space: nowrap; touch-action: none; z-index: 2; }
   .ga-pin.prewire { opacity: .55; }
   .ga-pin.prewire .mark { outline: 2px dashed currentColor; outline-offset: 1px; border-radius: 50%; }
   .ga-pin.auto .mark { outline: 2px dashed #e67e22; outline-offset: 3px; border-radius: 50%; }
   .ga-blabel .ga-bshort { pointer-events: auto; cursor: pointer; background: #fff3cd; color: #856404; border: 1px solid #ffc107; border-radius: 3px; padding: 0 4px; font-size: 10px; margin-left: 3px; display: inline-block; }
-  .ga-pin .mark { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--c); background: #fff; color: var(--c); display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
-  .ga-pin .mark svg { width: 17px; height: 17px; }
-  .ga-pin .tag { pointer-events: none; position: absolute; top: calc(50% + 17px); left: 50%; transform: translateX(-50%); text-align: center; line-height: 1.15; font-size: 11px; font-weight: 700; background: rgba(255,255,255,.92); color: #1b2a3a; border: 1px solid var(--c); border-radius: 3px; padding: 1px 4px; }
-  .ga-pin .tag .tid { display: block; font-weight: 500; font-size: 9.5px; color: #56687a; }
+  .ga-pin .mark { width: var(--pinpx,30px); height: var(--pinpx,30px); border-radius: 50%; border: 2px solid var(--c); background: #fff; color: var(--c); display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+  .ga-pin .mark svg { width: 56%; height: 56%; }
+  /* Mounting-position shapes (Shane, Oct 2026): circle ceiling, square wall, diamond floor, triangle rack */
+  .ga-pin .mark.m-wall { border-radius: 16%; }
+  .ga-pin .mark.m-floor { border-radius: 10%; transform: rotate(45deg); }
+  .ga-pin .mark.m-floor svg { transform: rotate(-45deg); }
+  .ga-pin .mark.m-rack { border-radius: 0; border-color: transparent; clip-path: polygon(50% 2%, 100% 98%, 0 98%); background: var(--c); color: #fff; box-shadow: none; }
+  .ga-pin .mark.m-rack svg { width: 44%; height: 44%; margin-top: 26%; }
+  .ga-pin .tag { pointer-events: none; position: absolute; top: calc(50% + var(--pinpx,30px)*0.6); left: 50%; transform: translateX(-50%); text-align: center; line-height: 1.15; font-size: calc(var(--pinpx,30px)*0.37); font-weight: 700; background: rgba(255,255,255,.92); color: #1b2a3a; border: 1px solid var(--c); border-radius: 3px; padding: 1px 4px; }
+  .ga-pin .tag .tid { display: block; font-weight: 500; font-size: calc(var(--pinpx,30px)*0.31); color: #56687a; }
   .ga-pin.sel .mark { box-shadow: 0 0 0 3px var(--c), 0 0 0 5px #fff; }
   #ga-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
   #ga-overlay polygon { fill: rgba(15,110,140,.08); stroke: #0f6e8c; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
@@ -1271,7 +1277,7 @@
     <div class="modal-body">
       <div class="form-row form-row-2"><div><label>Device Type ID <span class="required">*</span></label><input type="text" id="gd-type-id" placeholder="e.g. DISP-65" oninput="this.value=this.value.toUpperCase();renderGdIconGrid()"></div><div><label>Description <span class="required">*</span></label><input type="text" id="gd-desc" placeholder='e.g. Display 65"'></div></div>
       <div class="form-row form-row-3"><div><label>System Group</label><select id="gd-group" onchange="filterGdCategories()"><option value="">— Select —</option></select></div><div><label>Category</label><select id="gd-cat" onchange="gdPopulateSubcats()"><option value="">— Select —</option></select></div><div><label>Spec Reference</label><input type="text" id="gd-spec" placeholder="e.g. A22"></div></div>
-      <div class="form-row form-row-2"><div><label>Sub-category <span class="optional">optional</span></label><select id="gd-subcat"><option value="">— None —</option></select></div><div></div></div>
+      <div class="form-row form-row-2"><div><label>Sub-category <span class="optional">optional</span></label><select id="gd-subcat"><option value="">— None —</option></select></div><div><label>Mounting <span class="optional">sets the GA pin shape and plan views</span></label><select id="gd-mount"><option value="ceiling">Ceiling (circle)</option><option value="wall">Wall (square)</option><option value="floor">Floor (diamond)</option><option value="rack">Rack (triangle)</option></select></div></div>
       <div class="form-section"><div class="form-section-title">GA Pin Icon</div>
         <div class="gd-icon-grid" id="gd-icon-grid"></div>
       </div>
@@ -2494,8 +2500,13 @@ function renderGaPlans(){
   if(showing)acts+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
     +gaTb('openGaSheetInfo(true)','Export','Sheet info, then print or save as a PDF with border and title block','<path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="7" rx="1"/><path d="M7 14h10v7H7z"/>')
     +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
-  if(showing)acts+='<select onchange="gaSetPinSize(this.value)" title="Pin size on the drawing" style="width:auto">'
-    +[[0.7,'Pins: S'],[1,'Pins: M'],[1.4,'Pins: L']].map(o=>'<option value="'+o[0]+'"'+(Math.abs(gaPinScale-o[0])<0.01?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
+  if(showing){
+    const isPreset=[0.35,0.5,0.7].some(v=>Math.abs(gaPinSizeM-v)<0.001);
+    acts+='<select onchange="gaSetPinSize(this.value)" title="Pin size in real metres on calibrated drawings" style="width:auto">'
+      +[[0.35,'Pins: S'],[0.5,'Pins: M'],[0.7,'Pins: L']].map(o=>'<option value="'+o[0]+'"'+(Math.abs(gaPinSizeM-o[0])<0.001?' selected':'')+'>'+o[1]+'</option>').join('')
+      +'<option value="custom"'+(isPreset?'':' selected')+'>Pins: Custom</option></select>'
+      +'<input type="number" id="ga-pin-custom" min="0.1" max="5" step="0.05" value="'+gaPinSizeM+'" title="Pin size in metres" style="width:64px;padding:5px 7px;display:'+(isPreset?'none':'')+'" onchange="gaSetPinSizeM(this.value)">';
+  }
   if(revs.length){
     acts+='<select onchange="gaSelectRev(this.value)" style="max-width:170px">'
       +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
@@ -2722,9 +2733,11 @@ async function gaExportGa(){
       +'body.tbr .xtbh{display:none}'
       +'@media print{body.ga-export{background:#fff;padding:0}.xsheet{box-shadow:none;max-width:none}.xbar{display:none}}';
     const realW=plan.scale_px_per_m>0?(gaImgW/plan.scale_px_per_m):0;
-    const fit='var fit=function(){var s0=document.querySelector(".xstage"),b=document.querySelector(".xcontent");if(!s0||!b)return;'
+    const fit='var CAL='+(plan.scale_px_per_m>0?1:0)+';'
+      +'var fit=function(){var s0=document.querySelector(".xstage"),b=document.querySelector(".xcontent");if(!s0||!b)return;'
       +'var W='+gaImgW+',H='+gaImgH+',s=b.clientWidth/W;'
-      +'s0.style.transform="scale("+s+")";s0.style.transformOrigin="0 0";s0.style.setProperty("--ga-inv",String(1/s));b.style.height=(H*s)+"px";};'
+      +'s0.style.transform="scale("+s+")";s0.style.transformOrigin="0 0";s0.style.setProperty("--ga-inv",String(1/s));'
+      +'s0.style.setProperty("--ga-pininv",String(CAL?1:(1/s)));b.style.height=(H*s)+"px";};'
       +'var PAPER={A4:297,A3:420,A2:594,A1:841};var REAL_W='+realW+';'
       +'function niceRatio(r){if(r>=200)return Math.round(r/10)*10;if(r>=50)return Math.round(r/5)*5;return Math.round(r);}'
       +'function refresh(){var p=document.getElementById("xpapersel").value;'
@@ -3125,7 +3138,7 @@ function renderGaPins(){
     let tagHtml='';
     if(gaShowType)tagHtml+=escHtml(pe.device_type_id||'?');
     if(gaShowUid)tagHtml+=gaShowType?'<span class="tid">'+escHtml(inst.device_id||'')+'</span>':escHtml(inst.device_id||'?');
-    el.innerHTML='<span class="mark">'+gaIconSvg(gaIconKey(pe))+'</span>'+(tagHtml?'<span class="tag">'+tagHtml+'</span>':'');
+    el.innerHTML='<span class="mark m-'+(pe.mount||'wall')+'">'+gaIconSvg(gaIconKey(pe))+'</span>'+(tagHtml?'<span class="tag">'+tagHtml+'</span>':'');
     st.appendChild(el);shown++;
   });
   const cnt=document.getElementById('ga-pin-count');
@@ -3149,25 +3162,46 @@ async function gaShowImage(plan){
     img.src=url;
   }catch(e){showToast('Could not load the plan image: '+e.message,'error');}
 }
-// Pins keep a constant on-screen size through working zooms, but zooming out beyond
-// fit-to-view stops the compensation so they shrink with the drawing (clamped at the
-// fit zoom); labels auto-hide around fit zoom and below to keep overviews readable.
-// gaPinScale: the user's preset pin size (S/M/L), remembered on this device.
+// Pin sizing. On a CALIBRATED drawing pins are true-size drawing objects: a set number
+// of real metres (gaPinSizeM, S/M/L presets or custom), scaling with zoom and identical
+// across every calibrated drawing. Uncalibrated drawings fall back to constant screen
+// size through working zooms, clamped at fit so overviews stay readable.
 let gaFitS=0;
-let gaPinScale=parseFloat((function(){try{return localStorage.getItem('gaPinScale');}catch(e){return null;}})())||1;
+let gaPinSizeM=parseFloat((function(){try{return localStorage.getItem('gaPinSizeM');}catch(e){return null;}})())||0.5;
 function gaSetPinSize(v){
-  gaPinScale=parseFloat(v)||1;
-  try{localStorage.setItem('gaPinScale',String(gaPinScale));}catch(e){}
+  if(v==='custom'){
+    const inp=document.getElementById('ga-pin-custom');
+    if(inp){inp.style.display='';inp.value=gaPinSizeM;inp.focus();}
+    return;
+  }
+  gaSetPinSizeM(v);
+}
+function gaSetPinSizeM(v){
+  const m=parseFloat(v);
+  if(!(m>0.05&&m<10))return;
+  gaPinSizeM=m;
+  try{localStorage.setItem('gaPinSizeM',String(gaPinSizeM));}catch(e){}
   gaApply();
 }
 function gaApply(){
   const st=document.getElementById('ga-stage');if(!st)return;
   st.style.transform='translate('+gaView.x+'px,'+gaView.y+'px) scale('+gaView.s+')';
+  const plan=(typeof gaShownPlan==='function')?gaShownPlan():null;
+  const ppm=plan&&plan.scale_px_per_m>0?plan.scale_px_per_m:0;
+  const vp=document.getElementById('ga-viewport');
+  // Handles, room labels and delta tags always stay screen-sized via --ga-inv;
+  // pins use --ga-pininv so they can become true-size drawing objects when calibrated.
   const inv=gaFitS>0?Math.min(1/gaView.s,1/gaFitS):1/gaView.s;
   st.style.setProperty('--ga-inv',inv);
-  st.style.setProperty('--ga-mult',gaPinScale);
-  const vp=document.getElementById('ga-viewport');
-  if(vp)vp.classList.toggle('ga-zoomedout',gaFitS>0&&gaView.s<gaFitS*1.15);
+  if(ppm){
+    st.style.setProperty('--ga-pininv',1);
+    st.style.setProperty('--pinpx',(gaPinSizeM*ppm)+'px');
+    if(vp)vp.classList.remove('ga-zoomedout');
+  }else{
+    st.style.setProperty('--ga-pininv',inv);
+    st.style.setProperty('--pinpx',(30*(gaPinSizeM/0.5))+'px');
+    if(vp)vp.classList.toggle('ga-zoomedout',gaFitS>0&&gaView.s<gaFitS*1.15);
+  }
 }
 function gaFit(){const vp=document.getElementById('ga-viewport');if(!vp||!gaImgW)return;const r=vp.getBoundingClientRect();if(!r.width||!r.height)return;gaFitS=Math.min(r.width/gaImgW,r.height/gaImgH)*0.95;gaView.s=gaFitS;gaView.x=(r.width-gaImgW*gaView.s)/2;gaView.y=(r.height-gaImgH*gaView.s)/2;gaApply();}
 function gaZoomAt(px,py,f){const ns=Math.min(12,Math.max(0.05,gaView.s*f));gaView.x=px-(px-gaView.x)*(ns/gaView.s);gaView.y=py-(py-gaView.y)*(ns/gaView.s);gaView.s=ns;gaApply();}
@@ -6862,6 +6896,7 @@ async function openGlobalDeviceModal(){
   ['gd-type-id','gd-desc','gd-spec','gd-spec-text'].forEach(id=>document.getElementById(id).value='');
   gdIconSel=null;await loadCustomIcons();renderGdIconGrid();
   document.getElementById('gd-subcat').innerHTML='<option value="">— None —</option>';
+  document.getElementById('gd-mount').value='wall';
   document.getElementById('gd-group').value='';document.getElementById('gd-cat').value='';
   ['gd-lan','gd-poe-ports','gd-spk','gd-spk-watts','gd-power-watts','gd-heat-btu','gd-poe-budget','gd-budget-price'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('gd-poe').value='';
@@ -6882,6 +6917,7 @@ async function openEditGlobalDevice(id){
   document.getElementById('gd-modal-title').textContent='Edit Device Type';document.getElementById('gd-save-btn').textContent='Save Changes';
   await loadCustomIcons();gdIconSel=(d.icon&&gaIconValid(d.icon))?d.icon:null;renderGdIconGrid();
   document.getElementById('gd-type-id').value=d.device_type_id||'';document.getElementById('gd-desc').value=d.description||'';document.getElementById('gd-spec').value=d.spec_ref||'';document.getElementById('gd-spec-text').value=d.spec_text||'';
+  document.getElementById('gd-mount').value=d.mount||'wall';
   document.getElementById('gd-lan').value=d.lan_ports||'';document.getElementById('gd-poe-ports').value=d.poe_ports||'';
   document.getElementById('gd-poe').value=d.poe_type||'';
   document.getElementById('gd-poe-budget').value=d.poe_budget_watts||'';
@@ -6908,7 +6944,7 @@ async function saveGlobalDevice(){
   if(!typeId){showToast('Please enter a device type ID','error');return;}if(!desc){showToast('Please enter a description','error');return;}
   const poePorts=parseInt(document.getElementById('gd-poe-ports').value)||0;
   const pwrType=document.getElementById('gd-pwr-type').value||null;
-  const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value||null,system_group:document.getElementById('gd-group').value||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('gd-poe').value||null:null,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,spk_watts:parseFloat(document.getElementById('gd-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('gd-power-watts').value)||null,poe_budget_watts:parseFloat(document.getElementById('gd-poe-budget').value)||null,heat_btu:parseFloat(document.getElementById('gd-heat-btu').value)||null,ups_protected:document.getElementById('gd-ups-protected').checked,network_role:document.getElementById('gd-network-role').value||'none',avip_role:document.getElementById('gd-avip-role').value||'none',audio_role:document.getElementById('gd-audio-role').value||'none',budget_price:parseFloat(document.getElementById('gd-budget-price').value)||null,currency:document.getElementById('gd-currency').value||'USD',spec_text:document.getElementById('gd-spec-text').value.trim()||null,subcategory_code:document.getElementById('gd-subcat').value||null,icon:gdIconSel||null};
+  const payload={device_type_id:typeId,description:desc,category_code:document.getElementById('gd-cat').value||null,system_group:document.getElementById('gd-group').value||null,spec_ref:document.getElementById('gd-spec').value.trim()||null,lan_ports:parseInt(document.getElementById('gd-lan').value)||0,poe_ports:poePorts,poe_type:poePorts>0?document.getElementById('gd-poe').value||null:null,speaker_channels:parseInt(document.getElementById('gd-spk').value)||0,spk_watts:parseFloat(document.getElementById('gd-spk-watts').value)||null,power_types:pwrType?[pwrType]:null,power_watts:parseFloat(document.getElementById('gd-power-watts').value)||null,poe_budget_watts:parseFloat(document.getElementById('gd-poe-budget').value)||null,heat_btu:parseFloat(document.getElementById('gd-heat-btu').value)||null,ups_protected:document.getElementById('gd-ups-protected').checked,network_role:document.getElementById('gd-network-role').value||'none',avip_role:document.getElementById('gd-avip-role').value||'none',audio_role:document.getElementById('gd-audio-role').value||'none',budget_price:parseFloat(document.getElementById('gd-budget-price').value)||null,currency:document.getElementById('gd-currency').value||'USD',spec_text:document.getElementById('gd-spec-text').value.trim()||null,subcategory_code:document.getElementById('gd-subcat').value||null,mount:document.getElementById('gd-mount').value||'wall',icon:gdIconSel||null};
   const btn=document.getElementById('gd-save-btn');btn.textContent='Saving…';btn.disabled=true;
   try{if(editingGlobalId){await dbUpdate('global_equipment',editingGlobalId,payload);showToast('Device type updated','success');}else{await dbInsert('global_equipment',payload);showToast('Device type added','success');}closeGlobalDeviceModal();loadGlobalLibrary();}
   catch(e){showToast('Could not save: '+e.message,'error');}
@@ -8195,6 +8231,7 @@ function _peFromGlobal(d,typeId,prod){
     spk_watts:pv('spk_watts')||null,
     budget_price:mid!=null?mid:(d.budget_price||null),
     currency:(p&&p.currency)||d.currency||'USD',
+    mount:d.mount||'wall',
     icon:d.icon||null
   };
 }
