@@ -420,8 +420,8 @@
   body.ga-focus .sidebar { display: none; }
   body.ga-focus .main { margin-left: 0; }
   body.ga-focus .topbar { display: none; }
-  body.ga-focus #page-decks-rooms .section-tabs { display: none; }
-  body.ga-focus #page-decks-rooms .section-tabs-row { margin-bottom: 8px; }
+  body.ga-focus #page-design .section-tabs { display: none; }
+  body.ga-focus #page-design .section-tabs-row { margin-bottom: 8px; }
   body.ga-focus .content { padding: 10px 14px; }
   body.ga-focus .ga-viewport, body.ga-focus .ga-palette, body.ga-focus .ga-revlog, body.ga-focus .ga-views-panel { height: calc(100vh - 118px); }
   body.ga-focus .ga-focus-exit { display: inline-flex; }
@@ -579,6 +579,10 @@
       </div>
       <div class="nav-item sub disabled" onclick="showPage('decks-rooms')" id="nav-decks-rooms">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+        Setup
+      </div>
+      <div class="nav-item sub disabled" onclick="showPage('design')" id="nav-design">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
         Design
       </div>
       <div class="nav-item sub disabled" onclick="showPage('equipment')" id="nav-equipment">
@@ -679,7 +683,7 @@
       <!-- PROJECT INFO -->
       <div id="page-project-info" class="hidden"><div id="project-info-content"></div></div>
 
-      <!-- DESIGN (Decks / Rooms / Rack Zones / GA Plans) -->
+      <!-- SETUP (Decks / Rooms / Rack Zones) -->
       <div id="page-decks-rooms" class="hidden">
         <div class="section-tabs-row" style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:20px">
           <div class="section-tabs" style="margin-bottom:0">
@@ -687,10 +691,7 @@
             <button class="section-tab" id="tab-btn-floors" onclick="switchDeckRoomTab('floors')" style="display:none">Floors</button>
             <button class="section-tab" id="tab-btn-rooms" onclick="switchDeckRoomTab('rooms')">Rooms</button>
             <button class="section-tab" id="tab-btn-zones" onclick="switchDeckRoomTab('zones')">Rack Zones</button>
-            <button class="section-tab" id="tab-btn-ga" onclick="switchDeckRoomTab('ga')">GA Plans</button>
           </div>
-          <span id="ga-tab-decks" class="ga-tbgroup" style="display:none"></span>
-          <span id="ga-tab-actions" class="ga-tbgroup" style="display:none;margin-left:auto"></span>
         </div>
         <div id="decks-tab-content"><div id="decks-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
         <div id="floors-tab-content" class="hidden"><div id="floors-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
@@ -702,7 +703,18 @@
           <div id="rooms-container"><div class="loading"><div class="spinner"></div> Loading…</div></div>
         </div>
         <div id="zones-tab-content" class="hidden"><div id="rack-zones-container"><div class="loading"><div class="spinner"></div> Loading…</div></div></div>
-        <div id="ga-tab-content" class="hidden"><div id="ga-plans-container"></div></div>
+      </div>
+
+      <!-- DESIGN (GA Plans; Review tab to follow) -->
+      <div id="page-design" class="hidden">
+        <div class="section-tabs-row ga-tight" style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+          <div class="section-tabs" style="margin-bottom:0">
+            <button class="section-tab active" id="tab-btn-ga">GA Plans</button>
+          </div>
+          <span id="ga-tab-decks" class="ga-tbgroup" style="display:none"></span>
+          <span id="ga-tab-actions" class="ga-tbgroup" style="display:flex;margin-left:auto"></span>
+        </div>
+        <div id="ga-tab-content"><div id="ga-plans-container"></div></div>
       </div>
 
       <!-- IMPORT / EXPORT -->
@@ -2067,9 +2079,9 @@ function toggleAvatarPopup(){const p=document.getElementById('avatar-popup'),c=d
 function closeAvatarPopup(){const p=document.getElementById('avatar-popup'),c=document.getElementById('avatar-chevron');if(p)p.classList.remove('open');if(c)c.style.transform='';}
 
 // ── NAVIGATION ──
-const pages=['dashboard','project-info','decks-rooms','import-export','equipment','feature-matrix','change-control','specification','global-library','product-catalogue','system-groups','global-templates','spec-library'];
-const navIds={'dashboard':'nav-dashboard','project-info':'nav-project-info','decks-rooms':'nav-decks-rooms','import-export':'nav-import-export','equipment':'nav-equipment','feature-matrix':'nav-feature-matrix','change-control':'nav-change-control','specification':'nav-specification','global-library':'nav-global-library','product-catalogue':'nav-product-catalogue','system-groups':'nav-system-groups','global-templates':'nav-global-templates','spec-library':'nav-spec-library'};
-const titles={'dashboard':['All Projects','Overview of all active and archived projects'],'project-info':['Project Info',''],'decks-rooms':['Design',''],'import-export':['Import / Export',''],'equipment':['Equipment',''],'feature-matrix':['Feature Matrix',''],'change-control':['Change Control',''],'specification':['Specification',''],'global-library':['Device Types',''],'product-catalogue':['Product Catalogue',''],'system-groups':['Groups & Categories',''],'global-templates':['Room Templates',''],'spec-library':['Spec Section Library','']};
+const pages=['dashboard','project-info','decks-rooms','design','import-export','equipment','feature-matrix','change-control','specification','global-library','product-catalogue','system-groups','global-templates','spec-library'];
+const navIds={'dashboard':'nav-dashboard','project-info':'nav-project-info','decks-rooms':'nav-decks-rooms','design':'nav-design','import-export':'nav-import-export','equipment':'nav-equipment','feature-matrix':'nav-feature-matrix','change-control':'nav-change-control','specification':'nav-specification','global-library':'nav-global-library','product-catalogue':'nav-product-catalogue','system-groups':'nav-system-groups','global-templates':'nav-global-templates','spec-library':'nav-spec-library'};
+const titles={'dashboard':['All Projects','Overview of all active and archived projects'],'project-info':['Project Info',''],'decks-rooms':['Setup',''],'design':['Design',''],'import-export':['Import / Export',''],'equipment':['Equipment',''],'feature-matrix':['Feature Matrix',''],'change-control':['Change Control',''],'specification':['Specification',''],'global-library':['Device Types',''],'product-catalogue':['Product Catalogue',''],'system-groups':['Groups & Categories',''],'global-templates':['Room Templates',''],'spec-library':['Spec Section Library','']};
 
 function refreshCurrentPage(){
   const btn=document.getElementById('topbar-refresh-btn');
@@ -2078,6 +2090,7 @@ function refreshCurrentPage(){
   if(p==='dashboard')loadProjects();
   else if(p==='project-info'){Promise.all([loadProjectIntegrators(currentProject.id),loadContractAward(currentProject.id)]).then(()=>renderProjectInfo());}
   else if(p==='decks-rooms'){if(activeDeckRoomTab==='rooms')loadRooms();else if(activeDeckRoomTab==='zones')loadRackZones();else loadDecks();}
+  else if(p==='design')loadGaPlans();
   else if(p==='equipment'){if(activeEquipTab==='project')loadProjectEquipment();else if(activeEquipTab==='placed')loadPlacedEquipment();else if(activeEquipTab==='zone-summary')loadZoneSummary();else loadRoomTemplates();}
   else if(p==='feature-matrix'){loadFeatureMatrix();}
   else if(p==='import-export'){}
@@ -2104,6 +2117,7 @@ function showPage(page){
   const btn=document.getElementById('topbar-btn');
   if(page==='dashboard'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Project';btn.onclick=openNewProjectModal;btn.style.display='';}
   else if(page==='decks-rooms'){updateDecksRoomsBtn();btn.style.display='';}
+  else if(page==='design'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Upload Plan';btn.onclick=openGaUploadModal;btn.style.display='';}
   else if(page==='equipment'){updateEquipBtn();btn.style.display='';}
   else if(page==='global-library'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Device Type';btn.onclick=openGlobalDeviceModal;btn.style.display='';}
   else if(page==='product-catalogue'){btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Product';btn.onclick=openProductModal;btn.style.display='';}
@@ -2115,6 +2129,7 @@ function showPage(page){
   if(page==='dashboard')loadProjects();
   else if(page==='project-info'){Promise.all([loadProjectIntegrators(currentProject.id),loadContractAward(currentProject.id)]).then(()=>renderProjectInfo());}
   else if(page==='decks-rooms'){if(activeDeckRoomTab==='rooms')loadRooms();else if(activeDeckRoomTab==='zones')loadRackZones();else loadDecks();}
+  else if(page==='design')loadGaPlans();
   else if(page==='import-export')iePageLoad();
   else if(page==='equipment')loadEquipmentPage();
   else if(page==='global-library')loadGlobalLibrary();
@@ -2129,7 +2144,7 @@ function showPage(page){
 function updateSidebarProject(){
   const has=!!currentProject;
   document.getElementById('nav-project-name').textContent=has?currentProject.name:'— None open —';
-  ['nav-project-info','nav-decks-rooms','nav-equipment','nav-feature-matrix','nav-change-control','nav-specification'].forEach(id=>document.getElementById(id).classList.toggle('disabled',!has));
+  ['nav-project-info','nav-decks-rooms','nav-design','nav-equipment','nav-feature-matrix','nav-change-control','nav-specification'].forEach(id=>document.getElementById(id).classList.toggle('disabled',!has));
   const closeBtn=document.getElementById('close-project-btn');
   if(closeBtn)closeBtn.style.display=has?'':'none';
 }
@@ -2201,19 +2216,12 @@ function applyLayoutTerms(){
 function switchDeckRoomTab(tab){
   activeDeckRoomTab=tab;
   applyLayoutTerms();
-  ['decks','floors','rooms','zones','ga'].forEach(t=>{
+  ['decks','floors','rooms','zones'].forEach(t=>{
     const el=document.getElementById(t+'-tab-content');if(el)el.classList.toggle('hidden',t!==tab);
     const btn=document.getElementById('tab-btn-'+t);if(btn)btn.classList.toggle('active',t===tab);
   });
-  // GA view/output buttons live in their own card on the tab row's right
-  const acts=document.getElementById('ga-tab-actions');
-  if(acts)acts.style.display=tab==='ga'?'flex':'none';
-  const dks=document.getElementById('ga-tab-decks');
-  if(dks&&tab!=='ga')dks.style.display='none';
-  const tRow=document.querySelector('.section-tabs-row');
-  if(tRow)tRow.classList.toggle('ga-tight',tab==='ga');
   updateDecksRoomsBtn();
-  if(tab==='decks')loadDecks();else if(tab==='floors')loadFloors();else if(tab==='rooms')loadRooms();else if(tab==='ga')loadGaPlans();else loadRackZones();
+  if(tab==='decks')loadDecks();else if(tab==='floors')loadFloors();else if(tab==='rooms')loadRooms();else loadRackZones();
 }
 // ── GA PLANS ──
 // One plan image per deck with revision history. Images live in the PRIVATE deck-plans bucket;
@@ -4561,7 +4569,6 @@ function updateDecksRoomsBtn(){
   if(activeDeckRoomTab==='decks'){btn.innerHTML=plus+'Add '+topNoun(true);btn.onclick=openNewDeckModal;btn.style.display='';}
   else if(activeDeckRoomTab==='floors'){btn.innerHTML=plus+'Add Floor';btn.onclick=openNewFloorModal;btn.style.display='';}
   else if(activeDeckRoomTab==='rooms'){btn.innerHTML=plus+'Add Room';btn.onclick=()=>openNewRoomModal(null);btn.style.display='';}
-  else if(activeDeckRoomTab==='ga'){btn.innerHTML=plus+'Upload Plan';btn.onclick=openGaUploadModal;btn.style.display='';}
   else{btn.innerHTML=plus+'Add Zone';btn.onclick=openNewZoneModal;btn.style.display='';}
 }
 
@@ -8934,7 +8941,7 @@ function confirmDeletePlaced(id,name){
       loadPlacedEquipment();
       // If the GA tab is showing, refresh its pins too (a hard delete cascades the pin row;
       // a soft-removed device's pin is hidden until the CR is resolved).
-      if(currentPage==='decks-rooms'&&activeDeckRoomTab==='ga')renderGaPlans();
+      if(currentPage==='design')renderGaPlans();
     }catch(e){showToast('Could not remove: '+e.message,'error');}
   });
 }
