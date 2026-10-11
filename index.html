@@ -387,6 +387,26 @@
   .ga-revlog .rl-tag { width: 30px; height: 26px; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: #c0392b; color: #fff; display: grid; place-items: end center; font-weight: 700; font-size: 10px; padding-bottom: 2px; }
   .ga-revlog .rl-desc { font-size: 12px; color: var(--text-1); line-height: 1.35; }
   .ga-revlog .rl-meta { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  /* Review tab: comment markers on the plan + the docked threads panel */
+  .tab-badge { display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 5px; margin-left: 7px; border-radius: 9px; background: #d97706; color: #fff; font-size: 10.5px; font-weight: 700; line-height: 1; vertical-align: 1px; }
+  .ga-viewport.reviewing .ga-pin, .ga-viewport.reviewing path[data-cloud], .ga-viewport.reviewing .ga-delta, .ga-viewport.reviewing .ga-bshort { pointer-events: none; }
+  .ga-cmark { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); width: 24px; height: 24px; border-radius: 50%; background: #d97706; border: 2px solid #fff; color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,.4); cursor: pointer; z-index: 4; touch-action: none; }
+  .ga-cmark.resolved { background: #2f855a; }
+  .ga-cmark.sel { outline: 3px solid rgba(217,119,6,.45); outline-offset: 1px; }
+  .ga-cmark.cflash { animation: cmarkflash 0.5s ease 4; }
+  @keyframes cmarkflash { 50% { transform: translate(-50%,-50%) scale(calc(var(--ga-inv,1) * 1.6)); } }
+  .ga-cmt-panel { width: 300px; flex: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-y: auto; height: calc(100vh - 310px); min-height: 380px; box-sizing: border-box; }
+  .ga-cmt-panel h3 { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin: 0; padding: 12px 14px 8px; display: flex; align-items: center; gap: 8px; }
+  .cmt-card { border-top: 1px solid var(--border); padding: 9px 14px; cursor: pointer; }
+  .cmt-card:hover { background: var(--surface2); }
+  .cmt-card.sel { background: var(--surface2); }
+  .cmt-num { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #d97706; color: #fff; font-size: 10.5px; font-weight: 700; flex-shrink: 0; }
+  .cmt-card.resolved .cmt-num { background: #2f855a; }
+  .cmt-body { font-size: 12.5px; color: var(--text-1); line-height: 1.4; white-space: pre-wrap; }
+  .cmt-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .cmt-reply { margin: 6px 0 0 26px; padding-left: 8px; border-left: 2px solid var(--border); }
+  .cmt-res { margin: 6px 0 0 26px; font-size: 11.5px; color: #2f855a; }
+  body.ga-focus .ga-cmt-panel { height: calc(100vh - 118px); }
   .ga-blabel { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); pointer-events: none; font-weight: 600; font-size: 12px; color: #0f4e63; background: rgba(255,255,255,.85); border-radius: 3px; padding: 0 5px; white-space: nowrap; z-index: 1; }
   .ga-blabel.unassigned { color: #8a5a12; }
   .gd-icon-grid { display: flex; flex-wrap: wrap; gap: 5px; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; }
@@ -709,7 +729,8 @@
       <div id="page-design" class="hidden">
         <div class="section-tabs-row ga-tight" style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:20px">
           <div class="section-tabs" style="margin-bottom:0">
-            <button class="section-tab active" id="tab-btn-ga">GA Plans</button>
+            <button class="section-tab active" id="tab-btn-ga" onclick="switchDesignTab('ga')">GA Plans</button>
+            <button class="section-tab" id="tab-btn-review" onclick="switchDesignTab('review')">Review<span class="tab-badge" id="review-badge" style="display:none"></span></button>
           </div>
           <span id="ga-tab-decks" class="ga-tbgroup" style="display:none"></span>
           <span id="ga-tab-actions" class="ga-tbgroup" style="display:flex;margin-left:auto"></span>
@@ -1275,6 +1296,29 @@
       </div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaSheetInfo()">Cancel</button><button class="btn btn-secondary" onclick="saveGaSheetInfo(false)">Save</button><button class="btn btn-primary" onclick="saveGaSheetInfo(true)">Save &amp; Export</button></div>
+  </div>
+</div>
+
+<!-- GA REVIEW: new comment composer -->
+<div class="modal-overlay" id="ga-cmt-overlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><div class="modal-title">New Comment</div><button class="btn-icon" onclick="closeGaCmtCompose()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Comment <span class="required">*</span></label><textarea id="ga-cmt-body" rows="3" placeholder="What needs attention here?"></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaCmtCompose()">Cancel</button><button class="btn btn-primary" id="ga-cmt-save" onclick="saveGaCmt()">Add Comment</button></div>
+  </div>
+</div>
+
+<!-- GA REVIEW: resolve a comment -->
+<div class="modal-overlay" id="ga-cres-overlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><div class="modal-title">Resolve Comment</div><button class="btn-icon" onclick="closeGaCmtResolve()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>What was done <span class="optional">optional</span></label><input type="text" id="ga-cres-note" placeholder="e.g. Speaker moved to the aft bulkhead"></div>
+      <div class="form-group"><label>Link a Change Request <span class="optional">optional</span></label><select id="ga-cres-cr"></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaCmtResolve()">Cancel</button><button class="btn btn-primary" id="ga-cres-save" onclick="saveGaCmtResolve()">Resolve</button></div>
   </div>
 </div>
 
@@ -2163,6 +2207,7 @@ function resetProjectCaches(){
   plItems=[];plAlreadyPlaced=[];
   gaPlans=[];gaActiveDeckId=null;gaActiveFloorId=null;gaViewRevId=null;_gaSignedCache={};
   gaCRs=[];gaDeckClouds=[];gaPendingFocus=null;
+  gaDesignTab='ga';gaComments=[];gaCmtSel=null;gaCmtOpenCounts={};gaCmtDraft=null;gaCmtResolveId=null;
   document.body.classList.remove('ga-focus');
 }
 function closeProject(){
@@ -2238,6 +2283,8 @@ let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='', g
 let gaCRs=[], gaDeckClouds=[], gaRevLogOpen=true, gaPendingFocus=null;
 let gaGridPanelOpen=false, gaGridShow=true, gaGridUnlocked=false, gaGridSnap=true, gaScalePts=[];
 let gaActiveFloorId=null, gaPaletteOpen=true, gaPaletteQuery='', gaRecentTypes=[], gaPalOpenGroups=new Set();
+// Review tab: Pinpoint-style comment threads pinned to the plan
+let gaDesignTab='ga', gaComments=[], gaCmtFilter='open', gaCmtSel=null, gaCmtOpenCounts={}, gaCmtDraft=null, gaCmtResolveId=null;
 // Pin colours by system group, icons by device type prefix
 const GA_GROUP_COLOURS={'Central Systems':'#6b7a89','Power, UPS & Battery':'#b7791f','Audio Visual System':'#c7811a','Control System':'#7b5ea7','IT System':'#2f6fd0','Lighting Control':'#3e8e4e','Motorised Window Treatments':'#8a5aa7','Access Control & Surveillance':'#c23b3b','Cinema System':'#8a2be2','Satellite & Communications':'#1a8fa6','Radio System':'#8a9a2b'};
 // Icon library (ported from the GA demo): 48 icons in 7 groups, picked per device type on the
@@ -2463,6 +2510,17 @@ function gaSelectDeck(id){
 }
 function gaSelectFloor(id){gaActiveFloorId=id;gaViewRevId=null;renderGaPlans();}
 function gaSelectRev(id){gaViewRevId=id||null;renderGaPlans();}
+// Design page tabs: the GA drawing workspace and the Review (comments) mode
+function switchDesignTab(tab){
+  if(gaDesignTab===tab)return;
+  gaDesignTab=tab;
+  gaStopPlacing();
+  gaCmtSel=null;
+  const g=document.getElementById('tab-btn-ga'),r=document.getElementById('tab-btn-review');
+  if(g)g.classList.toggle('active',tab==='ga');
+  if(r)r.classList.toggle('active',tab==='review');
+  renderGaPlans();
+}
 async function loadGaPlans(){
   const c=document.getElementById('ga-plans-container');if(!c)return;
   if(!currentProject){c.innerHTML='';return;}
@@ -2472,6 +2530,14 @@ async function loadGaPlans(){
     if(isBuildingProj()&&!currentFloors.length)currentFloors=await dbGet('floors','project_id=eq.'+currentProject.id+'&order=name.asc');
     gaPlans=await dbGet('deck_plans','project_id=eq.'+currentProject.id+'&order=created_at.desc');
     try{gaSavedViews=await dbGet('ga_views','project_id=eq.'+currentProject.id+'&order=sort_order.asc,created_at.asc');}catch(e){gaSavedViews=[];}
+    // Open review-comment counts per plan, for the Review tab badge and deck pills
+    gaCmtOpenCounts={};
+    try{
+      if(gaPlans.length){
+        const roots=await dbGet('plan_comments','parent_id=is.null&status=eq.open&deck_plan_id=in.('+gaPlans.map(p=>p.id).join(',')+')&select=id,deck_plan_id');
+        roots.forEach(r=>{gaCmtOpenCounts[r.deck_plan_id]=(gaCmtOpenCounts[r.deck_plan_id]||0)+1;});
+      }
+    }catch(e){}
     if(!currentDecks.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No '+topNoun()+'s yet</div><div class="empty-state-text">Add '+topNoun()+'s on the '+topNoun(true)+'s tab first, then upload a GA plan here.</div></div>';return;}
     if(!gaActiveDeckId||!currentDecks.find(d=>d.id===gaActiveDeckId))gaActiveDeckId=currentDecks[0].id;
     if(isBuildingProj()){
@@ -2486,13 +2552,19 @@ function renderGaPlans(){
   const revs=gaDeckPlans(gaActiveDeckId);
   const showing=gaViewRevId?revs.find(p=>p.id===gaViewRevId)||gaCurrentPlan(gaActiveDeckId):gaCurrentPlan(gaActiveDeckId);
   const cur=!!(showing&&showing.is_current);
+  const review=gaDesignTab==='review';
   // Compact icon toolbar: location pills | actions | view tools | status + revision management
   const gaIco=s=>'<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">'+s+'</svg>';
   const gaTb=(fn,short,label,svg,on,id)=>'<button '+(id?'id="'+id+'" ':'')+'class="btn '+(on?'btn-primary':'btn-secondary')+' btn-sm ga-tbtn" onclick="'+fn+'" title="'+label+'" aria-label="'+label+'">'+gaIco(svg)+'<span>'+short+'</span></button>';
   // Buildings: the building pills join the tab row (right of GA Plans) and the floors
   // take the row below, so the layout never needs a third row. Yachts: decks below.
   const bld=isBuildingProj();
-  const deckPills=currentDecks.map(d=>'<button class="ga-pill'+(d.id===gaActiveDeckId?' active':'')+'" onclick="gaSelectDeck(\''+d.id+'\')">'+escHtml(d.name)+(gaPlans.some(p=>p.deck_id===d.id)?'<span class="ga-dot"></span>':'')+'</button>').join('');
+  const deckPills=currentDecks.map(d=>{
+    const pl=review?gaCurrentPlan(d.id):null;
+    const n=pl?(gaCmtOpenCounts[pl.id]||0):0;
+    return '<button class="ga-pill'+(d.id===gaActiveDeckId?' active':'')+'" onclick="gaSelectDeck(\''+d.id+'\')">'+escHtml(d.name)
+      +(n?'<span class="tab-badge">'+n+'</span>':(gaPlans.some(p=>p.deck_id===d.id)?'<span class="ga-dot"></span>':''))+'</button>';
+  }).join('');
   const dksEl=document.getElementById('ga-tab-decks');
   if(dksEl){dksEl.style.display=bld?'flex':'none';dksEl.innerHTML=bld?deckPills:'';}
   let leftGroup;
@@ -2510,7 +2582,10 @@ function renderGaPlans(){
   // Placement tools stay on the toolbar row beside the deck pills; view and output
   // controls live in the tab row's right side (#ga-tab-actions), set below.
   let gaRight='';
-  if(cur){
+  if(review&&cur){
+    gaRight+=gaTb('gaStartComment()','Comment','Tap the drawing to leave a review comment','<path d="M21 11.5a8.4 8.4 0 0 1-8.9 8.4 9.2 9.2 0 0 1-3.9-.8L3 20l1-5.1a8.4 8.4 0 0 1-1-3.4 8.5 8.5 0 0 1 9-8.4 8.5 8.5 0 0 1 9 8.4z"/>',gaMode==='comment','ga-btn-comment');
+  }
+  if(cur&&!review){
     gaRight+=gaTb('gaTogglePalette()','Devices','Show or hide the device placement palette','<path d="M4 6h16M4 12h16M4 18h10"/>',gaPaletteOpen,'ga-btn-palette')
       +gaTb('gaStartDraw()','Draw Room','Outline a room on the plan','<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>')
       +gaTb('gaStartEdit()','Edit','Edit boundaries: drag corners, drag a dashed mid-point to add one, double-tap to remove one','<circle cx="5" cy="5" r="1.7"/><circle cx="19" cy="5" r="1.7"/><circle cx="19" cy="19" r="1.7"/><circle cx="5" cy="19" r="1.7"/><path d="M6.7 5h10.6M19 6.7v10.6M17.3 19H6.7M5 17.3V6.7"/>')
@@ -2521,17 +2596,20 @@ function renderGaPlans(){
   if(gaRight)bar+='<span class="ga-tbgroup">'+gaRight+'</span>';
   bar+='</div>';
   let acts='';
-  if(cur){
+  if(cur&&!review){
     acts+=gaTb('gaToggleType()','Type','Show or hide the device type (SPK-IC-1) under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
       +gaTb('gaToggleUid()','ID','Show or hide the unique device ID (SPK-301-02) under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
       +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid')
       +gaTb('gaToggleViewsPanel()','Views','Plan views (floor/ceiling), show or hide systems, saved views','<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/>',gaViewsPanelOpen,'ga-btn-views')
       +gaDiv;
   }
-  if(showing)acts+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
+  if(showing&&review)acts+=gaTb('gaToggleType()','Type','Show or hide the device type under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
+    +gaTb('gaToggleUid()','ID','Show or hide the unique device ID under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
+    +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
+  if(showing&&!review)acts+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
     +gaTb('openGaSheetInfo(true)','Export','Sheet info, then print or save as a PDF with border and title block','<path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="7" rx="1"/><path d="M7 14h10v7H7z"/>')
     +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
-  if(showing){
+  if(showing&&!review){
     const isPreset=[0.35,0.5,0.7].some(v=>Math.abs(gaPinSizeM-v)<0.001);
     acts+='<select onchange="gaSetPinSize(this.value)" title="Pin size in real metres on calibrated drawings" style="width:auto">'
       +[[0.35,'Pins: S'],[0.5,'Pins: M'],[0.7,'Pins: L']].map(o=>'<option value="'+o[0]+'"'+(Math.abs(gaPinSizeM-o[0])<0.001?' selected':'')+'>'+o[1]+'</option>').join('')
@@ -2541,7 +2619,7 @@ function renderGaPlans(){
   if(revs.length){
     acts+='<select onchange="gaSelectRev(this.value)" style="max-width:170px">'
       +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
-    if(cur)acts+=gaTb('gaUpRev()','Up-rev','New revision on the same drawing','<circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5L12 8l3.5 3.5"/>');
+    if(cur&&!review)acts+=gaTb('gaUpRev()','Up-rev','New revision on the same drawing','<circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5L12 8l3.5 3.5"/>');
   }
   const actsEl=document.getElementById('ga-tab-actions');
   if(actsEl)actsEl.innerHTML=acts;
@@ -2549,28 +2627,33 @@ function renderGaPlans(){
     const where=isBuildingProj()?'floor':topNoun();
     c.innerHTML=bar+'<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No plan for this '+where+' yet</div><div class="empty-state-text">Upload the GA sheet as an image. Equipment pins and room boundaries are placed on top of it.</div>'
       +((isBuildingProj()&&!gaActiveFloorId)?'':'<button class="btn btn-primary" style="margin-top:12px" onclick="openGaUploadModal()">Upload Plan</button>')+'</div>';
+    gaUpdateReviewBadge();
     return;
   }
   c.innerHTML=bar
     +'<div style="display:flex;gap:12px;align-items:stretch">'
-    +(cur?'<div class="ga-palette" id="ga-palette" style="display:'+(gaPaletteOpen?'':'none')+'">'
+    +(cur&&!review?'<div class="ga-palette" id="ga-palette" style="display:'+(gaPaletteOpen?'':'none')+'">'
       +'<input type="search" id="ga-palette-search" placeholder="Search devices…" value="'+escHtml(gaPaletteQuery)+'" oninput="gaPaletteQuery=this.value;renderGaPalette()">'
       +'<div class="ga-palette-list" id="ga-palette-list"></div></div>':'')
-    +'<div class="ga-viewport" id="ga-viewport" style="flex:1;min-width:0">'
+    +'<div class="ga-viewport'+(review?' reviewing':'')+'" id="ga-viewport" style="flex:1;min-width:0">'
     +'<div class="ga-banner" id="ga-banner"><span id="ga-banner-text"></span><button id="ga-banner-btn" onclick="gaStopPlacing()">Stop</button></div>'
     +(cur?'':'<div class="ga-oldrev">Viewing '+escHtml(showing.revision)+' — not the current revision</div>')
     +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan" draggable="false"><svg id="ga-overlay"></svg></div>'
-    +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button><button onclick="gaStartScale()" title="Set the drawing scale: tap two points a known distance apart" style="font-size:10px">Scale</button></div>'
+    +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button>'+(review?'':'<button onclick="gaStartScale()" title="Set the drawing scale: tap two points a known distance apart" style="font-size:10px">Scale</button>')+'</div>'
     +'<div class="ga-grid-panel" id="ga-grid-panel" style="display:none"></div>'
     +'<button class="ga-focus-exit btn btn-secondary btn-sm" onclick="gaToggleFocus()">Exit full screen</button>'
     +'</div>'
-    +'<div class="ga-views-panel" id="ga-views-panel" style="display:'+(gaViewsPanelOpen?'':'none')+'"></div>'
-    +'<div class="ga-revlog" id="ga-revlog" style="display:'+(gaRevLogOpen?'':'none')+'"></div>'
+    +(review
+      ?'<div class="ga-cmt-panel" id="ga-cmt-panel"></div>'
+      :'<div class="ga-views-panel" id="ga-views-panel" style="display:'+(gaViewsPanelOpen?'':'none')+'"></div>'
+       +'<div class="ga-revlog" id="ga-revlog" style="display:'+(gaRevLogOpen?'':'none')+'"></div>')
     +'</div>';
   wireGaViewport();
-  if(gaViewsPanelOpen)renderGaViewsPanel();
-  if(gaGridPanelOpen){const gp=document.getElementById('ga-grid-panel');if(gp){gp.style.display='';renderGaGridPanel();}}
+  if(!review&&gaViewsPanelOpen)renderGaViewsPanel();
+  if(!review&&gaGridPanelOpen){const gp=document.getElementById('ga-grid-panel');if(gp){gp.style.display='';renderGaGridPanel();}}
   renderGaPalette();
+  if(review)renderGaCmtPanel();
+  gaUpdateReviewBadge();
   gaShowImage(showing);
   loadGaPins(showing.id);
 }
@@ -3218,15 +3301,19 @@ async function loadGaPins(planId){
     }
     // Clouds load deck-wide so the revision log shows the whole history for this deck
     const deckPlanIds=gaDeckPlans(gaActiveDeckId).map(p=>p.id);
-    const [pins,bounds,clouds]=await Promise.all([
+    const [pins,bounds,clouds,cmts]=await Promise.all([
       dbGet('plan_equipment_pins','deck_plan_id=eq.'+planId),
       dbGet('plan_room_boundaries','deck_plan_id=eq.'+planId),
-      deckPlanIds.length?dbGet('plan_rev_clouds','deck_plan_id=in.('+deckPlanIds.join(',')+')'+'&order=created_at.asc'):Promise.resolve([])
+      deckPlanIds.length?dbGet('plan_rev_clouds','deck_plan_id=in.('+deckPlanIds.join(',')+')'+'&order=created_at.asc'):Promise.resolve([]),
+      dbGet('plan_comments','deck_plan_id=eq.'+planId+'&order=created_at.asc').catch(()=>[])
     ]);
     gaPins=pins;gaBounds=bounds;
     gaDeckClouds=clouds;
     gaClouds=gaDeckClouds.filter(c=>c.deck_plan_id===planId);
-    renderGaBounds();renderGaPins();renderGaRevLog();renderGaPalette();
+    gaComments=cmts;
+    renderGaBounds();renderGaPins();renderGaComments();renderGaRevLog();renderGaPalette();
+    if(gaDesignTab==='review')renderGaCmtPanel();
+    gaUpdateReviewBadge();
   }catch(e){showToast('Could not load the plan layers: '+e.message,'error');}
 }
 // Point-in-polygon (ray cast) over this plan's boundaries; the smallest boundary containing
@@ -3489,13 +3576,14 @@ function wireGaViewport(){
     const midEl=gaMode==='edit'?e.target.closest('.ga-vtx.mid'):null;
     let vtxEl=(gaMode==='edit'&&!midEl)?e.target.closest('.ga-vtx.edit'):null;
     const pinEl=((gaMode==='pan'||gaMode==='select')&&!gridMove&&!vtxEl&&!midEl)?e.target.closest('.ga-pin'):null;
+    const cmEl=e.target.closest?e.target.closest('.ga-cmark'):null;
     // Stop the browser starting its own image drag or selection when a handle/pin drag begins
-    if(vtxEl||midEl||pinEl)e.preventDefault();
+    if(vtxEl||midEl||pinEl||cmEl)e.preventDefault();
     const boundEl=(gaMode==='edit'&&!pinEl&&!vtxEl&&!midEl&&e.target.closest)?e.target.closest('polygon[data-bound]'):null;
     const cloudEl=(gaMode==='pan'&&!pinEl&&!vtxEl&&!boundEl&&e.target.closest)?(e.target.closest('path[data-cloud]')||e.target.closest('.ga-delta')):null;
     const shortEl=(gaMode==='pan'&&!pinEl&&e.target.closest)?e.target.closest('.ga-bshort'):null;
     if(ptrs.size===1){
-      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?(cloudEl.dataset.cloud||cloudEl.dataset.cloudtag):null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null,cloudBox:gaMode==='cloud',shortRoom:shortEl?shortEl.dataset.room:null};
+      drag={sx:e.clientX,sy:e.clientY,moved:false,pinId:pinEl?pinEl.dataset.pin:null,boundId:boundEl?boundEl.dataset.bound:null,cloudId:cloudEl?(cloudEl.dataset.cloud||cloudEl.dataset.cloudtag):null,vtxBound:vtxEl?vtxEl.dataset.bound:null,vtxI:vtxEl?+vtxEl.dataset.vi:null,cloudBox:gaMode==='cloud',shortRoom:shortEl?shortEl.dataset.room:null,cmId:cmEl?cmEl.dataset.cmt:null};
       // Dragging a dashed mid-edge handle inserts a new corner there, then drags it live
       if(midEl){
         const mb=gaBounds.find(bb=>bb.id===midEl.dataset.bound);
@@ -3699,6 +3787,13 @@ function wireGaViewport(){
     if(d.moved)return;
     const [x,y]=gaToFraction(e.clientX,e.clientY);
     const inside=x>=0&&x<=1&&y>=0&&y<=1;
+    // Review: tap a comment marker to open its thread; in comment mode a tap drops a new one
+    if(d.cmId){gaCmtSelectFromPlan(d.cmId);return;}
+    if(gaMode==='comment'){
+      if(!inside)return;
+      openGaCmtCompose(x,y);
+      return;
+    }
     if(gaMode==='scale'){
       if(!inside)return;
       gaScalePts.push([x,y]);
@@ -3977,7 +4072,7 @@ function gaStopPlacing(){
   if(gaGridUnlocked){gaGridUnlocked=false;renderGaGridPanel();}
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.remove('placing');vp.classList.remove('drawing');vp.classList.remove('editing');vp.classList.remove('selecting');}
   const b=document.getElementById('ga-banner');if(b)b.classList.remove('on');
-  gaSetTbtn('ga-btn-select',false);
+  gaSetTbtn('ga-btn-select',false);gaSetTbtn('ga-btn-comment',false);
   if(hadSel)renderGaPins();
   renderGaBounds();renderGaPalette();
 }
@@ -4029,7 +4124,20 @@ async function gaCarryForward(fromPlanId,toPlanId){
     ]);
     if(bounds.length)await dbInsert('plan_room_boundaries',bounds.map(b=>({deck_plan_id:toPlanId,room_id:b.room_id,points:b.points})));
     if(pins.length)await dbInsert('plan_equipment_pins',pins.map(p=>({deck_plan_id:toPlanId,equipment_instance_id:p.equipment_instance_id,x:p.x,y:p.y})));
-    showToast('Carried forward '+bounds.length+' boundar'+(bounds.length===1?'y':'ies')+' and '+pins.length+' pin'+(pins.length===1?'':'s'),'success');
+    // OPEN review comments move onto the new revision (the thread moves whole, replies
+    // included); resolved ones stay behind as the old revision's history.
+    let movedCmts=0;
+    try{
+      const openRoots=await dbGet('plan_comments','deck_plan_id=eq.'+fromPlanId+'&parent_id=is.null&status=eq.open&select=id');
+      if(openRoots.length){
+        const ids=openRoots.map(r=>r.id).join(',');
+        await supaFetch('PATCH','plan_comments',{deck_plan_id:toPlanId},null,'id=in.('+ids+')');
+        await supaFetch('PATCH','plan_comments',{deck_plan_id:toPlanId},null,'parent_id=in.('+ids+')');
+        if(gaCmtOpenCounts[fromPlanId]){gaCmtOpenCounts[toPlanId]=(gaCmtOpenCounts[toPlanId]||0)+openRoots.length;gaCmtOpenCounts[fromPlanId]=0;}
+        movedCmts=openRoots.length;
+      }
+    }catch(err){console.warn('Could not move open review comments',err);}
+    showToast('Carried forward '+bounds.length+' boundar'+(bounds.length===1?'y':'ies')+' and '+pins.length+' pin'+(pins.length===1?'':'s')+(movedCmts?'; '+movedCmts+' open comment'+(movedCmts!==1?'s':'')+' moved over':''),'success');
     renderGaPlans();
   }catch(e){showToast('Carry forward failed: '+e.message,'error');}
 }
@@ -4153,6 +4261,187 @@ function gaFocusCloud(cloudId){
     else if(++tries<5)setTimeout(flash,300);
   };
   flash();
+}
+// ── REVIEW TAB: Pinpoint-style comment threads on the plan ──
+// Roots carry the marker position and open/resolved state; replies hang off parent_id.
+// Numbering is render-time over ALL roots on the revision, so numbers stay stable
+// whichever filter is active.
+function gaCmtRoots(){return gaComments.filter(c=>!c.parent_id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));}
+function gaCmtReplies(id){return gaComments.filter(c=>c.parent_id===id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));}
+function gaCmtWho(c){const e=c.created_by||'';return e.includes('@')?e.split('@')[0]:(e||'Unknown');}
+function gaCmtVisible(c){return gaCmtFilter==='all'||c.status===gaCmtFilter;}
+function gaUpdateReviewBadge(){
+  const b=document.getElementById('review-badge');if(!b)return;
+  const plan=gaShownPlan();
+  const n=plan?(gaCmtOpenCounts[plan.id]||0):0;
+  b.style.display=n?'':'none';b.textContent=n;
+}
+function renderGaComments(){
+  const st=document.getElementById('ga-stage');if(!st)return;
+  st.querySelectorAll('.ga-cmark').forEach(n=>n.remove());
+  if(gaDesignTab!=='review')return;
+  gaCmtRoots().forEach((c,i)=>{
+    if(!gaCmtVisible(c))return;
+    const el=document.createElement('div');
+    el.className='ga-cmark'+(c.status==='resolved'?' resolved':'')+(gaCmtSel===c.id?' sel':'');
+    el.dataset.cmt=c.id;
+    el.style.left=(c.x*100)+'%';el.style.top=(c.y*100)+'%';
+    el.textContent=i+1;
+    el.title=(c.body||'').slice(0,120);
+    st.appendChild(el);
+  });
+}
+function gaStartComment(){
+  if(gaMode==='comment'){gaStopPlacing();return;}
+  const showing=gaShownPlan();
+  if(!showing){showToast('Upload a plan first','error');return;}
+  if(!showing.is_current){showToast('Switch to the current revision to add comments','error');return;}
+  gaStopPlacing();
+  gaMode='comment';
+  const vp=document.getElementById('ga-viewport');if(vp)vp.classList.add('placing');
+  gaSetTbtn('ga-btn-comment',true);
+  gaBanner('Tap the drawing where you want to leave a comment. Tap Comment again to stop.','Stop');
+}
+function openGaCmtCompose(x,y){
+  gaCmtDraft={x,y};
+  document.getElementById('ga-cmt-body').value='';
+  document.getElementById('ga-cmt-overlay').classList.add('open');
+  setTimeout(()=>{const t=document.getElementById('ga-cmt-body');if(t)t.focus();},60);
+}
+function closeGaCmtCompose(){gaCmtDraft=null;document.getElementById('ga-cmt-overlay').classList.remove('open');}
+async function saveGaCmt(){
+  const body=document.getElementById('ga-cmt-body').value.trim();
+  if(!body){showToast('Write the comment first','error');return;}
+  const plan=gaShownPlan();
+  if(!plan||!gaCmtDraft){closeGaCmtCompose();return;}
+  const btn=document.getElementById('ga-cmt-save');btn.disabled=true;
+  try{
+    const rows=await dbInsert('plan_comments',{deck_plan_id:plan.id,x:gaCmtDraft.x,y:gaCmtDraft.y,body,created_by:currentUser?.email||null});
+    gaComments.push(rows[0]);
+    gaCmtOpenCounts[plan.id]=(gaCmtOpenCounts[plan.id]||0)+1;
+    gaCmtSel=rows[0].id;
+    closeGaCmtCompose();
+    renderGaComments();renderGaCmtPanel();gaUpdateReviewBadge();
+    showToast('Comment added','success');
+  }catch(e){showToast('Could not save the comment: '+e.message,'error');}
+  finally{btn.disabled=false;}
+}
+function gaCmtSetFilter(v){gaCmtFilter=v;renderGaComments();renderGaCmtPanel();}
+function gaCmtSelectFromPlan(id){
+  gaCmtSel=id;
+  renderGaComments();renderGaCmtPanel();
+  const card=document.querySelector('.cmt-card[data-cmt="'+id+'"]');
+  if(card)card.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+function gaCmtSelectFromPanel(id){
+  if(gaCmtSel===id){gaCmtSel=null;renderGaComments();renderGaCmtPanel();return;}
+  gaCmtSel=id;
+  renderGaComments();renderGaCmtPanel();
+  gaCmtFocus(id);
+}
+// Centre the view on a comment marker and flash it
+function gaCmtFocus(id){
+  const c=gaComments.find(x=>x.id===id);
+  const vp=document.getElementById('ga-viewport');
+  if(!c||!vp||!gaImgW)return;
+  const r=vp.getBoundingClientRect();
+  gaView.s=Math.min(12,Math.max(gaView.s,(gaFitS||gaView.s)*2.2));
+  gaView.x=r.width/2-c.x*gaImgW*gaView.s;
+  gaView.y=r.height/2-c.y*gaImgH*gaView.s;
+  gaApply();
+  const el=document.querySelector('.ga-cmark[data-cmt="'+id+'"]');
+  if(el){el.classList.add('cflash');setTimeout(()=>el.classList.remove('cflash'),2100);}
+}
+function renderGaCmtPanel(){
+  const p=document.getElementById('ga-cmt-panel');if(!p)return;
+  const roots=gaCmtRoots();
+  const openN=roots.filter(c=>c.status==='open').length;
+  const shownRoots=roots.map((c,i)=>({c,n:i+1})).filter(r=>gaCmtVisible(r.c));
+  let html='<h3>Comments'
+    +'<select onchange="gaCmtSetFilter(this.value)" style="margin-left:auto;width:auto;padding:4px 7px;font-size:11.5px;text-transform:none;letter-spacing:0">'
+    +[['open','Open ('+openN+')'],['resolved','Resolved ('+(roots.length-openN)+')'],['all','All ('+roots.length+')']].map(o=>'<option value="'+o[0]+'"'+(gaCmtFilter===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')
+    +'</select></h3>';
+  if(!shownRoots.length)html+='<div style="padding:10px 14px;font-size:12px;color:var(--text-3)">'+(roots.length?'Nothing matches this filter.':'No comments on this revision yet. Press Comment, then tap the drawing.')+'</div>';
+  shownRoots.forEach(({c,n})=>{
+    const sel=gaCmtSel===c.id;
+    const reps=gaCmtReplies(c.id);
+    const cr=c.cr_id?gaCRs.find(x=>x.id===c.cr_id):null;
+    html+='<div class="cmt-card'+(c.status==='resolved'?' resolved':'')+(sel?' sel':'')+'" data-cmt="'+c.id+'" onclick="gaCmtSelectFromPanel(\''+c.id+'\')">'
+      +'<div style="display:flex;gap:6px;align-items:flex-start"><span class="cmt-num">'+n+'</span>'
+      +'<div style="flex:1;min-width:0"><div class="cmt-body">'+escHtml(c.body)+'</div>'
+      +'<div class="cmt-meta">'+escHtml(gaCmtWho(c))+' · '+formatDate((c.created_at||'').slice(0,10))+(reps.length&&!sel?' · '+reps.length+' repl'+(reps.length===1?'y':'ies'):'')+'</div></div></div>';
+    if(c.status==='resolved')html+='<div class="cmt-res">Resolved'+(c.resolved_by?' by '+escHtml(c.resolved_by.split('@')[0]):'')+(cr?' · '+escHtml(cr.cr_number):'')+(c.resolve_note?': '+escHtml(c.resolve_note):'')+'</div>';
+    if(sel){
+      reps.forEach(r=>{html+='<div class="cmt-reply"><div class="cmt-body">'+escHtml(r.body)+'</div><div class="cmt-meta">'+escHtml(gaCmtWho(r))+' · '+formatDate((r.created_at||'').slice(0,10))+'</div></div>';});
+      html+='<div style="margin:8px 0 2px 26px;display:flex;gap:5px" onclick="event.stopPropagation()">'
+        +'<input type="text" id="ga-cmt-reply" placeholder="Reply…" style="flex:1;min-width:0;padding:6px 8px;font-size:12px" onkeydown="if(event.key===\'Enter\')gaCmtReply(\''+c.id+'\')">'
+        +'<button class="btn btn-secondary btn-sm" onclick="gaCmtReply(\''+c.id+'\')">Reply</button></div>'
+        +'<div style="margin:7px 0 2px 26px;display:flex;gap:6px" onclick="event.stopPropagation()">'
+        +(c.status==='open'
+          ?'<button class="btn btn-primary btn-sm" onclick="openGaCmtResolve(\''+c.id+'\')">Resolve</button>'
+          :'<button class="btn btn-secondary btn-sm" onclick="gaCmtReopen(\''+c.id+'\')">Reopen</button>')
+        +'<button class="btn btn-danger btn-sm" onclick="gaCmtDelete(\''+c.id+'\')">Delete</button></div>';
+    }
+    html+='</div>';
+  });
+  p.innerHTML=html;
+}
+async function gaCmtReply(id){
+  const inp=document.getElementById('ga-cmt-reply');
+  const body=(inp?inp.value:'').trim();
+  if(!body)return;
+  const c=gaComments.find(x=>x.id===id);if(!c)return;
+  try{
+    const rows=await dbInsert('plan_comments',{deck_plan_id:c.deck_plan_id,parent_id:id,body,created_by:currentUser?.email||null});
+    gaComments.push(rows[0]);
+    renderGaCmtPanel();
+  }catch(e){showToast('Could not reply: '+e.message,'error');}
+}
+function openGaCmtResolve(id){
+  gaCmtResolveId=id;
+  document.getElementById('ga-cres-note').value='';
+  document.getElementById('ga-cres-cr').innerHTML=gaCrOptions('');
+  document.getElementById('ga-cres-overlay').classList.add('open');
+}
+function closeGaCmtResolve(){gaCmtResolveId=null;document.getElementById('ga-cres-overlay').classList.remove('open');}
+async function saveGaCmtResolve(){
+  const c=gaComments.find(x=>x.id===gaCmtResolveId);
+  if(!c){closeGaCmtResolve();return;}
+  const note=document.getElementById('ga-cres-note').value.trim()||null;
+  const crId=document.getElementById('ga-cres-cr').value||null;
+  const btn=document.getElementById('ga-cres-save');btn.disabled=true;
+  try{
+    const payload={status:'resolved',resolved_by:currentUser?.email||null,resolved_at:new Date().toISOString(),resolve_note:note,cr_id:crId};
+    await dbUpdate('plan_comments',c.id,payload);
+    Object.assign(c,payload);
+    if(gaCmtOpenCounts[c.deck_plan_id])gaCmtOpenCounts[c.deck_plan_id]--;
+    closeGaCmtResolve();
+    renderGaComments();renderGaCmtPanel();gaUpdateReviewBadge();
+    showToast('Comment resolved','success');
+  }catch(e){showToast('Could not resolve: '+e.message,'error');}
+  finally{btn.disabled=false;}
+}
+async function gaCmtReopen(id){
+  const c=gaComments.find(x=>x.id===id);if(!c)return;
+  try{
+    const payload={status:'open',resolved_by:null,resolved_at:null,resolve_note:null,cr_id:null};
+    await dbUpdate('plan_comments',id,payload);
+    Object.assign(c,payload);
+    gaCmtOpenCounts[c.deck_plan_id]=(gaCmtOpenCounts[c.deck_plan_id]||0)+1;
+    renderGaComments();renderGaCmtPanel();gaUpdateReviewBadge();
+  }catch(e){showToast('Could not reopen: '+e.message,'error');}
+}
+function gaCmtDelete(id){
+  openConfirm('Delete Comment','Delete this comment and its replies? This cannot be undone.',async()=>{
+    try{
+      const c=gaComments.find(x=>x.id===id);
+      await dbDelete('plan_comments',id);
+      if(c&&c.status==='open'&&gaCmtOpenCounts[c.deck_plan_id])gaCmtOpenCounts[c.deck_plan_id]--;
+      gaComments=gaComments.filter(x=>x.id!==id&&x.parent_id!==id);
+      if(gaCmtSel===id)gaCmtSel=null;
+      renderGaComments();renderGaCmtPanel();gaUpdateReviewBadge();
+    }catch(e){showToast('Could not delete: '+e.message,'error');}
+  },'Delete','btn-danger');
 }
 // ── DESIGN GRID + DRAWING SCALE ──
 function gaShownPlan(){return gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);}
