@@ -1266,6 +1266,21 @@
   </div>
 </div>
 
+<!-- GA EXPORT SET: pick plans and saved views, one sheet per combination -->
+<div class="modal-overlay" id="ga-set-overlay">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header"><div class="modal-title">Export a Drawing Set</div><button class="btn-icon" onclick="closeGaExportSet()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-3);margin-bottom:10px">One sheet per ticked plan and view combination, in a single print window. Save as one PDF from there.</div>
+      <div class="form-row form-row-2">
+        <div><label>Plans (current revisions)</label><div id="ga-set-plans" class="ga-views-panel" style="position:static;box-shadow:none;max-height:220px;width:auto"></div></div>
+        <div><label>Saved views</label><div id="ga-set-views" class="ga-views-panel" style="position:static;box-shadow:none;max-height:220px;width:auto"></div></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaExportSet()">Cancel</button><button class="btn btn-primary" id="ga-set-run" onclick="gaRunExportSet()">Build Set</button></div>
+  </div>
+</div>
+
 <!-- ASSIGN ROOMS MODAL -->
 <div class="modal-overlay" id="assign-modal-overlay">
   <div class="modal" style="max-width:600px">
@@ -2448,6 +2463,7 @@ async function loadGaPlans(){
     if(!currentDecks.length)currentDecks=await dbGet('decks','project_id=eq.'+currentProject.id+'&order=deck_order.asc');
     if(isBuildingProj()&&!currentFloors.length)currentFloors=await dbGet('floors','project_id=eq.'+currentProject.id+'&order=name.asc');
     gaPlans=await dbGet('deck_plans','project_id=eq.'+currentProject.id+'&order=created_at.desc');
+    try{gaSavedViews=await dbGet('ga_views','project_id=eq.'+currentProject.id+'&order=sort_order.asc,created_at.asc');}catch(e){gaSavedViews=[];}
     if(!currentDecks.length){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">&#128506;</div><div class="empty-state-title">No '+topNoun()+'s yet</div><div class="empty-state-text">Add '+topNoun()+'s on the '+topNoun(true)+'s tab first, then upload a GA plan here.</div></div>';return;}
     if(!gaActiveDeckId||!currentDecks.find(d=>d.id===gaActiveDeckId))gaActiveDeckId=currentDecks[0].id;
     if(isBuildingProj()){
@@ -2575,7 +2591,44 @@ function renderGaViewsPanel(){
   html+='<h4>Systems</h4>'+(groups.length
     ?groups.map(g=>'<label class="vrow"><input type="checkbox"'+(gaHiddenGroups.has(g)?'':' checked')+' onchange="gaToggleGroupVis(\''+escHtml(escJs(g))+'\')"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+gaGroupColour(g)+';flex-shrink:0"></span>'+escHtml(g)+'</label>').join('')
     :'<div style="font-size:12px;color:var(--text-3)">No devices in the project yet</div>');
+  const vbin='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg>';
+  html+='<h4>Saved views</h4>'
+    +(gaSavedViews.length
+      ?gaSavedViews.map(v=>'<div style="display:flex;align-items:center;gap:5px;padding:2px 0">'
+        +'<button class="btn btn-secondary btn-sm" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="gaApplyView(\''+v.id+'\')">'+escHtml(v.name)+'</button>'
+        +'<button class="btn-icon btn-sm" title="Delete this view" onclick="gaDeleteView(\''+v.id+'\')">'+vbin+'</button>'
+        +'</div>').join('')
+      :'<div style="font-size:12px;color:var(--text-3)">None yet. Set the filters above, then save.</div>')
+    +'<div style="display:flex;gap:6px;margin-top:6px"><input type="text" id="ga-view-name" placeholder="View name" style="flex:1;min-width:0;padding:6px 8px;font-size:12.5px"><button class="btn btn-primary btn-sm" onclick="gaSaveView()">Save</button></div>'
+    +'<button class="btn btn-secondary btn-sm" style="width:100%;margin-top:8px" onclick="openGaExportSet()">Export a Set…</button>';
   p.innerHTML=html;
+}
+async function gaSaveView(){
+  const nameEl=document.getElementById('ga-view-name');
+  const name=(nameEl?nameEl.value:'').trim();
+  if(!name){showToast('Give the view a name first','error');return;}
+  try{
+    const rows=await dbInsert('ga_views',{project_id:currentProject.id,name,plan_view:gaPlanView,hidden_groups:[...gaHiddenGroups],show_type:gaShowType,show_uid:gaShowUid,pin_m:gaPinSizeM,sort_order:gaSavedViews.length});
+    gaSavedViews.push(rows[0]);
+    renderGaViewsPanel();showToast('View saved','success');
+  }catch(e){showToast('Could not save the view: '+e.message,'error');}
+}
+function gaApplyView(id){
+  const v=gaSavedViews.find(x=>x.id===id);if(!v)return;
+  gaPlanView=v.plan_view||'all';
+  gaHiddenGroups=new Set(Array.isArray(v.hidden_groups)?v.hidden_groups:[]);
+  gaShowType=v.show_type!==false;gaShowUid=v.show_uid!==false;
+  if(v.pin_m>0)gaPinSizeM=parseFloat(v.pin_m);
+  gaSetTbtn('ga-btn-type',gaShowType);gaSetTbtn('ga-btn-uid',gaShowUid);
+  gaApply();renderGaPins();renderGaViewsPanel();
+  showToast('View "'+v.name+'" applied','success');
+}
+function gaDeleteView(id){
+  const v=gaSavedViews.find(x=>x.id===id);if(!v)return;
+  openConfirm('Delete View','Delete the saved view "'+v.name+'"?',async()=>{
+    try{await dbDelete('ga_views',id);gaSavedViews=gaSavedViews.filter(x=>x.id!==id);renderGaViewsPanel();}
+    catch(e){showToast('Could not delete: '+e.message,'error');}
+  },'Delete','btn-danger');
 }
 // Sheet info: the title block properties, stored on the plan and carried to new revisions
 function openGaSheetInfo(){
@@ -2623,96 +2676,146 @@ async function saveGaSheetInfo(exportAfter){
     if(exportAfter)gaExportGa();else showToast('Sheet info saved','success');
   }catch(e){showToast('Could not save: '+e.message,'error');}
 }
-// Export the shown plan as a print window (save as PDF from there): drawing frame,
-// everything currently on the plan, and a SMART title block. The image is fetched as a
-// blob so the print window needs no further authentication.
-async function gaExportGa(){
-  const plan=gaShownPlan();
-  if(!plan){showToast('Upload a plan first','error');return;}
-  try{
-    const url=await storageSignedUrl(plan.image_path,600);
-    const resp=await fetch(url);
-    if(!resp.ok)throw new Error('Could not load the plan image');
-    const imgUrl=URL.createObjectURL(await resp.blob());
-    const st=document.getElementById('ga-stage');
-    const clone=st.cloneNode(true);
-    clone.classList.add('xstage');
-    clone.style.transform='none';clone.style.position='relative';
-    clone.style.width=gaImgW+'px';clone.style.height=gaImgH+'px';
-    const ci=clone.querySelector('#ga-img');if(ci)ci.src=imgUrl;
-    clone.querySelectorAll('.ga-vtx,.ga-scale-dot,.ga-bshort').forEach(n=>n.remove());
-    clone.querySelectorAll('.sel,.msel').forEach(n=>{n.classList.remove('sel');n.classList.remove('msel');});
-    // Graphic scale bar in drawing units (true at any paper size), kept deliberately small
-    if(plan.scale_px_per_m>0){
-      let L=1;[1,2,5,10,20,25,50,100].forEach(c=>{if(c*plan.scale_px_per_m<=gaImgW*0.09)L=c;});
-      const Lpx=L*plan.scale_px_per_m;
-      const bh=Math.max(4,Lpx*0.025),fs=Math.max(8,Lpx*0.05);
-      let segHtml='';for(let i=0;i<4;i++)segHtml+='<div style="flex:1;background:'+(i%2?'#fff':'#111')+'"></div>';
-      const bar=document.createElement('div');
-      bar.id='xscalebar';
-      bar.style.cssText='position:absolute;left:'+(gaImgW*0.015)+'px;bottom:'+(gaImgH*0.015)+'px;z-index:4';
-      bar.innerHTML='<div style="display:flex;width:'+Lpx+'px;height:'+bh+'px;border:'+Math.max(1,bh*0.14)+'px solid #111;background:#fff;box-sizing:border-box">'+segHtml+'</div>'
-        +'<div style="display:flex;justify-content:space-between;width:'+Lpx+'px;font-size:'+fs+'px;font-weight:700;color:#111;font-family:Arial,Helvetica,sans-serif;line-height:1.25;text-shadow:0 0 3px #fff,0 0 3px #fff"><span>0</span><span>'+(L/2)+'</span><span>'+L+' m</span></div>';
-      clone.appendChild(bar);
+// ── GA EXPORT: multi-sheet print engine. Builds one print window holding any number of
+// sheets (plan x view combinations), each with the house drawing frame and title block.
+// Images are fetched as blobs so the print window needs no further authentication.
+function _gaScaleBarHtml(plan){
+  if(!(plan.scale_px_per_m>0))return'';
+  const W=plan.image_width||gaImgW,H=plan.image_height||gaImgH;
+  let L=1;[1,2,5,10,20,25,50,100].forEach(c=>{if(c*plan.scale_px_per_m<=W*0.09)L=c;});
+  const Lpx=L*plan.scale_px_per_m;
+  const bh=Math.max(4,Lpx*0.025),fs=Math.max(8,Lpx*0.05);
+  let segHtml='';for(let i=0;i<4;i++)segHtml+='<div style="flex:1;background:'+(i%2?'#fff':'#111')+'"></div>';
+  return '<div class="xscalebar" style="position:absolute;left:'+(W*0.015)+'px;bottom:'+(H*0.015)+'px;z-index:4">'
+    +'<div style="display:flex;width:'+Lpx+'px;height:'+bh+'px;border:'+Math.max(1,bh*0.14)+'px solid #111;background:#fff;box-sizing:border-box">'+segHtml+'</div>'
+    +'<div style="display:flex;justify-content:space-between;width:'+Lpx+'px;font-size:'+fs+'px;font-weight:700;color:#111;font-family:Arial,Helvetica,sans-serif;line-height:1.25;text-shadow:0 0 3px #fff,0 0 3px #fff"><span>0</span><span>'+(L/2)+'</span><span>'+L+' m</span></div></div>';
+}
+// A static stage: the plan image with boundaries, clouds, delta tags and the pins that
+// the given view shows. Mirrors the live renderers without touching the live DOM.
+function _gaStaticStageHtml(plan,imgUrl,pins,bounds,clouds,view,uid){
+  const W=plan.image_width||gaImgW,H=plan.image_height||gaImgH;
+  const ppm=plan.scale_px_per_m>0?plan.scale_px_per_m:0;
+  const pinM=(view.pin_m>0?parseFloat(view.pin_m):gaPinSizeM)||0.5;
+  const pinpx=ppm?pinM*ppm:30*(pinM/0.5);
+  const instById={};placedEquipment.forEach(i=>{instById[i.id]=i;});
+  const peById={};projectEquipment.forEach(p=>{peById[p.id]=p;});
+  const hidden=new Set(Array.isArray(view.hidden_groups)?view.hidden_groups:[]);
+  let svg='';
+  if(ppm&&plan.grid_spacing_m>0){
+    const step=plan.grid_spacing_m*ppm;
+    if(step>2){
+      const ox=((plan.grid_offset_x||0)*W)%step, oy=((plan.grid_offset_y||0)*H)%step;
+      svg+='<defs><pattern id="gp'+uid+'" width="'+step.toFixed(2)+'" height="'+step.toFixed(2)+'" x="'+ox.toFixed(2)+'" y="'+oy.toFixed(2)+'" patternUnits="userSpaceOnUse">'
+        +'<path d="M '+step.toFixed(2)+' 0 L 0 0 0 '+step.toFixed(2)+'" fill="none" stroke="rgba(15,110,140,.45)" stroke-width="0.8"/></pattern></defs>'
+        +'<rect width="'+W+'" height="'+H+'" fill="url(#gp'+uid+')" style="pointer-events:none"/>';
     }
-    const deck=currentDecks.find(d=>d.id===plan.deck_id)||{};
-    const fl=plan.floor_id?(currentFloors||[]).find(f=>f.id===plan.floor_id):null;
+  }
+  let overlays='';
+  (clouds||[]).forEach((cl,i)=>{
+    if(!Array.isArray(cl.points)||cl.points.length<3)return;
+    svg+='<path class="ga-cloud" d="'+gaCloudPath(cl.points)+'"/>';
+    const ty=Math.min.apply(null,cl.points.map(p=>p[1]));
+    const cx=cl.points.reduce((a,p)=>a+p[0],0)/cl.points.length;
+    overlays+='<div class="ga-delta" style="left:'+(cx*100)+'%;top:'+(ty*100)+'%">'+escHtml(gaRevLetter(plan)+(i+1))+'</div>';
+  });
+  (bounds||[]).forEach(b=>{
+    if(!Array.isArray(b.points)||b.points.length<3)return;
+    const room=currentRooms.find(r=>r.id===b.room_id);
+    svg+='<polygon class="'+(room?'':'unassigned')+'" points="'+b.points.map(p=>(p[0]*W)+','+(p[1]*H)).join(' ')+'"/>';
+    const cx=b.points.reduce((a,p)=>a+p[0],0)/b.points.length, cy=b.points.reduce((a,p)=>a+p[1],0)/b.points.length;
+    overlays+='<div class="ga-blabel'+(room?'':' unassigned')+'" style="left:'+(cx*100)+'%;top:'+(cy*100)+'%">'+escHtml(room?room.name:'Room not assigned')+'</div>';
+  });
+  let pinsHtml='';
+  (pins||[]).forEach(pin=>{
+    const inst=instById[pin.equipment_instance_id];
+    if(!inst||inst.change_status==='removed')return;
+    const pe=peById[inst.project_equipment_id]||{};
+    const mnt=pe.mount||'wall';
+    if(view.plan_view==='ceiling'&&mnt!=='ceiling')return;
+    if(view.plan_view==='floor'&&mnt==='ceiling')return;
+    if(hidden.has(pe.system_group||''))return;
+    let tag='';
+    if(view.show_type!==false)tag+=escHtml(pe.device_type_id||'?');
+    if(view.show_uid!==false)tag+=(view.show_type!==false)?'<span class="tid">'+escHtml(inst.device_id||'')+'</span>':escHtml(inst.device_id||'?');
+    pinsHtml+='<div class="ga-pin'+(inst.pre_wire?' prewire':'')+'" style="left:'+(pin.x*100)+'%;top:'+(pin.y*100)+'%;--c:'+gaGroupColour(pe.system_group)+'">'
+      +'<span class="mark m-'+mnt+'">'+gaIconSvg(gaIconKey(pe))+'</span>'+(tag?'<span class="tag">'+tag+'</span>':'')+'</div>';
+  });
+  return '<div class="xstage" data-w="'+W+'" data-h="'+H+'" data-cal="'+(ppm?1:0)+'" style="position:relative;width:'+W+'px;height:'+H+'px;--pinpx:'+pinpx+'px;--ga-pininv:1;--ga-inv:1">'
+    +'<img src="'+imgUrl+'" draggable="false" style="width:'+W+'px;height:'+H+'px;display:block">'
+    +'<svg id="ga-overlay" viewBox="0 0 '+W+' '+H+'" style="position:absolute;left:0;top:0;width:100%;height:100%">'+svg+'</svg>'
+    +overlays+pinsHtml+_gaScaleBarHtml(plan)
+    +'</div>';
+}
+// One complete sheet: frame, grid references, stage, and both title blocks
+function _gaSheetHtml(plan,stageHtml,viewName){
+  const deck=currentDecks.find(d=>d.id===plan.deck_id)||{};
+  const fl=plan.floor_id?(currentFloors||[]).find(f=>f.id===plan.floor_id):null;
+  const year=new Date().getFullYear();
+  const brandSvg=(typeof SPEC_LOGO_SVG!=='undefined'&&SPEC_LOGO_SVG)?SPEC_LOGO_SVG:'<span class="xbrandtxt">SMART</span>';
+  const copyr='Copyright &copy; '+year+' SMART Technology Advisers Limited. All rights reserved.';
+  const lineage=gaDeckPlans(plan.deck_id).filter(p=>((p.floor_id||null)===(plan.floor_id||null))).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+  const dshort=iso=>{const s=(iso||'').slice(0,10).split('-');return s.length===3?s[2]+'/'+s[1]+'/'+s[0].slice(2):'';};
+  const byIssue={};
+  lineage.forEach((p,i)=>{byIssue[p.issue_no||i+1]={p,desc:(p.issue_desc!=null&&p.issue_desc!=='')?p.issue_desc:(i===0?'Original issue':(p.notes||'Revision'))};});
+  const slots=Math.max(6,Math.max.apply(null,[0].concat(Object.keys(byIssue).map(Number))));
+  let issueRows='';
+  for(let i=slots;i>=1;i--){
+    const e=byIssue[i];
+    issueRows+='<tr><td>'+String(i).padStart(2,'0')+'</td><td style="text-align:left">'+(e?escHtml(e.desc+' ('+(e.p.revision||'')+')'):'')+'</td><td>'+(e?dshort(e.p.created_at):'')+'</td><td></td></tr>';
+  }
+  const issueTable='<table class="xiss"><tr class="xissh"><td>Issue</td><td style="text-align:left">Description</td><td>Date</td><td>Revised</td></tr>'+issueRows+'</table>';
+  const tb=plan.title_block||{};
+  const vn=(viewName||'').trim();
+  const dwgNo=(tb.dwg_no||((currentProject.project_code||'PROJ')+'_GA_'+((deck.name||'')+(fl?'_'+fl.name:'')).replace(/[^A-Za-z0-9]+/g,'')+'_'+(plan.revision||'').replace(/[^A-Za-z0-9]+/g,'')).toUpperCase())+(vn?'_'+vn.replace(/[^A-Za-z0-9]+/g,'').toUpperCase():'');
+  const titleLines='<div class="xtt1">'+escHtml((currentProject.name||'').toUpperCase())+'</div><div class="xtt2">GA PLAN - '+escHtml(((deck.name||'')+(fl?' - '+fl.name:'')).toUpperCase())+'</div><div class="xtt2">'+escHtml(((vn||tb.subject||'TECHNOLOGY LAYOUT')).toUpperCase())+'</div>';
+  const notesTxt=escHtml(tb.notes||plan.notes||'ALL DEVICE POSITIONS ARE INDICATIVE UNLESS DIMENSIONED');
+  const kv=(l,v,extra)=>'<div class="xkv'+(extra||'')+'"><span>'+escHtml(l)+'</span><b>'+v+'</b></div>';
+  const metaRows=kv('Project:',escHtml(currentProject.project_code||currentProject.name||''))+kv('Designed:',escHtml(tb.designed||'SMART'))+kv('Drawn:',escHtml(tb.drawn||'-'))+kv('Checked:',escHtml(tb.checked||'-'));
+  const tbh='<div class="xtb xtbh">'
+    +'<div class="xsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
+    +'<div class="xsec" style="flex:1.25;padding:0">'+issueTable+'</div>'
+    +'<div class="xsec" style="flex:1"><div class="xsech">Drawing Title</div>'+titleLines+'</div>'
+    +'<div class="xsec" style="flex:1"><div class="xsech">Notes:</div><div class="xnote">'+notesTxt+'</div></div>'
+    +'<div class="xsec xmeta" style="width:168px;padding:0">'+metaRows+'</div>'
+    +'<div class="xsec" style="width:195px;padding:0;display:flex;flex-direction:column">'
+      +'<div class="xkv" style="flex:1;border-bottom:1px solid #111"><span>DWG No.</span><b style="font-size:9.5px">'+escHtml(dwgNo)+'</b></div>'
+      +'<div style="display:flex;flex:1;border-bottom:1px solid #111"><div class="xkv" style="flex:1;border-right:1px solid #111"><span>Scale:</span><b class="xscalev"></b></div><div class="xkv" style="width:62px"><span>Plot:</span><b class="xplotv">A3</b></div></div>'
+      +'<div class="xkv xconf" style="flex:1"><span>Status</span><b>CONFIDENTIAL</b></div>'
+    +'</div>'
+    +'</div>';
+  const tbv='<div class="xtb xtbv">'
+    +'<div class="xvsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
+    +'<div class="xvsec"><div class="xsech">Drawing Title</div>'+titleLines+'</div>'
+    +'<div class="xvsec" style="padding:0">'+issueTable+'</div>'
+    +'<div class="xvsec"><div class="xsech">Notes:</div><div class="xnote">'+notesTxt+'</div></div>'
+    +'<div class="xvsec" style="padding:4px 0">'+metaRows+'</div>'
+    +'<div class="xvsec" style="padding:4px 0">'
+      +kv('DWG No.','<span style="font-size:9px">'+escHtml(dwgNo)+'</span>')
+      +kv('Scale:','<span class="xscalev"></span>')
+      +kv('Plot:','<span class="xplotv">A3</span>')
+      +kv('Status','CONFIDENTIAL',' xconf')
+    +'</div>'
+    +'<div class="xvgrow"></div>'
+    +'</div>';
+  const gcols=14,grows=10;
+  let gtop='';for(let i=1;i<=gcols;i++)gtop+='<div>'+i+'</div>';
+  let gleft='';for(let i=grows;i>=1;i--)gleft+='<div>'+String.fromCharCode(64+i)+'</div>';
+  const realW=plan.scale_px_per_m>0?((plan.image_width||gaImgW)/plan.scale_px_per_m):0;
+  return '<div class="xsheet" data-realw="'+realW+'"><div class="xframe">'
+    +'<div class="xgridtop"><div class="xgcorner"></div>'+gtop+'</div>'
+    +'<div class="xrow">'
+    +'<div class="xgridleft">'+gleft+'</div>'
+    +'<div class="xcontent">'+stageHtml+'</div>'
+    +tbv
+    +'</div>'
+    +tbh
+    +'</div></div>';
+}
+// Open a print window containing the given sheets, with the shared export options card
+function _gaOpenExportWindow(sheets,docTitle,anyCal){
     const appCss=(document.querySelector('style')||{}).textContent||'';
-    const year=new Date().getFullYear();
-    const brandSvg=(typeof SPEC_LOGO_SVG!=='undefined'&&SPEC_LOGO_SVG)?SPEC_LOGO_SVG:'<span class="xbrandtxt">SMART</span>';
-    const copyr='Copyright &copy; '+year+' SMART Technology Advisers Limited. All rights reserved.';
-    // Issue table: this deck and floor's revision lineage, house drawing style
-    const lineage=gaDeckPlans(plan.deck_id).filter(p=>((p.floor_id||null)===(plan.floor_id||null))).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-    const dshort=iso=>{const s=(iso||'').slice(0,10).split('-');return s.length===3?s[2]+'/'+s[1]+'/'+s[0].slice(2):'';};
-    // Issue number and description come from the Sheet Info issue history when set
-    const byIssue={};
-    lineage.forEach((p,i)=>{byIssue[p.issue_no||i+1]={p,desc:(p.issue_desc!=null&&p.issue_desc!=='')?p.issue_desc:(i===0?'Original issue':(p.notes||'Revision'))};});
-    const slots=Math.max(6,Math.max.apply(null,[0].concat(Object.keys(byIssue).map(Number))));
-    let issueRows='';
-    for(let i=slots;i>=1;i--){
-      const e=byIssue[i];
-      issueRows+='<tr><td>'+String(i).padStart(2,'0')+'</td><td style="text-align:left">'+(e?escHtml(e.desc+' ('+(e.p.revision||'')+')'):'')+'</td><td>'+(e?dshort(e.p.created_at):'')+'</td><td></td></tr>';
-    }
-    const issueTable='<table class="xiss"><tr class="xissh"><td>Issue</td><td style="text-align:left">Description</td><td>Date</td><td>Revised</td></tr>'+issueRows+'</table>';
-    const tb=plan.title_block||{};
-    const dwgNo=tb.dwg_no||((currentProject.project_code||'PROJ')+'_GA_'+((deck.name||'')+(fl?'_'+fl.name:'')).replace(/[^A-Za-z0-9]+/g,'')+'_'+(plan.revision||'').replace(/[^A-Za-z0-9]+/g,'')).toUpperCase();
-    const titleLines='<div class="xtt1">'+escHtml((currentProject.name||'').toUpperCase())+'</div><div class="xtt2">GA PLAN - '+escHtml(((deck.name||'')+(fl?' - '+fl.name:'')).toUpperCase())+'</div><div class="xtt2">'+escHtml((tb.subject||'TECHNOLOGY LAYOUT').toUpperCase())+'</div>';
-    const notesTxt=escHtml(tb.notes||plan.notes||'ALL DEVICE POSITIONS ARE INDICATIVE UNLESS DIMENSIONED');
-    const kv=(l,v,extra)=>'<div class="xkv'+(extra||'')+'"><span>'+escHtml(l)+'</span><b>'+v+'</b></div>';
-    const metaRows=kv('Project:',escHtml(currentProject.project_code||currentProject.name||''))+kv('Designed:',escHtml(tb.designed||'SMART'))+kv('Drawn:',escHtml(tb.drawn||'-'))+kv('Checked:',escHtml(tb.checked||'-'));
-    // Horizontal title block along the bottom (matches the house sheet)
-    const tbh='<div class="xtb xtbh">'
-      +'<div class="xsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
-      +'<div class="xsec" style="flex:1.25;padding:0">'+issueTable+'</div>'
-      +'<div class="xsec" style="flex:1"><div class="xsech">Drawing Title</div>'+titleLines+'</div>'
-      +'<div class="xsec" style="flex:1"><div class="xsech">Notes:</div><div class="xnote">'+notesTxt+'</div></div>'
-      +'<div class="xsec xmeta" style="width:168px;padding:0">'+metaRows+'</div>'
-      +'<div class="xsec" style="width:195px;padding:0;display:flex;flex-direction:column">'
-        +'<div class="xkv" style="flex:1;border-bottom:1px solid #111"><span>DWG No.</span><b style="font-size:9.5px">'+escHtml(dwgNo)+'</b></div>'
-        +'<div style="display:flex;flex:1;border-bottom:1px solid #111"><div class="xkv" style="flex:1;border-right:1px solid #111"><span>Scale:</span><b class="xscalev"></b></div><div class="xkv" style="width:62px"><span>Plot:</span><b class="xplotv">A3</b></div></div>'
-        +'<div class="xkv xconf" style="flex:1"><span>Status</span><b>CONFIDENTIAL</b></div>'
-      +'</div>'
-      +'</div>';
-    // Vertical title block down the right edge, same style stacked
-    const tbv='<div class="xtb xtbv">'
-      +'<div class="xvsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
-      +'<div class="xvsec"><div class="xsech">Drawing Title</div>'+titleLines+'</div>'
-      +'<div class="xvsec" style="padding:0">'+issueTable+'</div>'
-      +'<div class="xvsec"><div class="xsech">Notes:</div><div class="xnote">'+notesTxt+'</div></div>'
-      +'<div class="xvsec" style="padding:4px 0">'+metaRows+'</div>'
-      +'<div class="xvsec" style="padding:4px 0">'
-        +kv('DWG No.','<span style="font-size:9px">'+escHtml(dwgNo)+'</span>')
-        +kv('Scale:','<span class="xscalev"></span>')
-        +kv('Plot:','<span class="xplotv">A3</span>')
-        +kv('Status','CONFIDENTIAL',' xconf')
-      +'</div>'
-      +'<div class="xvgrow"></div>'
-      +'</div>';
-    const gcols=14,grows=10;
-    let gtop='';for(let i=1;i<=gcols;i++)gtop+='<div>'+i+'</div>';
-    let gleft='';for(let i=grows;i>=1;i--)gleft+='<div>'+String.fromCharCode(64+i)+'</div>';
     const xcss='body.ga-export{background:#9aa3ad;margin:0;padding:16px;font-family:Arial,Helvetica,sans-serif}'
-      +'.xsheet{background:#fff;margin:0 auto;max-width:1700px;box-shadow:0 4px 18px rgba(0,0,0,.35)}'
+      +'.xsheet{background:#fff;margin:0 auto 26px;max-width:1700px;box-shadow:0 4px 18px rgba(0,0,0,.35)}'
       +'.xframe{border:2px solid #111;margin:10px;display:flex;flex-direction:column}'
       +'.xgridtop{display:flex;height:17px;border-bottom:1px solid #111}'
       +'.xgcorner{width:17px;border-right:1px solid #111;flex-shrink:0}'
@@ -2761,52 +2864,109 @@ async function gaExportGa(){
       +'.xbar button{width:100%;padding:11px 0;font-size:14px;font-weight:700;border:0;border-radius:8px;background:#0f6e8c;color:#fff;cursor:pointer;margin-top:2px}'
       +'body.tbb .xtbv{display:none}'
       +'body.tbr .xtbh{display:none}'
-      +'@media print{body.ga-export{background:#fff;padding:0}.xsheet{box-shadow:none;max-width:none}.xbar{display:none}}';
-    const realW=plan.scale_px_per_m>0?(gaImgW/plan.scale_px_per_m):0;
-    const fit='var CAL='+(plan.scale_px_per_m>0?1:0)+';'
-      +'var fit=function(){var s0=document.querySelector(".xstage"),b=document.querySelector(".xcontent");if(!s0||!b)return;'
-      +'var W='+gaImgW+',H='+gaImgH+',s=b.clientWidth/W;'
-      +'s0.style.transform="scale("+s+")";s0.style.transformOrigin="0 0";s0.style.setProperty("--ga-inv",String(1/s));'
-      +'s0.style.setProperty("--ga-pininv",String(CAL?1:(1/s)));b.style.height=(H*s)+"px";};'
-      +'var PAPER={A4:297,A3:420,A2:594,A1:841};var REAL_W='+realW+';'
+      +'@media print{body.ga-export{background:#fff;padding:0}.xsheet{box-shadow:none;max-width:none;margin:0;page-break-after:always}.xsheet:last-child{page-break-after:auto}.xbar{display:none}}';
+    const fit='var fit=function(){document.querySelectorAll(".xsheet").forEach(function(sh){'
+      +'var s0=sh.querySelector(".xstage"),b=sh.querySelector(".xcontent");if(!s0||!b)return;'
+      +'var W=+s0.dataset.w,H=+s0.dataset.h,s=b.clientWidth/W;'
+      +'s0.style.transform="scale("+s+")";s0.style.transformOrigin="0 0";'
+      +'s0.style.setProperty("--ga-inv",String(1/s));'
+      +'s0.style.setProperty("--ga-pininv",String(s0.dataset.cal==="1"?1:(1/s)));'
+      +'b.style.height=(H*s)+"px";});};'
+      +'var PAPER={A4:297,A3:420,A2:594,A1:841};'
       +'function niceRatio(r){if(r>=200)return Math.round(r/10)*10;if(r>=50)return Math.round(r/5)*5;return Math.round(r);}'
       +'function refresh(){var p=document.getElementById("xpapersel").value;'
       +'var st=document.getElementById("xpage");if(st)st.textContent="@page{size:"+p+" landscape;margin:8mm}";'
-      +'var nts=document.getElementById("xnts");var ntsOn=REAL_W<=0||(nts&&nts.checked);'
-      +'var bar=document.getElementById("xscalebar");if(bar)bar.style.display=ntsOn?"none":"";'
+      +'var nts=document.getElementById("xnts");'
       +'var right=document.body.className.indexOf("tbr")>=0;'
       +'var cw=PAPER[p]-16-6-5-(right?58:0);'
-      +'var txt=ntsOn?"NTS":"approx 1:"+niceRatio(REAL_W*1000/cw);'
-      +'document.querySelectorAll(".xscalev").forEach(function(e){e.textContent=txt;});'
-      +'document.querySelectorAll(".xplotv").forEach(function(e){e.textContent=p;});'
+      +'document.querySelectorAll(".xsheet").forEach(function(sh){'
+      +'var rw=parseFloat(sh.dataset.realw)||0;'
+      +'var ntsOn=rw<=0||(nts&&nts.checked);'
+      +'var bar=sh.querySelector(".xscalebar");if(bar)bar.style.display=ntsOn?"none":"";'
+      +'var txt=ntsOn?"NTS":"approx 1:"+niceRatio(rw*1000/cw);'
+      +'sh.querySelectorAll(".xscalev").forEach(function(e){e.textContent=txt;});'
+      +'sh.querySelectorAll(".xplotv").forEach(function(e){e.textContent=p;});});'
       +'fit();}'
       +'function setTb(m){document.body.className="ga-export "+(m==="right"?"tbr":"tbb");refresh();}'
       +'window.addEventListener("load",refresh);'
       +'window.addEventListener("resize",fit);window.addEventListener("beforeprint",fit);';
     const LT='<';
-    const html='<!doctype html><html><head><meta charset="utf-8"><title>'+escHtml((currentProject.project_code||'')+' GA '+(deck.name||'')+' '+(plan.revision||''))+'</title>'
+    const html='<!doctype html><html><head><meta charset="utf-8"><title>'+escHtml(docTitle||'GA Export')+'</title>'
       +LT+'style>'+appCss+xcss+LT+'/style>'
       +LT+'style id="xpage">@page{size:A3 landscape;margin:8mm}'+LT+'/style>'
       +'</head><body class="ga-export tbb">'
-      +'<div class="xbar"><div class="xbart">Export options</div>'
+      +'<div class="xbar"><div class="xbart">Export options'+(sheets.length>1?' ('+sheets.length+' sheets)':'')+'</div>'
       +'<div class="xrowc"><span>Paper size</span><select id="xpapersel" onchange="refresh()"><option>A4</option><option selected>A3</option><option>A2</option><option>A1</option></select></div>'
       +'<div class="xrowc"><span>Title block</span><select id="xtbpos" onchange="setTb(this.value)"><option value="bottom" selected>Bottom</option><option value="right">Right</option></select></div>'
-      +(realW>0?'<label><input type="checkbox" id="xnts" style="margin:0;width:auto" onchange="refresh()"> Not to scale</label>':'')
+      +(anyCal?'<label><input type="checkbox" id="xnts" style="margin:0;width:auto" onchange="refresh()"> Not to scale</label>':'')
       +'<button onclick="window.print()">Print / Save as PDF</button></div>'
-      +'<div class="xsheet"><div class="xframe">'
-      +'<div class="xgridtop"><div class="xgcorner"></div>'+gtop+'</div>'
-      +'<div class="xrow">'
-      +'<div class="xgridleft">'+gleft+'</div>'
-      +'<div class="xcontent">'+clone.outerHTML+'</div>'
-      +tbv
-      +'</div>'
-      +tbh
-      +'</div></div>'
+      +sheets.join('')
       +LT+'script>'+fit+LT+'/script></body></html>';
-    const w=window.open('','_blank');
-    if(!w){showToast('The browser blocked the export window. Please allow pop-ups for this site.','error');return;}
-    w.document.write(html);w.document.close();
+  const w=window.open('','_blank');
+  if(!w){showToast('The browser blocked the export window. Please allow pop-ups for this site.','error');return;}
+  w.document.write(html);w.document.close();
+}
+// Single export: the plan being shown, with whatever views and filters are live right now
+async function gaExportGa(){
+  const plan=gaShownPlan();
+  if(!plan){showToast('Upload a plan first','error');return;}
+  try{
+    const url=await storageSignedUrl(plan.image_path,600);
+    const resp=await fetch(url);
+    if(!resp.ok)throw new Error('Could not load the plan image');
+    const imgUrl=URL.createObjectURL(await resp.blob());
+    const view={plan_view:gaPlanView,hidden_groups:[...gaHiddenGroups],show_type:gaShowType,show_uid:gaShowUid,pin_m:gaPinSizeM};
+    const stage=_gaStaticStageHtml(plan,imgUrl,gaPins,gaBounds,gaClouds,view,'s1');
+    const deck=currentDecks.find(d=>d.id===plan.deck_id)||{};
+    _gaOpenExportWindow([_gaSheetHtml(plan,stage,'')],(currentProject.project_code||'')+' GA '+(deck.name||'')+' '+(plan.revision||''),plan.scale_px_per_m>0);
   }catch(e){showToast('Export failed: '+e.message,'error');}
+}
+// Export Set: tick decks and saved views, get one print window with a sheet per combination
+function openGaExportSet(){
+  const plans=[];
+  currentDecks.forEach(d=>{
+    if(isBuildingProj()){
+      gaFloorsFor(d.id).forEach(f=>{const p=gaCurrentPlanFor(d.id,f.id);if(p)plans.push({p,label:d.name+' - '+f.name});});
+    }else{
+      const p=gaCurrentPlanFor(d.id,null);if(p)plans.push({p,label:d.name});
+    }
+  });
+  if(!plans.length){showToast('No current plans uploaded yet','error');return;}
+  if(!gaSavedViews.length){showToast('Save at least one view first (Views panel)','error');return;}
+  document.getElementById('ga-set-plans').innerHTML=plans.map(x=>'<label class="vrow"><input type="checkbox" checked data-setplan="'+x.p.id+'">'+escHtml(x.label)+' <span style="color:var(--text-3);font-size:11px">'+escHtml(x.p.revision||'')+'</span></label>').join('');
+  document.getElementById('ga-set-views').innerHTML=gaSavedViews.map(v=>'<label class="vrow"><input type="checkbox" checked data-setview="'+v.id+'">'+escHtml(v.name)+'</label>').join('');
+  document.getElementById('ga-set-overlay').classList.add('open');
+}
+function closeGaExportSet(){document.getElementById('ga-set-overlay').classList.remove('open');}
+async function gaRunExportSet(){
+  const planIds=[...document.querySelectorAll('#ga-set-plans input:checked')].map(i=>i.dataset.setplan);
+  const viewIds=[...document.querySelectorAll('#ga-set-views input:checked')].map(i=>i.dataset.setview);
+  const views=viewIds.map(id=>gaSavedViews.find(v=>v.id===id)).filter(Boolean);
+  const plans=planIds.map(id=>gaPlans.find(p=>p.id===id)).filter(Boolean);
+  if(!plans.length||!views.length){showToast('Tick at least one plan and one view','error');return;}
+  const btn=document.getElementById('ga-set-run');btn.textContent='Building…';btn.disabled=true;
+  try{
+    if(!currentRooms.length&&currentDecks.length)currentRooms=await dbGet('rooms','deck_id=in.('+currentDecks.map(d=>d.id).join(',')+')'+'&order=room_number.asc');
+    const sheets=[];let anyCal=false,uid=0;
+    for(const plan of plans){
+      const [pins,bounds,clouds]=await Promise.all([
+        dbGet('plan_equipment_pins','deck_plan_id=eq.'+plan.id),
+        dbGet('plan_room_boundaries','deck_plan_id=eq.'+plan.id),
+        dbGet('plan_rev_clouds','deck_plan_id=eq.'+plan.id+'&order=created_at.asc')
+      ]);
+      const url=await storageSignedUrl(plan.image_path,600);
+      const resp=await fetch(url);
+      if(!resp.ok)throw new Error('Could not load the plan image for '+(plan.revision||'a plan'));
+      const imgUrl=URL.createObjectURL(await resp.blob());
+      if(plan.scale_px_per_m>0)anyCal=true;
+      for(const v of views){
+        sheets.push(_gaSheetHtml(plan,_gaStaticStageHtml(plan,imgUrl,pins,bounds,clouds,v,'u'+(++uid)),v.name));
+      }
+    }
+    closeGaExportSet();
+    _gaOpenExportWindow(sheets,(currentProject.project_code||'')+' GA Drawing Set',anyCal);
+  }catch(e){showToast('Export set failed: '+e.message,'error');}
+  finally{btn.textContent='Build Set';btn.disabled=false;}
 }
 function gaTogglePalette(){
   gaPaletteOpen=!gaPaletteOpen;
