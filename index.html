@@ -338,7 +338,7 @@
   .ga-pin.auto .mark { outline: 2px dashed #e67e22; outline-offset: 3px; border-radius: 50%; }
   .ga-blabel .ga-bshort { pointer-events: auto; cursor: pointer; background: #fff3cd; color: #856404; border: 1px solid #ffc107; border-radius: 3px; padding: 0 4px; font-size: 10px; margin-left: 3px; display: inline-block; }
   .ga-pin .mark { width: var(--pinpx,30px); height: var(--pinpx,30px); border-radius: 50%; border: 2px solid var(--c); background: #fff; color: var(--c); display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
-  .ga-pin .mark svg { width: 56%; height: 56%; }
+  .ga-pin .mark svg { width: 56%; height: 56%; display: block; }
   /* Mounting-position shapes (Shane, Oct 2026): circle ceiling, square wall, diamond floor, triangle rack */
   .ga-pin .mark.m-wall { border-radius: 16%; }
   .ga-pin .mark.m-floor { border-radius: 10%; transform: rotate(45deg); }
@@ -2753,9 +2753,8 @@ function _gaStaticStageHtml(plan,imgUrl,pins,bounds,clouds,view,uid){
 }
 // One complete sheet: frame, grid references, stage, key and both title blocks
 function _gaSheetHtml(plan,stageHtml,viewName,key){
-  const keyItems=(key||[]).map(k=>'<div class="xkeyi"><span class="xkmark m-'+k.m+'" style="--c:'+k.c+'">'+k.svg+'</span><span><b>'+escHtml(k.t)+'</b> '+escHtml(k.d)+'</span></div>').join('');
-  const keyH=keyItems?'<div class="xkey xkeyh"><div class="xkeyt">Key</div>'+keyItems+'</div>':'';
-  const keyV=keyItems?'<div class="xvsec xkeyv"><div class="xsech">Key</div><div class="xkey" style="padding:0;flex-direction:column;align-items:stretch;gap:3px">'+keyItems+'</div></div>':'';
+  // Key entries: enlarged symbol on the left spanning two text rows (type ID, description)
+  const keyItems=(key||[]).map(k=>'<div class="xkeyi"><span class="xkmark m-'+k.m+'" style="--c:'+k.c+'">'+k.svg+'</span><span class="xkt"><b>'+escHtml(k.t)+'</b><i>'+escHtml(k.d)+'</i></span></div>').join('');
   const deck=currentDecks.find(d=>d.id===plan.deck_id)||{};
   const fl=plan.floor_id?(currentFloors||[]).find(f=>f.id===plan.floor_id):null;
   const year=new Date().getFullYear();
@@ -2781,9 +2780,9 @@ function _gaSheetHtml(plan,stageHtml,viewName,key){
   const metaRows=kv('Project:',escHtml(currentProject.project_code||currentProject.name||''))+kv('Designed:',escHtml(tb.designed||'SMART'))+kv('Drawn:',escHtml(tb.drawn||'-'))+kv('Checked:',escHtml(tb.checked||'-'));
   const tbh='<div class="xtb xtbh">'
     +'<div class="xsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
-    +'<div class="xsec" style="flex:1.25;padding:0">'+issueTable+'</div>'
-    +'<div class="xsec" style="flex:1"><div class="xsech">Drawing Title</div>'+titleLines+'</div>'
-    +'<div class="xsec" style="flex:1"><div class="xsech">Notes:</div><div class="xnote">'+notesTxt+'</div></div>'
+    +'<div class="xsec" style="flex:1.2;padding:0">'+issueTable+'</div>'
+    +'<div class="xsec" style="flex:1"><div class="xsech">Drawing Title</div>'+titleLines+'<div class="xsech" style="margin-top:4px">Notes:</div><div class="xnote2">'+notesTxt+'</div></div>'
+    +'<div class="xsec" style="flex:1.35;padding:4px 8px"><div class="xsech">Key</div>'+(keyItems?'<div class="xkeywrap">'+keyItems+'</div>':'<div class="xnote2" style="color:#555">No devices shown</div>')+'</div>'
     +'<div class="xsec xmeta" style="width:168px;padding:0">'+metaRows+'</div>'
     +'<div class="xsec" style="width:195px;padding:0;display:flex;flex-direction:column">'
       +'<div class="xkv" style="flex:1;border-bottom:1px solid #111"><span>DWG No.</span><b style="font-size:9.5px">'+escHtml(dwgNo)+'</b></div>'
@@ -2793,9 +2792,9 @@ function _gaSheetHtml(plan,stageHtml,viewName,key){
     +'</div>';
   const tbv='<div class="xtb xtbv">'
     +'<div class="xvsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
-    +'<div class="xvsec"><div class="xsech">Drawing Title</div>'+titleLines+'</div>'
+    +'<div class="xvsec"><div class="xsech">Drawing Title</div>'+titleLines+'<div class="xsech" style="margin-top:5px">Notes:</div><div class="xnote2">'+notesTxt+'</div></div>'
     +'<div class="xvsec" style="padding:0">'+issueTable+'</div>'
-    +'<div class="xvsec"><div class="xsech">Notes:</div><div class="xnote">'+notesTxt+'</div></div>'
+    +(keyItems?'<div class="xvsec"><div class="xsech">Key</div><div class="xkeywrap" style="flex-direction:column;gap:3px">'+keyItems+'</div></div>':'')
     +'<div class="xvsec" style="padding:4px 0">'+metaRows+'</div>'
     +'<div class="xvsec" style="padding:4px 0">'
       +kv('DWG No.','<span style="font-size:9px">'+escHtml(dwgNo)+'</span>')
@@ -2814,9 +2813,8 @@ function _gaSheetHtml(plan,stageHtml,viewName,key){
     +'<div class="xrow">'
     +'<div class="xgridleft">'+gleft+'</div>'
     +'<div class="xcontent">'+stageHtml+'</div>'
-    +tbv.replace('<div class="xvgrow">',keyV+'<div class="xvgrow">')
+    +tbv
     +'</div>'
-    +keyH
     +tbh
     +'</div></div>';
 }
@@ -2864,20 +2862,19 @@ function _gaOpenExportWindow(sheets,docTitle,anyCal){
       +'.xmeta .xkv{flex:1;border-bottom:1px solid #111;align-items:center}'
       +'.xmeta .xkv:last-child{border-bottom:0}'
       +'.xconf b{color:#b02a2a}'
-      +'.xkey{display:flex;flex-wrap:wrap;gap:2px 14px;padding:4px 10px;align-items:center}'
-      +'.xkeyh{border-top:1.5px solid #111}'
-      +'.xkeyt{font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-right:4px}'
-      +'.xkeyi{display:flex;align-items:center;gap:5px;font-size:8.5px;color:#111}'
-      +'.xkeyi b{font-size:9px}'
-      +'.xkmark{width:13px;height:13px;flex-shrink:0;border:1.6px solid var(--c);background:#fff;color:var(--c);display:grid;place-items:center;border-radius:50%;box-sizing:border-box}'
-      +'.xkmark svg{width:8px;height:8px}'
-      +'.xkmark.m-wall{border-radius:2px}'
-      +'.xkmark.m-floor{border-radius:1px;transform:rotate(45deg)}'
+      +'.xkeywrap{display:flex;flex-wrap:wrap;gap:3px 14px;align-content:flex-start;overflow:hidden}'
+      +'.xkeyi{display:flex;align-items:center;gap:6px;color:#111}'
+      +'.xkt{display:flex;flex-direction:column;line-height:1.25;min-width:0}'
+      +'.xkt b{font-size:9px}'
+      +'.xkt i{font-style:normal;font-size:8px;color:#333}'
+      +'.xkmark{width:20px;height:20px;flex-shrink:0;border:1.8px solid var(--c);background:#fff;color:var(--c);display:grid;place-items:center;border-radius:50%;box-sizing:border-box}'
+      +'.xkmark svg{width:60%;height:60%;display:block}'
+      +'.xkmark.m-wall{border-radius:3px}'
+      +'.xkmark.m-floor{border-radius:2px;transform:rotate(45deg)}'
       +'.xkmark.m-floor svg{transform:rotate(-45deg)}'
       +'.xkmark.m-rack{border-radius:0;border-color:transparent;clip-path:polygon(50% 2%,100% 98%,0 98%);background:var(--c);color:#fff}'
-      +'.xkmark.m-rack svg{width:6px;height:6px;margin-top:3px}'
-      +'body.tbr .xkeyh{display:none}'
-      +'body.tbb .xkeyv{display:none}'
+      +'.xkmark.m-rack svg{width:48%;height:48%;margin-top:22%}'
+      +'.xnote2{font-size:8.5px;text-align:center;color:#111}'
       +'.xbar{position:fixed;top:14px;right:14px;z-index:50;width:232px;background:#fff;border:1px solid #8a939d;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.35);padding:12px 14px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#111}'
       +'.xbart{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#555}'
       +'.xbar .xrowc{display:flex;align-items:center;justify-content:space-between;gap:10px}'
