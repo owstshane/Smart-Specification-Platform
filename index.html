@@ -367,7 +367,7 @@
   #ga-overlay path.ga-cloud.flash { stroke-width: 4; fill: rgba(192,57,43,.18); }
   .ga-delta { position: absolute; transform: translate(-50%,-100%) scale(var(--ga-inv,1)); transform-origin: 50% 100%; cursor: pointer; z-index: 2; width: 34px; height: 30px; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: #c0392b; color: #fff; display: grid; place-items: end center; font-weight: 700; font-size: 11px; padding-bottom: 2px; }
   .ga-grid-panel { position: absolute; right: 62px; bottom: 12px; z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 12px 14px; width: 230px; font-size: 13px; }
-  .ga-views-panel { position: absolute; left: 12px; bottom: 12px; z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 12px 14px; width: 250px; font-size: 13px; max-height: 70%; overflow-y: auto; }
+  .ga-views-panel { width: 250px; flex: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; overflow-y: auto; height: calc(100vh - 310px); min-height: 380px; box-sizing: border-box; }
   .ga-views-panel h4 { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin: 10px 0 5px; }
   .ga-views-panel h4:first-child { margin-top: 0; }
   .ga-views-panel label.vrow { display: flex; align-items: center; gap: 7px; padding: 2px 0; cursor: pointer; font-size: 13px; }
@@ -423,7 +423,7 @@
   body.ga-focus #page-decks-rooms .section-tabs { display: none; }
   body.ga-focus #page-decks-rooms .section-tabs-row { margin-bottom: 8px; }
   body.ga-focus .content { padding: 10px 14px; }
-  body.ga-focus .ga-viewport, body.ga-focus .ga-palette, body.ga-focus .ga-revlog { height: calc(100vh - 118px); }
+  body.ga-focus .ga-viewport, body.ga-focus .ga-palette, body.ga-focus .ga-revlog, body.ga-focus .ga-views-panel { height: calc(100vh - 118px); }
   body.ga-focus .ga-focus-exit { display: inline-flex; }
   .ga-pick-dot { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; background: var(--c); color: #fff; }
   .ga-pick-dot svg { width: 16px; height: 16px; }
@@ -2554,12 +2554,13 @@ function renderGaPlans(){
     +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan" draggable="false"><svg id="ga-overlay"></svg></div>'
     +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button><button onclick="gaStartScale()" title="Set the drawing scale: tap two points a known distance apart" style="font-size:10px">Scale</button></div>'
     +'<div class="ga-grid-panel" id="ga-grid-panel" style="display:none"></div>'
-    +'<div class="ga-views-panel" id="ga-views-panel" style="display:none"></div>'
     +'<button class="ga-focus-exit btn btn-secondary btn-sm" onclick="gaToggleFocus()">Exit full screen</button>'
     +'</div>'
+    +'<div class="ga-views-panel" id="ga-views-panel" style="display:'+(gaViewsPanelOpen?'':'none')+'"></div>'
     +'<div class="ga-revlog" id="ga-revlog" style="display:'+(gaRevLogOpen?'':'none')+'"></div>'
     +'</div>';
   wireGaViewport();
+  if(gaViewsPanelOpen)renderGaViewsPanel();
   if(gaGridPanelOpen){const gp=document.getElementById('ga-grid-panel');if(gp){gp.style.display='';renderGaGridPanel();}}
   renderGaPalette();
   gaShowImage(showing);
