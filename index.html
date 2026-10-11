@@ -2726,6 +2726,7 @@ function _gaStaticStageHtml(plan,imgUrl,pins,bounds,clouds,view,uid){
     overlays+='<div class="ga-blabel'+(room?'':' unassigned')+'" style="left:'+(cx*100)+'%;top:'+(cy*100)+'%">'+escHtml(room?room.name:'Room not assigned')+'</div>';
   });
   let pinsHtml='';
+  const keyMap={};
   (pins||[]).forEach(pin=>{
     const inst=instById[pin.equipment_instance_id];
     if(!inst||inst.change_status==='removed')return;
@@ -2739,15 +2740,22 @@ function _gaStaticStageHtml(plan,imgUrl,pins,bounds,clouds,view,uid){
     if(view.show_uid!==false)tag+=(view.show_type!==false)?'<span class="tid">'+escHtml(inst.device_id||'')+'</span>':escHtml(inst.device_id||'?');
     pinsHtml+='<div class="ga-pin'+(inst.pre_wire?' prewire':'')+'" style="left:'+(pin.x*100)+'%;top:'+(pin.y*100)+'%;--c:'+gaGroupColour(pe.system_group)+'">'
       +'<span class="mark m-'+mnt+'">'+gaIconSvg(gaIconKey(pe))+'</span>'+(tag?'<span class="tag">'+tag+'</span>':'')+'</div>';
+    const kt=pe.device_type_id||'?';
+    if(!keyMap[kt])keyMap[kt]={t:kt,d:pe.description||'',m:mnt,c:gaGroupColour(pe.system_group),svg:gaIconSvg(gaIconKey(pe))};
   });
-  return '<div class="xstage" data-w="'+W+'" data-h="'+H+'" data-cal="'+(ppm?1:0)+'" style="position:relative;width:'+W+'px;height:'+H+'px;--pinpx:'+pinpx+'px;--ga-pininv:1;--ga-inv:1">'
+  const key=Object.values(keyMap).sort((a,b)=>a.t.localeCompare(b.t));
+  const stage='<div class="xstage" data-w="'+W+'" data-h="'+H+'" data-cal="'+(ppm?1:0)+'" style="position:relative;width:'+W+'px;height:'+H+'px;--pinpx:'+pinpx+'px;--ga-pininv:1;--ga-inv:1">'
     +'<img src="'+imgUrl+'" draggable="false" style="width:'+W+'px;height:'+H+'px;display:block">'
     +'<svg id="ga-overlay" viewBox="0 0 '+W+' '+H+'" style="position:absolute;left:0;top:0;width:100%;height:100%">'+svg+'</svg>'
     +overlays+pinsHtml+_gaScaleBarHtml(plan)
     +'</div>';
+  return {stage,key};
 }
-// One complete sheet: frame, grid references, stage, and both title blocks
-function _gaSheetHtml(plan,stageHtml,viewName){
+// One complete sheet: frame, grid references, stage, key and both title blocks
+function _gaSheetHtml(plan,stageHtml,viewName,key){
+  const keyItems=(key||[]).map(k=>'<div class="xkeyi"><span class="xkmark m-'+k.m+'" style="--c:'+k.c+'">'+k.svg+'</span><span><b>'+escHtml(k.t)+'</b> '+escHtml(k.d)+'</span></div>').join('');
+  const keyH=keyItems?'<div class="xkey xkeyh"><div class="xkeyt">Key</div>'+keyItems+'</div>':'';
+  const keyV=keyItems?'<div class="xvsec xkeyv"><div class="xsech">Key</div><div class="xkey" style="padding:0;flex-direction:column;align-items:stretch;gap:3px">'+keyItems+'</div></div>':'';
   const deck=currentDecks.find(d=>d.id===plan.deck_id)||{};
   const fl=plan.floor_id?(currentFloors||[]).find(f=>f.id===plan.floor_id):null;
   const year=new Date().getFullYear();
@@ -2806,8 +2814,9 @@ function _gaSheetHtml(plan,stageHtml,viewName){
     +'<div class="xrow">'
     +'<div class="xgridleft">'+gleft+'</div>'
     +'<div class="xcontent">'+stageHtml+'</div>'
-    +tbv
+    +tbv.replace('<div class="xvgrow">',keyV+'<div class="xvgrow">')
     +'</div>'
+    +keyH
     +tbh
     +'</div></div>';
 }
@@ -2855,6 +2864,20 @@ function _gaOpenExportWindow(sheets,docTitle,anyCal){
       +'.xmeta .xkv{flex:1;border-bottom:1px solid #111;align-items:center}'
       +'.xmeta .xkv:last-child{border-bottom:0}'
       +'.xconf b{color:#b02a2a}'
+      +'.xkey{display:flex;flex-wrap:wrap;gap:2px 14px;padding:4px 10px;align-items:center}'
+      +'.xkeyh{border-top:1.5px solid #111}'
+      +'.xkeyt{font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-right:4px}'
+      +'.xkeyi{display:flex;align-items:center;gap:5px;font-size:8.5px;color:#111}'
+      +'.xkeyi b{font-size:9px}'
+      +'.xkmark{width:13px;height:13px;flex-shrink:0;border:1.6px solid var(--c);background:#fff;color:var(--c);display:grid;place-items:center;border-radius:50%;box-sizing:border-box}'
+      +'.xkmark svg{width:8px;height:8px}'
+      +'.xkmark.m-wall{border-radius:2px}'
+      +'.xkmark.m-floor{border-radius:1px;transform:rotate(45deg)}'
+      +'.xkmark.m-floor svg{transform:rotate(-45deg)}'
+      +'.xkmark.m-rack{border-radius:0;border-color:transparent;clip-path:polygon(50% 2%,100% 98%,0 98%);background:var(--c);color:#fff}'
+      +'.xkmark.m-rack svg{width:6px;height:6px;margin-top:3px}'
+      +'body.tbr .xkeyh{display:none}'
+      +'body.tbb .xkeyv{display:none}'
       +'.xbar{position:fixed;top:14px;right:14px;z-index:50;width:232px;background:#fff;border:1px solid #8a939d;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.35);padding:12px 14px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#111}'
       +'.xbart{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#555}'
       +'.xbar .xrowc{display:flex;align-items:center;justify-content:space-between;gap:10px}'
@@ -2921,9 +2944,9 @@ async function gaExportGa(){
     if(!resp.ok)throw new Error('Could not load the plan image');
     const imgUrl=URL.createObjectURL(await resp.blob());
     const view={plan_view:gaPlanView,hidden_groups:[...gaHiddenGroups],show_type:gaShowType,show_uid:gaShowUid,pin_m:gaPinSizeM};
-    const stage=_gaStaticStageHtml(plan,imgUrl,gaPins,gaBounds,gaClouds,view,'s1');
+    const built=_gaStaticStageHtml(plan,imgUrl,gaPins,gaBounds,gaClouds,view,'s1');
     const deck=currentDecks.find(d=>d.id===plan.deck_id)||{};
-    _gaOpenExportWindow([_gaSheetHtml(plan,stage,'')],(currentProject.project_code||'')+' GA '+(deck.name||'')+' '+(plan.revision||''),plan.scale_px_per_m>0);
+    _gaOpenExportWindow([_gaSheetHtml(plan,built.stage,'',built.key)],(currentProject.project_code||'')+' GA '+(deck.name||'')+' '+(plan.revision||''),plan.scale_px_per_m>0);
   }catch(e){showToast('Export failed: '+e.message,'error');}
 }
 // Export Set: tick decks and saved views, get one print window with a sheet per combination
@@ -2965,7 +2988,8 @@ async function gaRunExportSet(){
       const imgUrl=URL.createObjectURL(await resp.blob());
       if(plan.scale_px_per_m>0)anyCal=true;
       for(const v of views){
-        sheets.push(_gaSheetHtml(plan,_gaStaticStageHtml(plan,imgUrl,pins,bounds,clouds,v,'u'+(++uid)),v.name));
+        const built=_gaStaticStageHtml(plan,imgUrl,pins,bounds,clouds,v,'u'+(++uid));
+        sheets.push(_gaSheetHtml(plan,built.stage,v.name,built.key));
       }
     }
     closeGaExportSet();
