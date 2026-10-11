@@ -2780,9 +2780,9 @@ function _gaSheetHtml(plan,stageHtml,viewName,key){
   const metaRows=kv('Project:',escHtml(currentProject.project_code||currentProject.name||''))+kv('Designed:',escHtml(tb.designed||'SMART'))+kv('Drawn:',escHtml(tb.drawn||'-'))+kv('Checked:',escHtml(tb.checked||'-'));
   const tbh='<div class="xtb xtbh">'
     +'<div class="xsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
-    +'<div class="xsec" style="flex:1.2;padding:0">'+issueTable+'</div>'
-    +'<div class="xsec" style="flex:1"><div class="xsech">Drawing Title</div>'+titleLines+'<div class="xsech" style="margin-top:4px">Notes:</div><div class="xnote2">'+notesTxt+'</div></div>'
-    +'<div class="xsec" style="flex:1.35;padding:4px 8px"><div class="xsech">Key</div>'+(keyItems?'<div class="xkeywrap">'+keyItems+'</div>':'<div class="xnote2" style="color:#555">No devices shown</div>')+'</div>'
+    +'<div class="xsec" style="flex:1.25;padding:0">'+issueTable+'</div>'
+    +'<div class="xsec" style="flex:1"><div class="xsech">Drawing Title</div>'+titleLines+'</div>'
+    +'<div class="xsec" style="flex:1"><div class="xsech">Notes:</div><div class="xnote">'+notesTxt+'</div></div>'
     +'<div class="xsec xmeta" style="width:168px;padding:0">'+metaRows+'</div>'
     +'<div class="xsec" style="width:195px;padding:0;display:flex;flex-direction:column">'
       +'<div class="xkv" style="flex:1;border-bottom:1px solid #111"><span>DWG No.</span><b style="font-size:9.5px">'+escHtml(dwgNo)+'</b></div>'
@@ -2792,9 +2792,9 @@ function _gaSheetHtml(plan,stageHtml,viewName,key){
     +'</div>';
   const tbv='<div class="xtb xtbv">'
     +'<div class="xvsec xlogo"><div class="xlogoin">'+brandSvg+'</div><div class="xcopy">'+copyr+'</div></div>'
-    +'<div class="xvsec"><div class="xsech">Drawing Title</div>'+titleLines+'<div class="xsech" style="margin-top:5px">Notes:</div><div class="xnote2">'+notesTxt+'</div></div>'
+    +'<div class="xvsec"><div class="xsech">Drawing Title</div>'+titleLines+'</div>'
     +'<div class="xvsec" style="padding:0">'+issueTable+'</div>'
-    +(keyItems?'<div class="xvsec"><div class="xsech">Key</div><div class="xkeywrap" style="flex-direction:column;gap:3px">'+keyItems+'</div></div>':'')
+    +'<div class="xvsec"><div class="xsech">Notes:</div><div class="xnote2">'+notesTxt+'</div></div>'
     +'<div class="xvsec" style="padding:4px 0">'+metaRows+'</div>'
     +'<div class="xvsec" style="padding:4px 0">'
       +kv('DWG No.','<span style="font-size:9px">'+escHtml(dwgNo)+'</span>')
@@ -2802,19 +2802,28 @@ function _gaSheetHtml(plan,stageHtml,viewName,key){
       +kv('Plot:','<span class="xplotv">A3</span>')
       +kv('Status','CONFIDENTIAL',' xconf')
     +'</div>'
-    +'<div class="xvgrow"></div>'
+    +'<div class="xvsec xkeyvsec" style="flex:1;min-height:0;display:flex;flex-direction:column;border-bottom:0;padding:6px 8px">'
+      +'<div class="xsech">Key</div><div class="xkeyvin">'+keyItems+'</div>'
+    +'</div>'
     +'</div>';
   const gcols=14,grows=10;
   let gtop='';for(let i=1;i<=gcols;i++)gtop+='<div>'+i+'</div>';
   let gleft='';for(let i=grows;i>=1;i--)gleft+='<div>'+String.fromCharCode(64+i)+'</div>';
   const realW=plan.scale_px_per_m>0?((plan.image_width||gaImgW)/plan.scale_px_per_m):0;
+  // Key band above the horizontal title block: evenly spaced columns, max 3 rows
+  const keyBand=keyItems?'<div class="xkb"><div class="xkbl">KEY</div><div class="xkbgrid">'+keyItems+'</div></div>':'';
+  // Hidden side band left of the vertical title block: the key moves here automatically
+  // when it outgrows the block's spare space
+  const keySide='<div class="xkbv"><div class="xkbvh">KEY</div><div class="xkbvgrid"></div></div>';
   return '<div class="xsheet" data-realw="'+realW+'"><div class="xframe">'
     +'<div class="xgridtop"><div class="xgcorner"></div>'+gtop+'</div>'
     +'<div class="xrow">'
     +'<div class="xgridleft">'+gleft+'</div>'
     +'<div class="xcontent">'+stageHtml+'</div>'
+    +keySide
     +tbv
     +'</div>'
+    +keyBand
     +tbh
     +'</div></div>';
 }
@@ -2862,11 +2871,10 @@ function _gaOpenExportWindow(sheets,docTitle,anyCal){
       +'.xmeta .xkv{flex:1;border-bottom:1px solid #111;align-items:center}'
       +'.xmeta .xkv:last-child{border-bottom:0}'
       +'.xconf b{color:#b02a2a}'
-      +'.xkeywrap{display:flex;flex-wrap:wrap;gap:3px 14px;align-content:flex-start;overflow:hidden}'
-      +'.xkeyi{display:flex;align-items:center;gap:6px;color:#111}'
-      +'.xkt{display:flex;flex-direction:column;line-height:1.25;min-width:0}'
-      +'.xkt b{font-size:9px}'
-      +'.xkt i{font-style:normal;font-size:8px;color:#333}'
+      +'.xkeyi{display:grid;grid-template-columns:20px minmax(0,1fr);gap:0 6px;align-items:center;color:#111;break-inside:avoid}'
+      +'.xkt{display:flex;flex-direction:column;line-height:1.2;min-width:0}'
+      +'.xkt b{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+      +'.xkt i{font-style:normal;font-size:8px;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
       +'.xkmark{width:20px;height:20px;flex-shrink:0;border:1.8px solid var(--c);background:#fff;color:var(--c);display:grid;place-items:center;border-radius:50%;box-sizing:border-box}'
       +'.xkmark svg{width:60%;height:60%;display:block}'
       +'.xkmark.m-wall{border-radius:3px}'
@@ -2875,6 +2883,17 @@ function _gaOpenExportWindow(sheets,docTitle,anyCal){
       +'.xkmark.m-rack{border-radius:0;border-color:transparent;clip-path:polygon(50% 2%,100% 98%,0 98%);background:var(--c);color:#fff}'
       +'.xkmark.m-rack svg{width:48%;height:48%;margin-top:22%}'
       +'.xnote2{font-size:8.5px;text-align:center;color:#111}'
+      +'.xkb{border-top:1.5px solid #111;display:flex;align-items:stretch}'
+      +'.xkbl{width:22px;border-right:1px solid #111;display:grid;place-items:center;font-size:8.5px;font-weight:800;letter-spacing:.14em;flex-shrink:0}'
+      +'.xkbgrid{flex:1;display:grid;grid-auto-flow:column;grid-template-rows:repeat(3,minmax(0,1fr));grid-auto-columns:1fr;gap:2px 12px;padding:4px 10px;overflow:hidden}'
+      +'.xkbv{width:150px;flex-shrink:0;border-left:2px solid #111;display:none;flex-direction:column}'
+      +'.xkbvh{font-size:9px;font-weight:800;letter-spacing:.12em;text-align:center;border-bottom:1px solid #111;padding:3px 0}'
+      +'.xkbvgrid{flex:1;padding:6px 8px;column-width:125px;column-gap:12px;overflow:hidden}'
+      +'.xkbvgrid .xkeyi{margin-bottom:3px}'
+      +'.xkeyvin{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:3px}'
+      +'body.tbr .xkb{display:none}'
+      +'body.tbb .xkbv{display:none!important}'
+      +'body.nokey .xkb,body.nokey .xkbv,body.nokey .xkeyvsec{display:none!important}'
       +'.xbar{position:fixed;top:14px;right:14px;z-index:50;width:232px;background:#fff;border:1px solid #8a939d;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.35);padding:12px 14px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#111}'
       +'.xbart{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#555}'
       +'.xbar .xrowc{display:flex;align-items:center;justify-content:space-between;gap:10px}'
@@ -2897,11 +2916,24 @@ function _gaOpenExportWindow(sheets,docTitle,anyCal){
       +'s0.style.setProperty("--ga-pininv",String(s0.dataset.cal==="1"?1:(1/s)));});};'
       +'var PAPER={A4:[297,210],A3:[420,297],A2:[594,420],A1:[841,594]};'
       +'function niceRatio(r){if(r>=200)return Math.round(r/10)*10;if(r>=50)return Math.round(r/5)*5;return Math.round(r);}'
+      // The vertical-block key starts in the block's spare space; if it overflows there it
+      // relocates once into the side band left of the title block
+      +'function keyflow(){if(document.body.className.indexOf("tbr")<0)return;'
+      +'document.querySelectorAll(".xsheet").forEach(function(sh){'
+      +'var inb=sh.querySelector(".xkeyvin"),band=sh.querySelector(".xkbv");'
+      +'if(!inb||!band)return;'
+      +'if(inb.children.length&&inb.scrollHeight>inb.clientHeight+2){'
+      +'var grid=band.querySelector(".xkbvgrid");'
+      +'while(inb.firstChild)grid.appendChild(inb.firstChild);'
+      +'var sec=sh.querySelector(".xkeyvsec");if(sec)sec.style.display="none";'
+      +'band.style.display="flex";}});}'
       +'function refresh(){var p=document.getElementById("xpapersel").value;'
       +'var pw=PAPER[p][0],ph=PAPER[p][1];'
       +'var st=document.getElementById("xpage");if(st)st.textContent="@page{size:"+p+" landscape;margin:8mm}";'
       +'var nts=document.getElementById("xnts");'
-      +'var right=document.body.className.indexOf("tbr")>=0;'
+      +'var tp=document.getElementById("xtbpos");var right=tp&&tp.value==="right";'
+      +'var ks=document.getElementById("xkeysel");var nokey=ks&&ks.value==="hide";'
+      +'document.body.className="ga-export "+(right?"tbr":"tbb")+(nokey?" nokey":"");'
       +'var cw=pw-16-6-5-(right?58:0);'
       +'document.querySelectorAll(".xsheet").forEach(function(sh){'
       +'sh.style.width=(pw-16)+"mm";sh.style.height=(ph-16)+"mm";'
@@ -2911,8 +2943,8 @@ function _gaOpenExportWindow(sheets,docTitle,anyCal){
       +'var txt=ntsOn?"NTS":"approx 1:"+niceRatio(rw*1000/cw);'
       +'sh.querySelectorAll(".xscalev").forEach(function(e){e.textContent=txt;});'
       +'sh.querySelectorAll(".xplotv").forEach(function(e){e.textContent=p;});});'
-      +'fit();}'
-      +'function setTb(m){document.body.className="ga-export "+(m==="right"?"tbr":"tbb");refresh();}'
+      +'fit();keyflow();fit();}'
+      +'function setTb(m){refresh();}'
       +'window.addEventListener("load",refresh);'
       +'window.addEventListener("resize",fit);window.addEventListener("beforeprint",fit);';
     const LT='<';
@@ -2922,7 +2954,8 @@ function _gaOpenExportWindow(sheets,docTitle,anyCal){
       +'</head><body class="ga-export tbb">'
       +'<div class="xbar"><div class="xbart">Export options'+(sheets.length>1?' ('+sheets.length+' sheets)':'')+'</div>'
       +'<div class="xrowc"><span>Paper size</span><select id="xpapersel" onchange="refresh()"><option>A4</option><option selected>A3</option><option>A2</option><option>A1</option></select></div>'
-      +'<div class="xrowc"><span>Title block</span><select id="xtbpos" onchange="setTb(this.value)"><option value="bottom" selected>Bottom</option><option value="right">Right</option></select></div>'
+      +'<div class="xrowc"><span>Title block</span><select id="xtbpos" onchange="refresh()"><option value="bottom" selected>Bottom</option><option value="right">Right</option></select></div>'
+      +'<div class="xrowc"><span>Key</span><select id="xkeysel" onchange="refresh()"><option value="show" selected>Shown</option><option value="hide">Hidden</option></select></div>'
       +(anyCal?'<label><input type="checkbox" id="xnts" style="margin:0;width:auto" onchange="refresh()"> Not to scale</label>':'')
       +'<button onclick="window.print()">Print / Save as PDF</button></div>'
       +sheets.join('')
