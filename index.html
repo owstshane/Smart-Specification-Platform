@@ -2759,7 +2759,7 @@ async function gaSaveView(){
   const name=(nameEl?nameEl.value:'').trim();
   if(!name){showToast('Give the view a name first','error');return;}
   try{
-    const rows=await dbInsert('ga_views',{project_id:currentProject.id,name,plan_view:gaPlanView,hidden_groups:[...gaHiddenGroups],show_type:gaShowType,show_uid:gaShowUid,pin_m:gaPinSizeM,sort_order:gaSavedViews.length});
+    const rows=await dbInsert('ga_views',{project_id:currentProject.id,name,plan_view:gaPlanView,hidden_groups:[...gaHiddenGroups],show_type:gaShowType,show_uid:gaShowUid,show_rooms:gaShowRooms,show_grid:gaGridShow,pin_m:gaPinSizeM,sort_order:gaSavedViews.length});
     gaSavedViews.push(rows[0]);
     renderGaViewsPanel();showToast('View saved','success');
   }catch(e){showToast('Could not save the view: '+e.message,'error');}
@@ -2769,9 +2769,11 @@ function gaApplyView(id){
   gaPlanView=v.plan_view||'all';
   gaHiddenGroups=new Set(Array.isArray(v.hidden_groups)?v.hidden_groups:[]);
   gaShowType=v.show_type!==false;gaShowUid=v.show_uid!==false;
+  gaShowRooms=v.show_rooms!==false;gaGridShow=v.show_grid!==false;
   if(v.pin_m>0)gaPinSizeM=parseFloat(v.pin_m);
-  gaSetTbtn('ga-btn-type',gaShowType);gaSetTbtn('ga-btn-uid',gaShowUid);
-  gaApply();renderGaPins();renderGaViewsPanel();
+  gaSetTbtn('ga-btn-type',gaShowType);gaSetTbtn('ga-btn-uid',gaShowUid);gaSetTbtn('ga-btn-rooms',gaShowRooms);
+  gaApply();renderGaPins();renderGaBounds();renderGaViewsPanel();
+  if(gaGridPanelOpen)renderGaGridPanel();
   showToast('View "'+v.name+'" applied','success');
 }
 function gaDeleteView(id){
@@ -2852,7 +2854,8 @@ function _gaStaticStageHtml(plan,imgUrl,pins,bounds,clouds,view,uid){
   const peById={};projectEquipment.forEach(p=>{peById[p.id]=p;});
   const hidden=new Set(Array.isArray(view.hidden_groups)?view.hidden_groups:[]);
   let svg='';
-  if(ppm&&plan.grid_spacing_m>0){
+  // Print exactly what the view shows: grid and room names only when switched on
+  if(view.show_grid!==false&&ppm&&plan.grid_spacing_m>0){
     const step=plan.grid_spacing_m*ppm;
     if(step>2){
       const ox=((plan.grid_offset_x||0)*W)%step, oy=((plan.grid_offset_y||0)*H)%step;
@@ -2873,6 +2876,7 @@ function _gaStaticStageHtml(plan,imgUrl,pins,bounds,clouds,view,uid){
     if(!Array.isArray(b.points)||b.points.length<3)return;
     const room=currentRooms.find(r=>r.id===b.room_id);
     svg+='<polygon class="'+(room?'':'unassigned')+'" points="'+b.points.map(p=>(p[0]*W)+','+(p[1]*H)).join(' ')+'"/>';
+    if(view.show_rooms===false)return;
     const cx=b.points.reduce((a,p)=>a+p[0],0)/b.points.length, cy=b.points.reduce((a,p)=>a+p[1],0)/b.points.length;
     overlays+='<div class="ga-blabel'+(room?'':' unassigned')+'" style="left:'+(cx*100)+'%;top:'+(cy*100)+'%">'+escHtml(room?room.name:'Room not assigned')+'</div>';
   });
@@ -3125,7 +3129,7 @@ async function gaExportGa(){
     const resp=await fetch(url);
     if(!resp.ok)throw new Error('Could not load the plan image');
     const imgUrl=URL.createObjectURL(await resp.blob());
-    const view={plan_view:gaPlanView,hidden_groups:[...gaHiddenGroups],show_type:gaShowType,show_uid:gaShowUid,pin_m:gaPinSizeM};
+    const view={plan_view:gaPlanView,hidden_groups:[...gaHiddenGroups],show_type:gaShowType,show_uid:gaShowUid,show_rooms:gaShowRooms,show_grid:gaGridShow,pin_m:gaPinSizeM};
     const built=_gaStaticStageHtml(plan,imgUrl,gaPins,gaBounds,gaClouds,view,'s1');
     const deck=currentDecks.find(d=>d.id===plan.deck_id)||{};
     _gaOpenExportWindow([_gaSheetHtml(plan,built.stage,'',built.key)],(currentProject.project_code||'')+' GA '+(deck.name||'')+' '+(plan.revision||''),plan.scale_px_per_m>0);
