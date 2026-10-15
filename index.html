@@ -1239,7 +1239,7 @@
       <div class="form-group"><label>Change request <span class="optional">optional link</span></label><select id="ga-cloud-cr"><option value="">— No CR link —</option></select></div>
       <div class="form-group"><label id="ga-cloud-label-lbl">Reason <span class="optional">free text, shown in the revision log</span></label><input type="text" id="ga-cloud-label" placeholder="e.g. speakers relocated to suit joinery"></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-danger" id="ga-cloud-delete" onclick="gaDeleteCloud()" style="margin-right:auto">Delete</button><button class="btn btn-secondary" onclick="closeGaCloudModal()">Cancel</button><button class="btn btn-primary" onclick="gaSaveCloud()">Save</button></div>
+    <div class="modal-footer"><button class="btn btn-secondary" id="ga-cloud-revert" onclick="gaRevertCloud()" title="Put the device back as it was on the previous revision">Revert Change</button><button class="btn btn-danger" id="ga-cloud-delete" onclick="gaDeleteCloud()" style="margin-right:auto" title="Remove this cloud from the record only; the device stays as it is">Delete</button><button class="btn btn-secondary" onclick="closeGaCloudModal()">Cancel</button><button class="btn btn-primary" onclick="gaSaveCloud()">Save</button></div>
   </div>
 </div>
 
@@ -5141,6 +5141,9 @@ function openGaCloudEdit(cloudId){
   document.getElementById('ga-cloud-cr').innerHTML=gaCrOptions(cl.cr_id||'');
   // Clouds on issued revisions are the historical record: no delete there (Shane's rule)
   document.getElementById('ga-cloud-delete').style.display=gaCloudIsLive(cl)?'':'none';
+  // Revert is only for automatic clouds whose device still exists, on the live revision
+  const canRevert=!!(cl.auto&&gaCloudIsLive(cl)&&cl.equipment_instance_id&&placedEquipment.find(i=>i.id===cl.equipment_instance_id));
+  document.getElementById('ga-cloud-revert').style.display=canRevert?'':'none';
   document.getElementById('ga-cloud-overlay').classList.add('open');
 }
 function gaCloudIsLive(cl){const pl=gaPlans.find(p=>p.id===cl.deck_plan_id);return !!(pl&&pl.is_current);}
@@ -5156,6 +5159,80 @@ async function gaSaveCloud(){
     Object.assign(cl,payload);
     closeGaCloudModal();renderGaBounds();renderGaRevLog();
   }catch(e){showToast('Could not save: '+e.message,'error');}
+}
+// Revert the CHANGE an automatic cloud records: a moved device goes back to its
+// previous-revision position (room and ID restored by the usual move rules), an
+// added device is removed again, a removed device is reinstated. The cloud then
+// clears itself because the drawing matches the previous revision again.
+function gaRevertCloud(){
+  const cl=gaDeckClouds.find(c=>c.id===gaEditCloudId)||gaClouds.find(c=>c.id===gaEditCloudId);
+  if(!cl||!cl.auto)return;
+  if(!gaCloudIsLive(cl)){showToast('Issued revisions are the historical record and cannot be changed','error');return;}
+  const inst=placedEquipment.find(i=>i.id===cl.equipment_instance_id);
+  if(!inst){showToast('The device no longer exists, so this change cannot be reverted','error');return;}
+  closeGaCloudModal();
+  const kind=cl.kind,devName=inst.device_id||'device';
+  const msg=kind==='moved'?'Move '+devName+' back to its position on the previous revision? Its room and ID are restored by the normal move rules.'
+    :kind==='added'?'Remove '+devName+' again? It was added on this revision, so reverting deletes it from the schedule and the plan. If a CR cost line was added when it was placed, remove that from the cost schedule too.'
+    :'Restore '+devName+'? It returns to the schedule and its pin reappears on the plan'+(inst.change_cr_id?'; the Removed mark from its CR is cleared':'')+'.';
+  openConfirm('Revert Change',msg,async()=>{
+    try{
+      if(kind==='moved'){
+        const base=gaPrevPins.find(p=>p.equipment_instance_id===inst.id);
+        const pin=gaPins.find(p=>p.equipment_instance_id===inst.id);
+        if(!base||!pin){showToast('Could not find the original position','error');return;}
+        const oldPin={x:pin.x,y:pin.y},oldLoc={room_id:inst.room_id,device_id:inst.device_id};
+        await dbUpdate('plan_equipment_pins',pin.id,{x:base.x,y:base.y});
+        pin.x=base.x;pin.y=base.y;
+        let reroomed=false;
+        if(inst.room_id){
+          const room=gaRoomForPoint(base.x,base.y);
+          if(room&&room.id!==inst.room_id){await gaMoveInstanceToRoom(inst,room,true);reroomed=true;}
+        }
+        await gaAutoCloudEval(inst,pin);
+        logChange('design','updated','Reverted GA move: '+devName+' back to its previous position');
+        gaUndoPush('revert move '+devName,async()=>{
+          await dbUpdate('plan_equipment_pins',pin.id,{x:oldPin.x,y:oldPin.y});
+          if(reroomed){try{await dbUpdate('equipment_instances',inst.id,oldLoc);Object.assign(inst,oldLoc);}catch(e2){}}
+        });
+        renderGaPins();renderGaBounds();renderGaRevLog();
+        showToast(devName+' moved back','success');
+      }else if(kind==='added'){
+        const pin=gaPins.find(p=>p.equipment_instance_id===inst.id);
+        const instCopy={id:inst.id,project_id:inst.project_id,project_equipment_id:inst.project_equipment_id,device_id:inst.device_id,quantity:inst.quantity,room_id:inst.room_id,rack_zone_id:inst.rack_zone_id,installation_type:inst.installation_type,pre_wire:inst.pre_wire,notes:inst.notes,change_status:inst.change_status,change_cr_id:inst.change_cr_id,change_cr_ref:inst.change_cr_ref};
+        const pinCopy=pin?{deck_plan_id:pin.deck_plan_id,x:pin.x,y:pin.y}:null;
+        await _gaAutoCloudClear(inst.id);
+        await dbDelete('equipment_instances',inst.id);
+        placedEquipment=placedEquipment.filter(i=>i.id!==inst.id);
+        gaPins=gaPins.filter(p=>p.equipment_instance_id!==inst.id);
+        logChange('equipment','removed','Reverted GA addition: '+devName);
+        gaUndoPush('revert addition '+devName,async()=>{
+          const rows=await dbInsert('equipment_instances',instCopy);
+          placedEquipment.push(rows[0]);
+          if(pinCopy){
+            const pr=await dbInsert('plan_equipment_pins',Object.assign({equipment_instance_id:rows[0].id},pinCopy));
+            gaPins.push(pr[0]);
+            await gaAutoCloudEval(rows[0],pr[0]);
+          }
+        });
+        renderGaPins();renderGaBounds();renderGaRevLog();renderGaPalette();
+        showToast(devName+' removed again','success');
+      }else{
+        const before={change_status:inst.change_status,change_cr_id:inst.change_cr_id,change_cr_ref:inst.change_cr_ref};
+        const payload={change_status:null,change_cr_id:null,change_cr_ref:null};
+        await dbUpdate('equipment_instances',inst.id,payload);
+        Object.assign(inst,payload);
+        await _gaAutoCloudClear(inst.id);
+        logChange('equipment','updated','Reverted GA removal: '+devName+' restored');
+        gaUndoPush('revert removal '+devName,async()=>{
+          await dbUpdate('equipment_instances',inst.id,before);
+          Object.assign(inst,before);
+        });
+        renderGaPins();renderGaBounds();renderGaRevLog();
+        showToast(devName+' restored','success');
+      }
+    }catch(e){showToast('Could not revert: '+e.message,'error');}
+  },'Revert','btn-danger');
 }
 // Device type for an auto cloud's device, when its row still exists
 function gaCloudInstType(cl){
