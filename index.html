@@ -417,7 +417,7 @@
   .cmt-reply { margin: 6px 0 0 26px; padding-left: 8px; border-left: 2px solid var(--border); }
   .cmt-res { margin: 6px 0 0 26px; font-size: 11.5px; color: #2f855a; }
   body.ga-focus .ga-cmt-panel { height: calc(100vh - 118px); }
-  .ga-blabel { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-inv,1)); pointer-events: none; font-weight: 600; font-size: 12px; color: #0f4e63; background: rgba(255,255,255,.85); border-radius: 3px; padding: 0 5px; white-space: nowrap; z-index: 1; }
+  .ga-blabel { position: absolute; transform: translate(-50%,-50%) scale(var(--ga-labinv,var(--ga-inv,1))); pointer-events: none; font-weight: 600; font-size: 12px; color: #0f4e63; background: rgba(255,255,255,.85); border-radius: 3px; padding: 0 5px; white-space: nowrap; z-index: 1; }
   .ga-blabel.unassigned { color: #8a5a12; }
   .gd-icon-grid { display: flex; flex-wrap: wrap; gap: 5px; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; }
   .gd-icon-grid .ig { flex-basis: 100%; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin-top: 4px; }
@@ -2301,7 +2301,7 @@ let gaPlans=[], gaActiveDeckId=null, gaViewRevId=null, gaView={s:1,x:0,y:0}, gaI
 let gaPins=[], gaMode='pan', gaArmedTypeId=null, gaSelPinId=null, gaPinDraft=null, gaEditPinId=null, gaLastLoc=null;
 let gaMultiSel=new Set(), gaSelBox=null;
 let gaRlSelMode=false, gaRlSel=new Set();
-let gaArmedInstId=null, gaShowType=true, gaShowUid=true;
+let gaArmedInstId=null, gaShowType=true, gaShowUid=true, gaShowRooms=true;
 let gaPlanView='all', gaHiddenGroups=new Set(), gaViewsPanelOpen=false, gaSavedViews=[];
 let gaBounds=[], gaDraft=[], gaEditBoundId=null, gaRedrawBoundId=null;
 let gaClouds=[], gaEditCloudId=null, gaCloudPreview=null, gaLastCloudLabel='', gaLastCloudCrId='';
@@ -2648,12 +2648,14 @@ function renderGaPlans(){
   if(cur&&!review){
     acts+=gaTb('gaToggleType()','Type','Show or hide the device type (SPK-IC-1) under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
       +gaTb('gaToggleUid()','ID','Show or hide the unique device ID (SPK-301-02) under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
+      +gaTb('gaToggleRooms()','Rooms','Show or hide the room names on the plan','<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/>',gaShowRooms,'ga-btn-rooms')
       +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid')
       +gaTb('gaToggleViewsPanel()','Views','Plan views (floor/ceiling), show or hide systems, saved views','<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/>',gaViewsPanelOpen,'ga-btn-views')
       +gaDiv;
   }
   if(showing&&review)acts+=gaTb('gaToggleType()','Type','Show or hide the device type under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
     +gaTb('gaToggleUid()','ID','Show or hide the unique device ID under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
+    +gaTb('gaToggleRooms()','Rooms','Show or hide the room names on the plan','<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/>',gaShowRooms,'ga-btn-rooms')
     +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
   if(showing&&!review)acts+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
     +gaTb('openGaSheetInfo(true)','Export','Sheet info, then print or save as a PDF with border and title block','<path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="7" rx="1"/><path d="M7 14h10v7H7z"/>')
@@ -2719,6 +2721,7 @@ function gaSetTbtn(id,on){
 }
 function gaToggleType(){gaShowType=!gaShowType;gaSetTbtn('ga-btn-type',gaShowType);renderGaPins();}
 function gaToggleUid(){gaShowUid=!gaShowUid;gaSetTbtn('ga-btn-uid',gaShowUid);renderGaPins();}
+function gaToggleRooms(){gaShowRooms=!gaShowRooms;gaSetTbtn('ga-btn-rooms',gaShowRooms);renderGaBounds();}
 // ── VIEWS: plan view (floor/ceiling) and per-system show/hide ──
 function gaToggleViewsPanel(){
   gaViewsPanelOpen=!gaViewsPanelOpen;
@@ -3488,6 +3491,7 @@ function renderGaBounds(){
     if(!Array.isArray(b.points)||b.points.length<3)return;
     const room=currentRooms.find(r=>r.id===b.room_id);
     svg+='<polygon data-bound="'+b.id+'" class="'+(room?'':'unassigned')+'" points="'+b.points.map(p=>(p[0]*gaImgW)+','+(p[1]*gaImgH)).join(' ')+'"/>';
+    if(!gaShowRooms)return;
     const cx=b.points.reduce((a,p)=>a+p[0],0)/b.points.length, cy=b.points.reduce((a,p)=>a+p[1],0)/b.points.length;
     const lab=document.createElement('div');
     lab.className='ga-blabel'+(room?'':' unassigned');
@@ -3620,6 +3624,9 @@ function gaApply(){
   // pins use --ga-pininv so they can become true-size drawing objects when calibrated.
   const inv=gaFitS>0?Math.min(1/gaView.s,1/gaFitS):1/gaView.s;
   st.style.setProperty('--ga-inv',inv);
+  // Room labels stop growing earlier: full screen size only from ~1.5x fit zoom,
+  // shrinking with the drawing below that so they never dominate an overview.
+  st.style.setProperty('--ga-labinv',gaFitS>0?Math.min(1/gaView.s,1/(gaFitS*1.5)):1/gaView.s);
   if(ppm){
     st.style.setProperty('--ga-pininv',1);
     st.style.setProperty('--pinpx',(gaPinSizeM*ppm)+'px');
