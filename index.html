@@ -367,6 +367,11 @@
   #ga-overlay path.ga-cloud.flash { stroke-width: 4; fill: rgba(192,57,43,.18); }
   .ga-delta { position: absolute; transform: translate(-50%,-100%) scale(var(--ga-inv,1)); transform-origin: 50% 100%; cursor: pointer; z-index: 2; width: 34px; height: 30px; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: #c0392b; color: #fff; display: grid; place-items: end center; font-weight: 700; font-size: 11px; padding-bottom: 2px; }
   .ga-grid-panel { position: absolute; right: 62px; bottom: 12px; z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 12px 14px; width: 230px; font-size: 13px; }
+  .ga-disp-panel { position: absolute; right: 12px; top: 12px; z-index: 6; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 12px 14px; width: 228px; font-size: 13px; }
+  .ga-disp-panel h5 { margin: 0 0 4px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); font-weight: 700; }
+  .ga-disp-panel h5 + h5, .ga-disp-panel .vrow + h5 { margin-top: 10px; }
+  .ga-disp-panel .vrow { display: flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; padding: 3px 0; }
+  .ga-disp-panel input[type=checkbox] { width: 15px; height: 15px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--accent); }
   .ga-views-panel { width: 250px; flex: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; overflow-y: auto; height: calc(100vh - 310px); min-height: 380px; box-sizing: border-box; }
   .ga-views-panel h4 { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin: 10px 0 5px; }
   .ga-views-panel h4:first-child { margin-top: 0; }
@@ -2242,7 +2247,7 @@ function resetProjectCaches(){
   gaCRs=[];gaDeckClouds=[];gaPendingFocus=null;
   gaDesignTab='ga';gaComments=[];gaCmtSel=null;gaCmtOpenCounts={};gaCmtDraft=null;gaCmtResolveId=null;gaCmtAreas=[];gaCmtPicked=new Set();gaUndoStack=[];
   gaPrevPins=[];gaPrevPlanId=null;gaCloudPendingPts=null;
-  gaNotesShow=null;gaCmtPanelGa=false;gaCmtPopId=null;
+  gaNotesShow=null;gaCmtPanelGa=false;gaCmtPopId=null;gaDispPanelOpen=false;
   document.body.classList.remove('ga-focus');
 }
 function closeProject(){
@@ -2322,7 +2327,7 @@ let gaActiveFloorId=null, gaPaletteOpen=true, gaPaletteQuery='', gaRecentTypes=[
 let gaDesignTab='ga', gaComments=[], gaCmtFilter='open', gaCmtSel=null, gaCmtOpenCounts={}, gaCmtDraft=null, gaCmtResolveId=null, gaCmtPreview=null;
 let gaCmtAreas=[], gaCmtPicked=new Set();
 let gaPrevPins=[], gaPrevPlanId=null, gaCloudPendingPts=null;
-let gaNotesShow=null, gaCmtPanelGa=false, gaCmtPopId=null;
+let gaNotesShow=null, gaCmtPanelGa=false, gaCmtPopId=null, gaDispPanelOpen=false;
 // Undo: a session-only stack of inverse actions for the Design page (GA + Review).
 // Each entry is {label, fn}: fn reverses the change in the database; the view is
 // reloaded centrally after it runs. Cleared on project switch.
@@ -2655,30 +2660,18 @@ function renderGaPlans(){
   if(showing)gaRight+=(gaRight?gaDiv:'')+'<span style="font-size:12px;color:var(--text-3);white-space:nowrap;padding:0 4px">'+escHtml(showing.revision)+(cur?' (current)':'')+' · <span id="ga-pin-count"></span></span>';
   if(gaRight)bar+='<span class="ga-tbgroup">'+gaRight+'</span>';
   bar+='</div>';
+  const gaDispSvg='<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>';
   let acts='';
   if(cur&&!review){
-    acts+=gaTb('gaToggleType()','Type','Show or hide the device type (SPK-IC-1) under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
-      +gaTb('gaToggleUid()','ID','Show or hide the unique device ID (SPK-301-02) under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
-      +gaTb('gaToggleRooms()','Rooms','Show or hide the room names on the plan','<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/>',gaShowRooms,'ga-btn-rooms')
-      +gaTb('gaToggleNotes()','Notes','Show or hide open review comments on the drawing (they appear automatically when there are any); tap a marker to read, reply and resolve','<path d="M21 11.5a8.4 8.4 0 0 1-8.9 8.4 9.2 9.2 0 0 1-3.9-.8L3 20l1-5.1a8.4 8.4 0 0 1-1-3.4 8.5 8.5 0 0 1 9-8.4 8.5 8.5 0 0 1 9 8.4z"/>',gaNotesOn(),'ga-btn-notes')
-      +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid')
+    acts+=gaTb('gaToggleDispPanel()','Display','What shows on the drawing: type, ID, room names, review notes, grid, pin size',gaDispSvg,gaDispPanelOpen,'ga-btn-disp')
       +gaTb('gaToggleViewsPanel()','Views','Plan views (floor/ceiling), show or hide systems, saved views','<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/>',gaViewsPanelOpen,'ga-btn-views')
       +gaDiv;
   }
-  if(showing&&review)acts+=gaTb('gaToggleType()','Type','Show or hide the device type under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
-    +gaTb('gaToggleUid()','ID','Show or hide the unique device ID under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
-    +gaTb('gaToggleRooms()','Rooms','Show or hide the room names on the plan','<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/>',gaShowRooms,'ga-btn-rooms')
+  if(showing&&review)acts+=gaTb('gaToggleDispPanel()','Display','What shows on the drawing: type, ID, room names, grid, pin size',gaDispSvg,gaDispPanelOpen,'ga-btn-disp')
     +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
   if(showing&&!review)acts+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
     +gaTb('openGaSheetInfo(true)','Export','Sheet info, then print or save as a PDF with border and title block','<path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="7" rx="1"/><path d="M7 14h10v7H7z"/>')
     +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
-  if(showing&&!review){
-    const isPreset=[0.35,0.5,0.7].some(v=>Math.abs(gaPinSizeM-v)<0.001);
-    acts+='<select onchange="gaSetPinSize(this.value)" title="Pin size in real metres on calibrated drawings" style="width:auto">'
-      +[[0.35,'Pins: S'],[0.5,'Pins: M'],[0.7,'Pins: L']].map(o=>'<option value="'+o[0]+'"'+(Math.abs(gaPinSizeM-o[0])<0.001?' selected':'')+'>'+o[1]+'</option>').join('')
-      +'<option value="custom"'+(isPreset?'':' selected')+'>Pins: Custom</option></select>'
-      +'<input type="number" id="ga-pin-custom" min="0.1" max="5" step="0.05" value="'+gaPinSizeM+'" title="Pin size in metres" style="width:64px;padding:5px 7px;display:'+(isPreset?'none':'')+'" onchange="gaSetPinSizeM(this.value)">';
-  }
   if(revs.length){
     acts+='<select onchange="gaSelectRev(this.value)" style="max-width:170px">'
       +revs.map(p=>'<option value="'+p.id+'"'+((showing&&p.id===showing.id)?' selected':'')+'>'+escHtml(p.revision)+(p.is_current?' (current)':'')+' · '+formatDate((p.created_at||'').slice(0,10))+'</option>').join('')+'</select>';
@@ -2704,6 +2697,7 @@ function renderGaPlans(){
     +'<div class="ga-stage" id="ga-stage"><img id="ga-img" alt="GA plan" draggable="false"><svg id="ga-overlay"></svg></div>'
     +'<div class="ga-zoom"><button onclick="gaZoomBtn(1.3)" title="Zoom in">+</button><button onclick="gaZoomBtn(1/1.3)" title="Zoom out">&minus;</button><button onclick="gaFit()" title="Fit to view" style="font-size:11px">Fit</button>'+(review?'':'<button onclick="gaStartScale()" title="Set the drawing scale: tap two points a known distance apart" style="font-size:10px">Scale</button>')+'</div>'
     +'<div class="ga-grid-panel" id="ga-grid-panel" style="display:none"></div>'
+    +'<div class="ga-disp-panel" id="ga-disp-panel" style="display:'+(gaDispPanelOpen?'':'none')+'"></div>'
     +'<button class="ga-focus-exit btn btn-secondary btn-sm" onclick="gaToggleFocus()">Exit full screen</button>'
     +'</div>'
     +(review
@@ -2715,6 +2709,7 @@ function renderGaPlans(){
   wireGaViewport();
   if(!review&&gaViewsPanelOpen)renderGaViewsPanel();
   if(!review&&gaGridPanelOpen){const gp=document.getElementById('ga-grid-panel');if(gp){gp.style.display='';renderGaGridPanel();}}
+  if(gaDispPanelOpen)renderGaDispPanel();
   renderGaPalette();
   if(review||gaCmtPanelGa)renderGaCmtPanel();
   // A comment capture survives deck switches so one comment can span several decks
@@ -2735,6 +2730,32 @@ function gaSetTbtn(id,on){
 function gaToggleType(){gaShowType=!gaShowType;gaSetTbtn('ga-btn-type',gaShowType);renderGaPins();}
 function gaToggleUid(){gaShowUid=!gaShowUid;gaSetTbtn('ga-btn-uid',gaShowUid);renderGaPins();}
 function gaToggleRooms(){gaShowRooms=!gaShowRooms;gaSetTbtn('ga-btn-rooms',gaShowRooms);renderGaBounds();}
+// The Display popover: every show/hide layer plus pin size, one button instead of six
+function gaToggleDispPanel(){
+  gaDispPanelOpen=!gaDispPanelOpen;
+  const p=document.getElementById('ga-disp-panel');
+  if(p){p.style.display=gaDispPanelOpen?'':'none';if(gaDispPanelOpen)renderGaDispPanel();}
+  gaSetTbtn('ga-btn-disp',gaDispPanelOpen);
+}
+function renderGaDispPanel(){
+  const p=document.getElementById('ga-disp-panel');if(!p)return;
+  const chk=(lbl,on,fn)=>'<label class="vrow"><input type="checkbox"'+(on?' checked':'')+' onchange="'+fn+'"> '+lbl+'</label>';
+  const isPreset=[0.35,0.5,0.7].some(v=>Math.abs(gaPinSizeM-v)<0.001);
+  p.innerHTML='<h5>Show on the drawing</h5>'
+    +chk('Device type',gaShowType,'gaToggleType()')
+    +chk('Device ID',gaShowUid,'gaToggleUid()')
+    +chk('Room names',gaShowRooms,'gaToggleRooms()')
+    +(gaDesignTab==='ga'?chk('Review notes',gaNotesOn(),'gaToggleNotes()'):'')
+    +chk('Grid lines',gaGridShow,'gaGridShow=this.checked;renderGaBounds();if(gaGridPanelOpen)renderGaGridPanel()')
+    +'<h5>Pin size</h5>'
+    +'<div style="display:flex;gap:6px;align-items:center">'
+    +'<select onchange="gaSetPinSize(this.value)" title="Pin size in real metres on calibrated drawings" style="flex:1;width:auto;padding:5px 7px">'
+    +[[0.35,'Small (0.35 m)'],[0.5,'Medium (0.5 m)'],[0.7,'Large (0.7 m)']].map(o=>'<option value="'+o[0]+'"'+(Math.abs(gaPinSizeM-o[0])<0.001?' selected':'')+'>'+o[1]+'</option>').join('')
+    +'<option value="custom"'+(isPreset?'':' selected')+'>Custom</option></select>'
+    +'<input type="number" id="ga-pin-custom" min="0.1" max="5" step="0.05" value="'+gaPinSizeM+'" title="Pin size in metres" style="width:62px;padding:5px 7px;display:'+(isPreset?'none':'')+'" onchange="gaSetPinSizeM(this.value)">'
+    +'</div>'
+    +(gaDesignTab==='ga'?'<button class="btn btn-secondary btn-sm" style="width:100%;margin-top:10px" onclick="gaToggleDispPanel();gaToggleGridPanel()">Grid &amp; scale settings…</button>':'');
+}
 // ── Notes on the GA tab: open review comments shown where the fixing happens ──
 // Default: markers appear automatically whenever the plan has open comments; the
 // toggle overrides either way, and the docked panel forces them on.
@@ -2752,14 +2773,14 @@ function gaToggleNotes(){
     const p=document.getElementById('ga-cmt-panel');if(p)p.style.display='none';
   }
   renderGaComments();
-  gaSetTbtn('ga-btn-notes',gaNotesOn());
+  if(gaDispPanelOpen)renderGaDispPanel();
 }
 function gaToggleCmtPanelGa(on){
   gaCmtPanelGa=(on===true)?true:!gaCmtPanelGa;
   const p=document.getElementById('ga-cmt-panel');
   if(p){p.style.display=gaCmtPanelGa?'':'none';if(gaCmtPanelGa)renderGaCmtPanel();}
   renderGaComments();
-  gaSetTbtn('ga-btn-notes',gaNotesOn());
+  if(gaDispPanelOpen)renderGaDispPanel();
 }
 // Compact thread popover for a marker clicked on the GA tab: read, reply, resolve in place
 function closeGaCmtPop(){gaCmtPopId=null;document.getElementById('ga-cmtpop-overlay').classList.remove('open');}
@@ -2860,9 +2881,9 @@ function gaApplyView(id){
   gaShowType=v.show_type!==false;gaShowUid=v.show_uid!==false;
   gaShowRooms=v.show_rooms!==false;gaGridShow=v.show_grid!==false;
   if(v.pin_m>0)gaPinSizeM=parseFloat(v.pin_m);
-  gaSetTbtn('ga-btn-type',gaShowType);gaSetTbtn('ga-btn-uid',gaShowUid);gaSetTbtn('ga-btn-rooms',gaShowRooms);
   gaApply();renderGaPins();renderGaBounds();renderGaViewsPanel();
   if(gaGridPanelOpen)renderGaGridPanel();
+  if(gaDispPanelOpen)renderGaDispPanel();
   showToast('View "'+v.name+'" applied','success');
 }
 function gaDeleteView(id){
@@ -3484,7 +3505,7 @@ async function loadGaPins(planId){
     }
     renderGaBounds();renderGaPins();renderGaComments();renderGaRevLog();renderGaPalette();
     if(gaDesignTab==='review'||gaCmtPanelGa)renderGaCmtPanel();
-    gaSetTbtn('ga-btn-notes',gaNotesOn());
+    if(gaDispPanelOpen)renderGaDispPanel();
     if(gaMode==='comment')gaCmtBasketDraw();
     gaUpdateReviewBadge();
   }catch(e){showToast('Could not load the plan layers: '+e.message,'error');}
@@ -3746,7 +3767,7 @@ function wireGaViewport(){
   const ptrs=new Map();let pan=null,pinch=null,drag=null,vtxTap=null;
   vp.addEventListener('wheel',e=>{e.preventDefault();const r=vp.getBoundingClientRect();gaZoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.15:1/1.15);},{passive:false});
   vp.addEventListener('pointerdown',e=>{
-    if(e.target.closest('.ga-zoom,.ga-banner,.ga-grid-panel,.ga-views-panel,.ga-cmt-cta'))return;
+    if(e.target.closest('.ga-zoom,.ga-banner,.ga-grid-panel,.ga-disp-panel,.ga-views-panel,.ga-cmt-cta'))return;
     vp.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
     const gridMove=gaMode==='pan'&&gaGridUnlocked;
