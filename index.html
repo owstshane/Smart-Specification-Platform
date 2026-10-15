@@ -1235,8 +1235,9 @@
   <div class="modal" style="max-width:440px">
     <div class="modal-header"><div class="modal-title">Rev Cloud</div><button class="btn-icon" onclick="closeGaCloudModal()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-body">
+      <div id="ga-cloud-autodesc" style="display:none;margin-bottom:12px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12.5px;color:var(--text-2)"></div>
       <div class="form-group"><label>Change request <span class="optional">optional link</span></label><select id="ga-cloud-cr"><option value="">— No CR link —</option></select></div>
-      <div class="form-group"><label>Reason <span class="optional">free text, shown in the revision log</span></label><input type="text" id="ga-cloud-label" placeholder="e.g. speakers relocated to suit joinery"></div>
+      <div class="form-group"><label id="ga-cloud-label-lbl">Reason <span class="optional">free text, shown in the revision log</span></label><input type="text" id="ga-cloud-label" placeholder="e.g. speakers relocated to suit joinery"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-danger" id="ga-cloud-delete" onclick="gaDeleteCloud()" style="margin-right:auto">Delete</button><button class="btn btn-secondary" onclick="closeGaCloudModal()">Cancel</button><button class="btn btn-primary" onclick="gaSaveCloud()">Save</button></div>
   </div>
@@ -4380,8 +4381,12 @@ function renderGaRevLog(){
         +'<span class="rl-tag">'+escHtml(gaCloudTag(cl))+'</span>'
         +'<span><span class="rl-desc">'
         +(cl.auto?(cl.kind==='added'?'<span style="color:#2f855a;font-weight:700">+ </span>':cl.kind==='removed'?'<span style="color:#c23b3b;font-weight:700">&minus; </span>':'<span style="color:#b7791f;font-weight:700">&plusmn; </span>'):'')
-        +escHtml(gaCloudDesc(cl))+'</span><div class="rl-meta">'+formatDate((cl.created_at||'').slice(0,10))+(cl.auto?' · automatic':'')+'</div></span>'
-        +(!gaRlSelMode&&live?'<button class="btn-icon btn-sm" title="Delete this rev cloud" onclick="event.stopPropagation();gaRlDeleteOne(\''+cl.id+'\')">'+binSvg+'</button>':'')
+        +escHtml(gaCloudDesc(cl))+'</span>'
+        +(cl.note?'<div class="rl-note" style="font-size:11.5px;color:var(--text-2);font-style:italic;margin-top:1px">'+escHtml(cl.note)+'</div>':'')
+        +'<div class="rl-meta">'+(gaCloudInstType(cl)?escHtml(gaCloudInstType(cl))+' · ':'')+formatDate((cl.created_at||'').slice(0,10))+(cl.auto?' · automatic':'')+'</div></span>'
+        +(!gaRlSelMode&&live?'<span style="display:flex;gap:2px;align-items:flex-start">'
+          +'<button class="btn-icon btn-sm" title="'+(cl.auto?'Add context or a CR link':'Edit reason or CR link')+'" onclick="event.stopPropagation();openGaCloudEdit(\''+cl.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>'
+          +'<button class="btn-icon btn-sm" title="Delete this rev cloud" onclick="event.stopPropagation();gaRlDeleteOne(\''+cl.id+'\')">'+binSvg+'</button></span>':'')
         +'</div>';
     });
   });
@@ -5018,6 +5023,8 @@ async function _gaAutoCloudSet(inst,kind,x,y){
   const plan=gaShownPlan();if(!plan)return;
   const payload={points:gaAutoBox(x,y),label:(inst.device_id||'device')+' '+kind,cr_id:inst.change_cr_id||null,kind};
   const ex=gaAutoCloudFor(inst.id);
+  // A CR link someone set by hand on the cloud wins over the stamp; the note is never touched
+  if(ex&&ex.cr_id)payload.cr_id=ex.cr_id;
   try{
     if(ex){await dbUpdate('plan_rev_clouds',ex.id,payload);Object.assign(ex,payload);}
     else{
@@ -5114,7 +5121,23 @@ async function saveGaCloudNew(){
 function openGaCloudEdit(cloudId){
   const cl=gaDeckClouds.find(c=>c.id===cloudId)||gaClouds.find(c=>c.id===cloudId);if(!cl)return;
   gaEditCloudId=cloudId;
-  document.getElementById('ga-cloud-label').value=cl.label||'';
+  // Auto clouds: the description is system-managed; the editable text is a separate
+  // optional context note that auto updates never touch.
+  const autodesc=document.getElementById('ga-cloud-autodesc');
+  const lbl=document.getElementById('ga-cloud-label-lbl');
+  const input=document.getElementById('ga-cloud-label');
+  if(cl.auto){
+    autodesc.style.display='';
+    autodesc.innerHTML='Automatic: <strong>'+escHtml(cl.label||'')+'</strong>'+(gaCloudInstType(cl)?' · '+escHtml(gaCloudInstType(cl)):'')+'. This description keeps itself up to date; your note below is kept.';
+    lbl.innerHTML='Additional context <span class="optional">optional, shown in the revision log</span>';
+    input.value=cl.note||'';
+    input.placeholder='e.g. owner request, moved to suit new joinery';
+  }else{
+    autodesc.style.display='none';
+    lbl.innerHTML='Reason <span class="optional">free text, shown in the revision log</span>';
+    input.value=cl.label||'';
+    input.placeholder='e.g. speakers relocated to suit joinery';
+  }
   document.getElementById('ga-cloud-cr').innerHTML=gaCrOptions(cl.cr_id||'');
   // Clouds on issued revisions are the historical record: no delete there (Shane's rule)
   document.getElementById('ga-cloud-delete').style.display=gaCloudIsLive(cl)?'':'none';
@@ -5124,13 +5147,22 @@ function gaCloudIsLive(cl){const pl=gaPlans.find(p=>p.id===cl.deck_plan_id);retu
 function closeGaCloudModal(){document.getElementById('ga-cloud-overlay').classList.remove('open');gaEditCloudId=null;}
 async function gaSaveCloud(){
   const cl=gaDeckClouds.find(c=>c.id===gaEditCloudId)||gaClouds.find(c=>c.id===gaEditCloudId);if(!cl)return;
-  const label=document.getElementById('ga-cloud-label').value.trim()||null;
+  const txt=document.getElementById('ga-cloud-label').value.trim()||null;
   const crId=document.getElementById('ga-cloud-cr').value||null;
+  // Auto clouds keep their system-managed label; the text edits their context note
+  const payload=cl.auto?{note:txt,cr_id:crId}:{label:txt,cr_id:crId};
   try{
-    await dbUpdate('plan_rev_clouds',cl.id,{label,cr_id:crId});
-    cl.label=label;cl.cr_id=crId;
+    await dbUpdate('plan_rev_clouds',cl.id,payload);
+    Object.assign(cl,payload);
     closeGaCloudModal();renderGaBounds();renderGaRevLog();
   }catch(e){showToast('Could not save: '+e.message,'error');}
+}
+// Device type for an auto cloud's device, when its row still exists
+function gaCloudInstType(cl){
+  if(!cl.equipment_instance_id)return null;
+  const inst=placedEquipment.find(i=>i.id===cl.equipment_instance_id);
+  const pe=inst?projectEquipment.find(p=>p.id===inst.project_equipment_id):null;
+  return pe?pe.device_type_id:null;
 }
 function gaDeleteCloud(){
   const cl=gaDeckClouds.find(c=>c.id===gaEditCloudId)||gaClouds.find(c=>c.id===gaEditCloudId);if(!cl)return;
