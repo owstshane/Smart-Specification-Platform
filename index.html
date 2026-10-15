@@ -1322,6 +1322,15 @@
   </div>
 </div>
 
+<!-- GA: review comment popover on the plans tab -->
+<div class="modal-overlay" id="ga-cmtpop-overlay">
+  <div class="modal" style="max-width:430px">
+    <div class="modal-header"><div class="modal-title" id="ga-cmtpop-title">Review Comment</div><button class="btn-icon" onclick="closeGaCmtPop()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body" id="ga-cmtpop-body"></div>
+    <div class="modal-footer" id="ga-cmtpop-foot"></div>
+  </div>
+</div>
+
 <!-- GA REVIEW: new comment composer -->
 <div class="modal-overlay" id="ga-cmt-overlay">
   <div class="modal" style="max-width:420px">
@@ -2233,6 +2242,7 @@ function resetProjectCaches(){
   gaCRs=[];gaDeckClouds=[];gaPendingFocus=null;
   gaDesignTab='ga';gaComments=[];gaCmtSel=null;gaCmtOpenCounts={};gaCmtDraft=null;gaCmtResolveId=null;gaCmtAreas=[];gaCmtPicked=new Set();gaUndoStack=[];
   gaPrevPins=[];gaPrevPlanId=null;gaCloudPendingPts=null;
+  gaNotesShow=null;gaCmtPanelGa=false;gaCmtPopId=null;
   document.body.classList.remove('ga-focus');
 }
 function closeProject(){
@@ -2312,6 +2322,7 @@ let gaActiveFloorId=null, gaPaletteOpen=true, gaPaletteQuery='', gaRecentTypes=[
 let gaDesignTab='ga', gaComments=[], gaCmtFilter='open', gaCmtSel=null, gaCmtOpenCounts={}, gaCmtDraft=null, gaCmtResolveId=null, gaCmtPreview=null;
 let gaCmtAreas=[], gaCmtPicked=new Set();
 let gaPrevPins=[], gaPrevPlanId=null, gaCloudPendingPts=null;
+let gaNotesShow=null, gaCmtPanelGa=false, gaCmtPopId=null;
 // Undo: a session-only stack of inverse actions for the Design page (GA + Review).
 // Each entry is {label, fn}: fn reverses the change in the database; the view is
 // reloaded centrally after it runs. Cleared on project switch.
@@ -2649,6 +2660,7 @@ function renderGaPlans(){
     acts+=gaTb('gaToggleType()','Type','Show or hide the device type (SPK-IC-1) under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
       +gaTb('gaToggleUid()','ID','Show or hide the unique device ID (SPK-301-02) under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
       +gaTb('gaToggleRooms()','Rooms','Show or hide the room names on the plan','<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/>',gaShowRooms,'ga-btn-rooms')
+      +gaTb('gaToggleNotes()','Notes','Show or hide open review comments on the drawing (they appear automatically when there are any); tap a marker to read, reply and resolve','<path d="M21 11.5a8.4 8.4 0 0 1-8.9 8.4 9.2 9.2 0 0 1-3.9-.8L3 20l1-5.1a8.4 8.4 0 0 1-1-3.4 8.5 8.5 0 0 1 9-8.4 8.5 8.5 0 0 1 9 8.4z"/>',gaNotesOn(),'ga-btn-notes')
       +gaTb('gaToggleGridPanel()','Grid','Design grid and drawing scale','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridPanelOpen,'ga-btn-grid')
       +gaTb('gaToggleViewsPanel()','Views','Plan views (floor/ceiling), show or hide systems, saved views','<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/>',gaViewsPanelOpen,'ga-btn-views')
       +gaDiv;
@@ -2696,14 +2708,15 @@ function renderGaPlans(){
     +'</div>'
     +(review
       ?'<div class="ga-cmt-panel" id="ga-cmt-panel"></div>'
-      :'<div class="ga-views-panel" id="ga-views-panel" style="display:'+(gaViewsPanelOpen?'':'none')+'"></div>'
+      :'<div class="ga-cmt-panel" id="ga-cmt-panel" style="display:'+(gaCmtPanelGa?'':'none')+'"></div>'
+       +'<div class="ga-views-panel" id="ga-views-panel" style="display:'+(gaViewsPanelOpen?'':'none')+'"></div>'
        +'<div class="ga-revlog" id="ga-revlog" style="display:'+(gaRevLogOpen?'':'none')+'"></div>')
     +'</div>';
   wireGaViewport();
   if(!review&&gaViewsPanelOpen)renderGaViewsPanel();
   if(!review&&gaGridPanelOpen){const gp=document.getElementById('ga-grid-panel');if(gp){gp.style.display='';renderGaGridPanel();}}
   renderGaPalette();
-  if(review)renderGaCmtPanel();
+  if(review||gaCmtPanelGa)renderGaCmtPanel();
   // A comment capture survives deck switches so one comment can span several decks
   if(review&&gaMode==='comment'){
     const vp2=document.getElementById('ga-viewport');
@@ -2722,6 +2735,82 @@ function gaSetTbtn(id,on){
 function gaToggleType(){gaShowType=!gaShowType;gaSetTbtn('ga-btn-type',gaShowType);renderGaPins();}
 function gaToggleUid(){gaShowUid=!gaShowUid;gaSetTbtn('ga-btn-uid',gaShowUid);renderGaPins();}
 function gaToggleRooms(){gaShowRooms=!gaShowRooms;gaSetTbtn('ga-btn-rooms',gaShowRooms);renderGaBounds();}
+// ── Notes on the GA tab: open review comments shown where the fixing happens ──
+// Default: markers appear automatically whenever the plan has open comments; the
+// toggle overrides either way, and the docked panel forces them on.
+function gaNotesOn(){
+  if(gaDesignTab!=='ga')return false;
+  if(gaCmtPanelGa)return true;
+  if(gaNotesShow!==null)return gaNotesShow;
+  const plan=gaShownPlan();
+  return !!(plan&&(gaCmtOpenCounts[plan.id]||0));
+}
+function gaToggleNotes(){
+  gaNotesShow=!gaNotesOn();
+  if(!gaNotesShow&&gaCmtPanelGa){
+    gaCmtPanelGa=false;
+    const p=document.getElementById('ga-cmt-panel');if(p)p.style.display='none';
+  }
+  renderGaComments();
+  gaSetTbtn('ga-btn-notes',gaNotesOn());
+}
+function gaToggleCmtPanelGa(on){
+  gaCmtPanelGa=(on===true)?true:!gaCmtPanelGa;
+  const p=document.getElementById('ga-cmt-panel');
+  if(p){p.style.display=gaCmtPanelGa?'':'none';if(gaCmtPanelGa)renderGaCmtPanel();}
+  renderGaComments();
+  gaSetTbtn('ga-btn-notes',gaNotesOn());
+}
+// Compact thread popover for a marker clicked on the GA tab: read, reply, resolve in place
+function closeGaCmtPop(){gaCmtPopId=null;document.getElementById('ga-cmtpop-overlay').classList.remove('open');}
+function openGaCmtPopover(id){
+  const c=gaComments.find(x=>x.id===id);if(!c)return;
+  gaCmtPopId=id;
+  const n=gaCmtRoots().findIndex(x=>x.id===id)+1;
+  const inst=gaCmtInst(c);
+  const room=c.room_id?currentRooms.find(r=>r.id===c.room_id):null;
+  const tgts=Array.isArray(c.targets)?c.targets:[];
+  const cr=c.cr_id?gaCRs.find(x=>x.id===c.cr_id):null;
+  let chips='';
+  if(inst)chips+='<span class="cmt-chip">'+escHtml(inst.device_id||'device')+'</span>';
+  if(tgts.length)chips+='<span class="cmt-chip">'+tgts.length+' device'+(tgts.length!==1?'s':'')+'</span>';
+  if(room)chips+='<span class="cmt-chip">'+escHtml(room.name)+'</span>';
+  if(cr)chips+='<span class="cmt-chip">'+escHtml(cr.cr_number)+'</span>';
+  const reps=gaCmtReplies(id);
+  document.getElementById('ga-cmtpop-title').innerHTML='<span class="cmt-num" style="margin-right:8px;vertical-align:1px">'+n+'</span>Review Comment';
+  let html=chips+'<div class="cmt-body" style="font-size:13px;margin-top:4px">'+escHtml(c.body)+'</div>'
+    +'<div class="cmt-meta">'+escHtml(gaCmtWho(c))+' · '+formatDate((c.created_at||'').slice(0,10))+'</div>';
+  if(c.status==='resolved')html+='<div class="cmt-res" style="margin:6px 0 0">Resolved'+(c.resolved_by?' by '+escHtml(c.resolved_by.split('@')[0]):'')+(c.resolve_note?': '+escHtml(c.resolve_note):'')+'</div>';
+  if(tgts.length){
+    const names=tgts.map(tid=>{const i2=placedEquipment.find(z=>z.id===tid);return i2?(i2.device_id||'device'):'(removed)';});
+    html+='<div style="margin-top:6px;font-size:11px;color:var(--text-3)">Captured: '+escHtml(names.join(', '))+'</div>';
+  }
+  reps.forEach(r=>{html+='<div class="cmt-reply"><div class="cmt-body">'+escHtml(r.body)+'</div><div class="cmt-meta">'+escHtml(gaCmtWho(r))+' · '+formatDate((r.created_at||'').slice(0,10))+'</div></div>';});
+  html+='<div style="margin-top:10px;display:flex;gap:5px"><input type="text" id="ga-cmtpop-reply" placeholder="Reply…" style="flex:1;min-width:0;padding:6px 8px;font-size:12.5px" onkeydown="if(event.key===\'Enter\')gaCmtPopReply()"><button class="btn btn-secondary btn-sm" onclick="gaCmtPopReply()">Reply</button></div>';
+  document.getElementById('ga-cmtpop-body').innerHTML=html;
+  document.getElementById('ga-cmtpop-foot').innerHTML=
+    '<button class="btn btn-secondary" style="margin-right:auto" onclick="closeGaCmtPop();gaToggleCmtPanelGa(true)">All Comments</button>'
+    +'<button class="btn btn-secondary" onclick="closeGaCmtPop()">Close</button>'
+    +(c.status==='open'
+      ?'<button class="btn btn-primary" onclick="closeGaCmtPop();openGaCmtResolve(\''+c.id+'\')">Resolve</button>'
+      :'<button class="btn btn-secondary" onclick="gaCmtPopReopen(\''+c.id+'\')">Reopen</button>');
+  document.getElementById('ga-cmtpop-overlay').classList.add('open');
+}
+async function gaCmtPopReply(){
+  const inp=document.getElementById('ga-cmtpop-reply');
+  const body=(inp?inp.value:'').trim();
+  if(!body||!gaCmtPopId)return;
+  const c=gaComments.find(x=>x.id===gaCmtPopId);if(!c)return;
+  try{
+    const rows=await dbInsert('plan_comments',{deck_plan_id:c.deck_plan_id,project_id:currentProject.id,parent_id:c.id,body,created_by:currentUser?.email||null});
+    gaComments.push(rows[0]);
+    const rId=rows[0].id;
+    gaUndoPush('reply',async()=>{await dbDelete('plan_comments',rId);gaComments=gaComments.filter(x=>x.id!==rId);});
+    openGaCmtPopover(gaCmtPopId);
+    renderGaCmtPanel();
+  }catch(e){showToast('Could not reply: '+e.message,'error');}
+}
+async function gaCmtPopReopen(id){await gaCmtReopen(id);openGaCmtPopover(id);}
 // ── VIEWS: plan view (floor/ceiling) and per-system show/hide ──
 function gaToggleViewsPanel(){
   gaViewsPanelOpen=!gaViewsPanelOpen;
@@ -3394,7 +3483,8 @@ async function loadGaPins(planId){
       }
     }
     renderGaBounds();renderGaPins();renderGaComments();renderGaRevLog();renderGaPalette();
-    if(gaDesignTab==='review')renderGaCmtPanel();
+    if(gaDesignTab==='review'||gaCmtPanelGa)renderGaCmtPanel();
+    gaSetTbtn('ga-btn-notes',gaNotesOn());
     if(gaMode==='comment')gaCmtBasketDraw();
     gaUpdateReviewBadge();
   }catch(e){showToast('Could not load the plan layers: '+e.message,'error');}
@@ -3663,7 +3753,7 @@ function wireGaViewport(){
     const midEl=gaMode==='edit'?e.target.closest('.ga-vtx.mid'):null;
     let vtxEl=(gaMode==='edit'&&!midEl)?e.target.closest('.ga-vtx.edit'):null;
     const pinEl=((gaMode==='pan'||gaMode==='select')&&!gridMove&&!vtxEl&&!midEl)?e.target.closest('.ga-pin'):null;
-    const cmEl=e.target.closest?e.target.closest('.ga-cmark'):null;
+    const cmEl=((gaMode==='pan'||gaMode==='comment')&&e.target.closest)?e.target.closest('.ga-cmark'):null;
     // Comment mode: a tap on a pin attaches the comment to that device (pins are inert otherwise in review)
     const cmtPinEl=(gaMode==='comment'&&!cmEl)?e.target.closest('.ga-pin'):null;
     // Stop the browser starting its own image drag or selection when a handle/pin drag begins
@@ -3945,7 +4035,11 @@ function wireGaViewport(){
     // Review: tap a comment marker to open its thread; in comment mode a tap drops a new one,
     // on a device pin it attaches to that device, elsewhere it is a general point comment.
     // While a capture is building, pin taps add or remove devices instead.
-    if(d.cmId){gaCmtSelectFromPlan(d.cmId);return;}
+    if(d.cmId){
+      if(gaDesignTab==='ga')openGaCmtPopover(d.cmId);
+      else gaCmtSelectFromPlan(d.cmId);
+      return;
+    }
     if(gaMode==='comment'){
       if(gaCmtAreas.length||gaCmtPicked.size){
         if(d.cmtPin){
@@ -4529,12 +4623,16 @@ function gaCmtInst(c){return c.equipment_instance_id?placedEquipment.find(i=>i.i
 function renderGaComments(){
   const st=document.getElementById('ga-stage');if(!st)return;
   st.querySelectorAll('.ga-cmark,.ga-carea').forEach(n=>n.remove());
-  if(gaDesignTab!=='review')return;
+  // Markers show on the Review tab (per its filter) and, when Notes is on, on the
+  // GA Plans tab too (open comments only) so feedback is actioned where the fixing happens
+  if(gaDesignTab!=='review'&&!(gaDesignTab==='ga'&&gaNotesOn()))return;
   const plan=gaShownPlan();if(!plan)return;
   // Numbering is the comment's position in the whole project's list, so number 3 is
   // number 3 on every deck it appears on.
   gaCmtRoots().forEach((c,i)=>{
-    if(!gaCmtVisible(c)||!gaCmtTouches(c,plan.id))return;
+    if(gaDesignTab==='ga'){if(c.status!=='open')return;}
+    else if(!gaCmtVisible(c))return;
+    if(!gaCmtTouches(c,plan.id))return;
     const sel=gaCmtSel===c.id;
     const localBoxes=gaCmtBoxes(c).filter(e=>e.p===plan.id).map(e=>e.b);
     localBoxes.forEach(bx=>{
@@ -4792,7 +4890,9 @@ function renderGaCmtPanel(){
   let html='<h3>Comments'
     +'<select onchange="gaCmtSetFilter(this.value)" style="margin-left:auto;width:auto;padding:4px 7px;font-size:11.5px;text-transform:none;letter-spacing:0">'
     +[['open','Open ('+openN+')'],['resolved','Resolved ('+(roots.length-openN)+')'],['all','All ('+roots.length+')']].map(o=>'<option value="'+o[0]+'"'+(gaCmtFilter===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')
-    +'</select></h3>';
+    +'</select>'
+    +(gaDesignTab==='ga'?'<button class="btn-icon btn-sm" title="Close" onclick="gaToggleCmtPanelGa()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>':'')
+    +'</h3>';
   if(!shownRoots.length)html+='<div style="padding:10px 14px;font-size:12px;color:var(--text-3)">'+(roots.length?'Nothing matches this filter.':'No comments on this revision yet. Press Comment, then tap the drawing.')+'</div>';
   shownRoots.forEach(({c,n})=>{
     const sel=gaCmtSel===c.id;
