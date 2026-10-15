@@ -1309,6 +1309,18 @@
   </div>
 </div>
 
+<!-- GA: reason dialog for a manually drawn rev cloud -->
+<div class="modal-overlay" id="ga-cloudnew-overlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><div class="modal-title">Rev Cloud</div><button class="btn-icon" onclick="closeGaCloudNew()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Reason <span class="optional">shown in the revision log</span></label><input type="text" id="ga-cloudnew-label" placeholder="e.g. Sofa position revised, speakers re-aimed"></div>
+      <div class="form-group"><label>Link a Change Request <span class="optional">optional</span></label><select id="ga-cloudnew-cr"></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeGaCloudNew()">Cancel</button><button class="btn btn-primary" id="ga-cloudnew-save" onclick="saveGaCloudNew()">Add Cloud</button></div>
+  </div>
+</div>
+
 <!-- GA REVIEW: new comment composer -->
 <div class="modal-overlay" id="ga-cmt-overlay">
   <div class="modal" style="max-width:420px">
@@ -2219,6 +2231,7 @@ function resetProjectCaches(){
   gaPlans=[];gaActiveDeckId=null;gaActiveFloorId=null;gaViewRevId=null;_gaSignedCache={};
   gaCRs=[];gaDeckClouds=[];gaPendingFocus=null;
   gaDesignTab='ga';gaComments=[];gaCmtSel=null;gaCmtOpenCounts={};gaCmtDraft=null;gaCmtResolveId=null;gaCmtAreas=[];gaCmtPicked=new Set();gaUndoStack=[];
+  gaPrevPins=[];gaPrevPlanId=null;gaCloudPendingPts=null;
   document.body.classList.remove('ga-focus');
 }
 function closeProject(){
@@ -2297,6 +2310,7 @@ let gaActiveFloorId=null, gaPaletteOpen=true, gaPaletteQuery='', gaRecentTypes=[
 // Review tab: Pinpoint-style comment threads pinned to the plan
 let gaDesignTab='ga', gaComments=[], gaCmtFilter='open', gaCmtSel=null, gaCmtOpenCounts={}, gaCmtDraft=null, gaCmtResolveId=null, gaCmtPreview=null;
 let gaCmtAreas=[], gaCmtPicked=new Set();
+let gaPrevPins=[], gaPrevPlanId=null, gaCloudPendingPts=null;
 // Undo: a session-only stack of inverse actions for the Design page (GA + Review).
 // Each entry is {label, fn}: fn reverses the change in the database; the view is
 // reloaded centrally after it runs. Cleared on project switch.
@@ -2317,7 +2331,7 @@ async function gaUndo(){
   try{
     await u.fn();
     const plan=(currentPage==='design')?gaShownPlan():null;
-    if(plan)await loadGaPins(plan.id);
+    if(plan){await loadGaPins(plan.id);await gaAutoCloudReconcile();}
     showToast('Undone: '+u.label,'success');
   }catch(e){showToast('Could not undo '+u.label+': '+e.message,'error');}
 }
@@ -3261,6 +3275,12 @@ async function _gaAutoPlace(list){
       await dbDeleteWhere('plan_equipment_pins','id=in.('+apIds.join(',')+')');
       gaPins=gaPins.filter(p=>!apIds.includes(p.id));
     });
+    if(gaAutoCloudsOn()){
+      for(const r of rows){
+        const inst=placedEquipment.find(i=>i.id===r.equipment_instance_id);
+        if(inst)await gaAutoCloudEval(inst,r);
+      }
+    }
     renderGaPins();renderGaBounds();renderGaPalette();
     logChange('design','added','Auto-placed '+rows.length+' device'+(rows.length!==1?'s':'')+' into drawn rooms on the GA');
     showToast(rows.length+' device'+(rows.length!==1?'s':'')+' placed. Dashed ring means auto position: drag each to set it.','success');
@@ -3355,6 +3375,16 @@ async function loadGaPins(planId){
     gaPins=pins;gaBounds=bounds;
     gaDeckClouds=clouds;
     gaClouds=gaDeckClouds.filter(c=>c.deck_plan_id===planId);
+    // Baseline for auto rev clouds: the previous revision's pins (current plan only)
+    gaPrevPins=[];gaPrevPlanId=null;
+    const shownPl=gaPlans.find(p=>p.id===planId);
+    if(shownPl&&shownPl.is_current){
+      const prev=gaPrevPlan(shownPl);
+      if(prev){
+        gaPrevPlanId=prev.id;
+        try{gaPrevPins=await dbGet('plan_equipment_pins','deck_plan_id=eq.'+prev.id);}catch(e){gaPrevPins=[];}
+      }
+    }
     renderGaBounds();renderGaPins();renderGaComments();renderGaRevLog();renderGaPalette();
     if(gaDesignTab==='review')renderGaCmtPanel();
     if(gaMode==='comment')gaCmtBasketDraw();
@@ -3751,22 +3781,13 @@ function wireGaViewport(){
       // Ignore accidental tiny drags (under ~14 screen px either way)
       if(Math.abs(x1-d.fx0)*gaImgW*gaView.s<14||Math.abs(y1-d.fy0)*gaImgH*gaView.s<14){renderGaBounds();return;}
       const pts=[[d.fx0,d.fy0],[x1,d.fy0],[x1,y1],[d.fx0,y1]];
-      const input=document.getElementById('ga-cloud-live-label');
-      const crSel=document.getElementById('ga-cloud-live-cr');
-      const label=(input?input.value.trim():'')||null;
-      const crId=(crSel?crSel.value:'')||null;
-      gaLastCloudLabel=label||'';gaLastCloudCrId=crId||'';
-      try{
-        const plan=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
-        const rows=await dbInsert('plan_rev_clouds',{deck_plan_id:plan.id,points:pts,label,cr_id:crId});
-        gaClouds.push(rows[0]);gaDeckClouds.push(rows[0]);
-        const cid=rows[0].id;
-        gaUndoPush('rev cloud',async()=>{
-          await dbDelete('plan_rev_clouds',cid);
-          gaClouds=gaClouds.filter(c=>c.id!==cid);gaDeckClouds=gaDeckClouds.filter(c=>c.id!==cid);
-        });
-      }catch(err){showToast('Could not save the cloud: '+err.message,'error');}
-      renderGaBounds();renderGaRevLog();
+      // The reason dialog opens AFTER the box is drawn (Shane, 15 Oct 2026)
+      gaCloudPendingPts=pts;
+      document.getElementById('ga-cloudnew-label').value='';
+      document.getElementById('ga-cloudnew-cr').innerHTML=gaCrOptions(gaLastCloudCrId);
+      document.getElementById('ga-cloudnew-overlay').classList.add('open');
+      setTimeout(()=>{const i=document.getElementById('ga-cloudnew-label');if(i)i.focus();},60);
+      renderGaBounds();
       return;
     }
     if(d.vtxBound){
@@ -3848,6 +3869,7 @@ function wireGaViewport(){
               await gaMoveInstanceToRoom(inst,room,true);renumbered++;
             }
           }
+          if(inst)await gaAutoCloudEval(inst,pin);
         }
         gaUndoPush('group move ('+d.group.length+' devices)',async()=>{
           for(const up of undoPins)await dbUpdate('plan_equipment_pins',up.id,{x:up.x,y:up.y,auto:up.auto});
@@ -3880,6 +3902,7 @@ function wireGaViewport(){
             if(reroomed&&inst&&oldLoc){try{await dbUpdate('equipment_instances',inst.id,oldLoc);Object.assign(inst,oldLoc);}catch(e2){}}
           });
         }
+        if(inst)await gaAutoCloudEval(inst,pin);
         renderGaPins();
       }catch(err){showToast('Could not move pin: '+err.message,'error');renderGaPins();}
       return;
@@ -3980,6 +4003,7 @@ function wireGaViewport(){
           await dbDelete('plan_equipment_pins',newPinId);
           if(reroomed){try{await dbUpdate('equipment_instances',inst.id,oldLoc);Object.assign(inst,oldLoc);}catch(e2){}}
         });
+        await gaAutoCloudEval(inst,rows[0]);
         renderGaPins();renderGaBounds();
         // Move straight on to the next unplaced device in the same room
         const next=gaUnplaced().find(i=>i.room_id===inst.room_id);
@@ -4339,6 +4363,12 @@ function renderGaRevLog(){
     if(!clouds.length)return;
     any=true;
     rows+='<div class="rl-rev">'+escHtml(plan.revision)+(plan.is_current?' (current)':'')+' · '+formatDate((plan.created_at||'').slice(0,10))+'</div>';
+    // Plus/minus summary of the automatic clouds: the change list for this release
+    const aAdd=clouds.filter(c=>c.auto&&c.kind==='added').length;
+    const aRem=clouds.filter(c=>c.auto&&c.kind==='removed').length;
+    const aMov=clouds.filter(c=>c.auto&&c.kind==='moved').length;
+    if(aAdd||aRem||aMov)rows+='<div style="padding:1px 14px 5px;font-size:11px;color:var(--text-3)">Changes since previous revision: '
+      +[aAdd?'<span style="color:#2f855a;font-weight:700">+'+aAdd+' added</span>':'',aRem?'<span style="color:#c23b3b;font-weight:700">&minus;'+aRem+' removed</span>':'',aMov?'<span style="color:#b7791f;font-weight:700">&plusmn;'+aMov+' moved</span>':''].filter(Boolean).join(' · ')+'</div>';
     clouds.forEach(cl=>{
       // Only clouds on the current (live) revision can be deleted; issued revisions
       // are the historical record (Shane's rule, 6 Oct 2026)
@@ -4348,7 +4378,9 @@ function renderGaRevLog(){
           ?'<input type="checkbox" '+(gaRlSel.has(cl.id)?'checked ':'')+'style="margin-top:5px" onclick="event.stopPropagation();gaRlToggle(\''+cl.id+'\')">'
           :'<span title="Issued revision: cannot be deleted"></span>'):'')
         +'<span class="rl-tag">'+escHtml(gaCloudTag(cl))+'</span>'
-        +'<span><span class="rl-desc">'+escHtml(gaCloudDesc(cl))+'</span><div class="rl-meta">'+formatDate((cl.created_at||'').slice(0,10))+'</div></span>'
+        +'<span><span class="rl-desc">'
+        +(cl.auto?(cl.kind==='added'?'<span style="color:#2f855a;font-weight:700">+ </span>':cl.kind==='removed'?'<span style="color:#c23b3b;font-weight:700">&minus; </span>':'<span style="color:#b7791f;font-weight:700">&plusmn; </span>'):'')
+        +escHtml(gaCloudDesc(cl))+'</span><div class="rl-meta">'+formatDate((cl.created_at||'').slice(0,10))+(cl.auto?' · automatic':'')+'</div></span>'
         +(!gaRlSelMode&&live?'<button class="btn-icon btn-sm" title="Delete this rev cloud" onclick="event.stopPropagation();gaRlDeleteOne(\''+cl.id+'\')">'+binSvg+'</button>':'')
         +'</div>';
     });
@@ -4953,20 +4985,131 @@ function gaUpdateGridVisual(){
   pat.setAttribute('x',(((plan.grid_offset_x||0)*gaImgW)%step).toFixed(2));
   pat.setAttribute('y',(((plan.grid_offset_y||0)*gaImgH)%step).toFixed(2));
 }
+// ── AUTO REV CLOUDS (Shane, 15 Oct 2026) ──
+// Once a deck is past its first revision, every device change marks itself: moved
+// (beyond a small tolerance vs the PREVIOUS revision), added (not on the previous
+// revision) or removed. One auto cloud per device per plan, updated in place, so a
+// device moved back to where it was loses its cloud again. CR refs come from the
+// change-control stamp on the device. Manual clouds remain for everything else.
+function gaPrevPlan(plan){
+  return gaPlans.filter(p=>p.deck_id===plan.deck_id&&((p.floor_id||null)===(plan.floor_id||null))&&p.id!==plan.id&&new Date(p.created_at)<new Date(plan.created_at))
+    .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0]||null;
+}
+function gaAutoCloudsOn(){
+  const plan=gaShownPlan();
+  return !!(plan&&plan.is_current&&gaPrevPlanId);
+}
+// Move tolerance: about 0.3 m on a calibrated drawing, about 1% of the image otherwise
+function gaMoveTolPx(){
+  const plan=gaShownPlan();
+  return (plan&&plan.scale_px_per_m>0)?plan.scale_px_per_m*0.3:Math.max(gaImgW,gaImgH)*0.01;
+}
+function gaAutoBox(x,y){
+  const plan=gaShownPlan();
+  const half=(plan&&plan.scale_px_per_m>0)
+    ?Math.max(plan.scale_px_per_m*gaPinSizeM*1.3,plan.scale_px_per_m*0.45)
+    :Math.max(gaImgW,gaImgH)*0.022;
+  const hx=half/(gaImgW||1600),hy=half/(gaImgH||900);
+  const x0=Math.max(0,x-hx),x1=Math.min(1,x+hx),y0=Math.max(0,y-hy),y1=Math.min(1,y+hy);
+  return [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+}
+function gaAutoCloudFor(instId){return gaClouds.find(c=>c.auto&&c.equipment_instance_id===instId);}
+async function _gaAutoCloudSet(inst,kind,x,y){
+  const plan=gaShownPlan();if(!plan)return;
+  const payload={points:gaAutoBox(x,y),label:(inst.device_id||'device')+' '+kind,cr_id:inst.change_cr_id||null,kind};
+  const ex=gaAutoCloudFor(inst.id);
+  try{
+    if(ex){await dbUpdate('plan_rev_clouds',ex.id,payload);Object.assign(ex,payload);}
+    else{
+      const rows=await dbInsert('plan_rev_clouds',Object.assign({deck_plan_id:plan.id,equipment_instance_id:inst.id,auto:true},payload));
+      gaClouds.push(rows[0]);gaDeckClouds.push(rows[0]);
+    }
+    renderGaBounds();renderGaRevLog();
+  }catch(e){console.warn('Auto rev cloud failed',e);}
+}
+async function _gaAutoCloudClear(instId){
+  const ex=gaAutoCloudFor(instId);if(!ex)return;
+  try{
+    await dbDelete('plan_rev_clouds',ex.id);
+    gaClouds=gaClouds.filter(c=>c.id!==ex.id);gaDeckClouds=gaDeckClouds.filter(c=>c.id!==ex.id);
+    renderGaBounds();renderGaRevLog();
+  }catch(e){console.warn('Auto rev cloud clear failed',e);}
+}
+// Compare one pinned device against the previous revision; set or clear its cloud
+async function gaAutoCloudEval(inst,pin){
+  if(!gaAutoCloudsOn()||!inst||!pin)return;
+  const base=gaPrevPins.find(p=>p.equipment_instance_id===inst.id);
+  if(!base){await _gaAutoCloudSet(inst,'added',pin.x,pin.y);return;}
+  const distPx=Math.hypot((pin.x-base.x)*gaImgW,(pin.y-base.y)*gaImgH);
+  if(distPx>gaMoveTolPx())await _gaAutoCloudSet(inst,'moved',pin.x,pin.y);
+  else await _gaAutoCloudClear(inst.id);
+}
+// A device leaving the plan: cloud where it was on the previous revision, or if it
+// was only added in THIS revision, erase its own cloud (net zero change)
+async function gaAutoCloudOnRemove(inst){
+  if(!gaAutoCloudsOn()||!inst)return;
+  const base=gaPrevPins.find(p=>p.equipment_instance_id===inst.id);
+  if(base)await _gaAutoCloudSet(inst,'removed',base.x,base.y);
+  else await _gaAutoCloudClear(inst.id);
+}
+// Full resync after an undo: re-evaluate every pinned device and drop stale clouds
+async function gaAutoCloudReconcile(){
+  if(!gaAutoCloudsOn())return;
+  const instById={};placedEquipment.forEach(i=>{instById[i.id]=i;});
+  const pinByInst={};gaPins.forEach(p=>{pinByInst[p.equipment_instance_id]=p;});
+  for(const pin of gaPins){
+    const inst=instById[pin.equipment_instance_id];
+    if(inst&&inst.change_status!=='removed')await gaAutoCloudEval(inst,pin);
+  }
+  for(const cl of gaClouds.slice()){
+    if(!cl.auto)continue;
+    // Orphaned added/moved clouds (their device was undone away) disappear;
+    // 'removed' clouds without a device row are legitimate history and stay.
+    if(!cl.equipment_instance_id){
+      if(cl.kind!=='removed'){try{await dbDelete('plan_rev_clouds',cl.id);gaClouds=gaClouds.filter(c=>c.id!==cl.id);gaDeckClouds=gaDeckClouds.filter(c=>c.id!==cl.id);}catch(e){}}
+      continue;
+    }
+    const inst=instById[cl.equipment_instance_id];
+    const pin=pinByInst[cl.equipment_instance_id];
+    if(cl.kind!=='removed'&&(!inst||inst.change_status==='removed'||!pin)){
+      const base=gaPrevPins.find(p=>p.equipment_instance_id===cl.equipment_instance_id);
+      if(base&&inst)await _gaAutoCloudSet(inst,'removed',base.x,base.y);
+      else await _gaAutoCloudClear(cl.equipment_instance_id);
+    }
+  }
+  renderGaBounds();renderGaRevLog();
+}
 function gaStartCloud(){
   const showing=gaViewRevId?gaPlans.find(p=>p.id===gaViewRevId):gaCurrentPlan(gaActiveDeckId);
   if(!showing){showToast('Upload a plan first','error');return;}
   if(!showing.is_current){showToast('Switch to the current revision to add a rev cloud','error');return;}
   gaMode='cloud';gaDraft=[];gaArmedTypeId=null;
   const vp=document.getElementById('ga-viewport');if(vp){vp.classList.add('drawing');vp.classList.remove('placing');}
-  const b=document.getElementById('ga-banner'),t=document.getElementById('ga-banner-text'),btn=document.getElementById('ga-banner-btn');
-  if(b&&t){
-    t.innerHTML='Drag a box around each changed area.&nbsp;'
-      +'<select id="ga-cloud-live-cr" style="max-width:190px;padding:3px 6px;border:none;border-radius:5px;font-size:13px;color:#1b2a3a">'+gaCrOptions(gaLastCloudCrId)+'</select>&nbsp;'
-      +'<input id="ga-cloud-live-label" type="text" placeholder="Reason (goes in the revision log)" value="'+escHtml(gaLastCloudLabel)+'" style="width:220px;max-width:38vw;padding:3px 8px;border:none;border-radius:5px;font-size:13px;color:#1b2a3a">';
-    if(btn)btn.textContent='Done';
-    b.classList.add('on');
-  }
+  gaBanner(gaAutoCloudsOn()
+    ?'Device moves, adds and removals cloud themselves. Drag a box for anything else; a dialog asks for the reason after each box.'
+    :'Drag a box around each changed area. A dialog asks for the reason after each box.','Done');
+}
+function closeGaCloudNew(){gaCloudPendingPts=null;document.getElementById('ga-cloudnew-overlay').classList.remove('open');}
+async function saveGaCloudNew(){
+  const pts=gaCloudPendingPts;
+  if(!pts){closeGaCloudNew();return;}
+  const label=document.getElementById('ga-cloudnew-label').value.trim()||null;
+  const crId=document.getElementById('ga-cloudnew-cr').value||null;
+  gaLastCloudLabel=label||'';gaLastCloudCrId=crId||'';
+  const btn=document.getElementById('ga-cloudnew-save');btn.disabled=true;
+  try{
+    const plan=gaShownPlan();
+    const rows=await dbInsert('plan_rev_clouds',{deck_plan_id:plan.id,points:pts,label,cr_id:crId});
+    gaClouds.push(rows[0]);gaDeckClouds.push(rows[0]);
+    const cid=rows[0].id;
+    gaUndoPush('rev cloud',async()=>{
+      await dbDelete('plan_rev_clouds',cid);
+      gaClouds=gaClouds.filter(c=>c.id!==cid);gaDeckClouds=gaDeckClouds.filter(c=>c.id!==cid);
+    });
+    closeGaCloudNew();
+    renderGaBounds();renderGaRevLog();
+  }catch(err){showToast('Could not save the cloud: '+err.message,'error');}
+  finally{btn.disabled=false;}
 }
 function openGaCloudEdit(cloudId){
   const cl=gaDeckClouds.find(c=>c.id===cloudId)||gaClouds.find(c=>c.id===cloudId);if(!cl)return;
@@ -5182,6 +5325,7 @@ async function gaCreatePinnedDevice(typeId,x,y,room,zone,notes,preWire){
   });
   logChange('equipment','added','Placed '+deviceId+' on the GA ('+(isZone?zone.name:(room?room.name:'unassigned'))+')');
   showToast(deviceId+' placed'+(room?' in '+room.name:zone?' in '+zone.name:''),'success');
+  await gaAutoCloudEval(inst,pinRows[0]);
   renderGaPins();
   if(activeCRId&&activeCRType==='formal'){
     const {price:unitPrice,source:priceSource}=lookupEquipmentPriceInfo(pe);
@@ -9656,6 +9800,10 @@ function confirmDeletePlaced(id,name){
     :'Remove device "'+name+'" from its location?';
   openConfirm('Remove Placement',msg,async()=>{
     try{
+      // Auto rev cloud: a device leaving the plan marks itself (only when the GA
+      // context is live for the plan this device is pinned on; must run BEFORE a
+      // hard delete so the cloud can still reference the device)
+      try{if(inst&&gaAutoCloudsOn()&&gaPins.some(p=>p.equipment_instance_id===inst.id))await gaAutoCloudOnRemove(inst);}catch(e2){}
       if(activeCRId&&!addedUnderActiveCR){
         await dbUpdate('equipment_instances',id,stampChange({},'removed',inst));
         showToast(name+' marked as Removed','success');
