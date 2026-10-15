@@ -369,12 +369,6 @@
   .ga-delta { position: absolute; transform: translate(-50%,-100%) scale(var(--ga-inv,1)); transform-origin: 50% 100%; cursor: pointer; z-index: 2; width: 34px; height: 30px; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: #c0392b; color: #fff; display: grid; place-items: end center; font-weight: 700; font-size: 11px; padding-bottom: 2px; }
   .ga-grid-panel { position: absolute; right: 62px; bottom: 12px; z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 12px 14px; width: 230px; font-size: 13px; }
   input[type=checkbox], input[type=radio] { accent-color: var(--check); }
-  /* Segmented display toggles: five always-visible switches reading as one object */
-  .ga-seg { display: inline-flex; align-items: stretch; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; background: var(--surface); }
-  .ga-seg button { border: 0; background: transparent; padding: 5px 10px; font-size: 12px; font-weight: 600; color: var(--text-3); cursor: pointer; border-left: 1px solid var(--border); line-height: 1.2; white-space: nowrap; }
-  .ga-seg button:first-child { border-left: 0; }
-  .ga-seg button:hover { color: var(--text-1); background: var(--surface2); }
-  .ga-seg button.on { background: var(--accent); color: #fff; }
   .ga-views-panel { width: 250px; flex: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; overflow-y: auto; height: calc(100vh - 310px); min-height: 380px; box-sizing: border-box; }
   .ga-views-panel h4 { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin: 10px 0 5px; }
   .ga-views-panel h4:first-child { margin-top: 0; }
@@ -2662,21 +2656,18 @@ function renderGaPlans(){
   }
   if(gaRight)bar+='<span class="ga-tbgroup">'+gaRight+'</span>';
   bar+='</div>';
-  const seg=(id,lbl,title,on,fn)=>'<button type="button" id="'+id+'" class="'+(on?'on':'')+'" onclick="'+fn+'" title="'+title+'">'+lbl+'</button>';
-  const segBar=(withNotes)=>'<span class="ga-seg">'
-    +seg('ga-btn-type','Type','Show or hide the device type (SPK-IC-1) under the pins',gaShowType,'gaToggleType()')
-    +seg('ga-btn-uid','ID','Show or hide the unique device ID (SPK-301-02) under the pins',gaShowUid,'gaToggleUid()')
-    +seg('ga-btn-rooms','Room','Show or hide the room names on the plan',gaShowRooms,'gaToggleRooms()')
-    +(withNotes?seg('ga-btn-notes','Notes','Show or hide open review comments on the drawing (they appear automatically when there are any)',gaNotesOn(),'gaToggleNotes()'):'')
-    +seg('ga-btn-grid','Grid','Show or hide the grid lines',gaGridShow,'gaToggleGrid()')
-    +'</span>';
+  const togBar=(withNotes)=>gaTb('gaToggleType()','Type','Show or hide the device type (SPK-IC-1) under the pins','<path d="M20 12l-8 8-9-9V4h7l10 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',gaShowType,'ga-btn-type')
+    +gaTb('gaToggleUid()','ID','Show or hide the unique device ID (SPK-301-02) under the pins','<path d="M4 7V5h16v2M12 5v14M9 19h6"/>',gaShowUid,'ga-btn-uid')
+    +gaTb('gaToggleRooms()','Rooms','Show or hide the room names on the plan','<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/>',gaShowRooms,'ga-btn-rooms')
+    +(withNotes?gaTb('gaToggleNotes()','Notes','Show or hide open review comments on the drawing (they appear automatically when there are any)','<path d="M21 11.5a8.4 8.4 0 0 1-8.9 8.4 9.2 9.2 0 0 1-3.9-.8L3 20l1-5.1a8.4 8.4 0 0 1-1-3.4 8.5 8.5 0 0 1 9-8.4 8.5 8.5 0 0 1 9 8.4z"/>',gaNotesOn(),'ga-btn-notes'):'')
+    +gaTb('gaToggleGrid()','Grid','Show or hide the grid lines','<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',gaGridShow,'ga-btn-grid');
   let acts='';
   if(cur&&!review){
-    acts+=segBar(true)
+    acts+=togBar(true)
       +gaTb('gaToggleViewsPanel()','Views','Plan views (floor/ceiling), systems, pin size, saved views','<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/>',gaViewsPanelOpen,'ga-btn-views')
       +gaDiv;
   }
-  if(showing&&review)acts+=segBar(false)
+  if(showing&&review)acts+=togBar(false)
     +gaTb('gaToggleViewsPanel()','Views','Plan views (floor/ceiling), systems, pin size, saved views','<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/>',gaViewsPanelOpen,'ga-btn-views')
     +gaTb('gaToggleFocus()','Full','Full screen drawing view','<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>');
   if(showing&&!review)acts+=gaTb('gaToggleRevLog()','Log','Revision log','<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',gaRevLogOpen,'ga-btn-revlog')
@@ -2734,9 +2725,7 @@ function renderGaPlans(){
 }
 function gaSetTbtn(id,on){
   const b=document.getElementById(id);
-  if(!b)return;
-  if(b.closest('.ga-seg'))b.classList.toggle('on',on);
-  else{b.classList.toggle('btn-primary',on);b.classList.toggle('btn-secondary',!on);}
+  if(b){b.classList.toggle('btn-primary',on);b.classList.toggle('btn-secondary',!on);}
 }
 function gaToggleType(){gaShowType=!gaShowType;gaSetTbtn('ga-btn-type',gaShowType);renderGaPins();}
 function gaToggleUid(){gaShowUid=!gaShowUid;gaSetTbtn('ga-btn-uid',gaShowUid);renderGaPins();}
