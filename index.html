@@ -16,6 +16,7 @@
     --border: #e2e4e9; --border-strong: #c8ccd4;
     --text: #111827; --text-1: #111827; --text-2: #4b5563; --text-3: #9ca3af;
     --accent: #f39302; --accent-light: #fef4e6; --accent-mid: #d97f00;
+    --check: #3b6ea5;
     --sidebar-bg: #1f2937;
     --green: #2a7a4b; --green-light: #e6f4ec;
     --amber: #b85c00; --amber-light: #fef3e6;
@@ -207,7 +208,7 @@
   .assign-room-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-radius: var(--radius-sm); cursor: pointer; transition: background 0.1s; }
   .assign-room-row:hover { background: var(--surface2); }
   .assign-room-row.other-zone { opacity: 0.45; cursor: not-allowed; }
-  .assign-room-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+  .assign-room-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--check); flex-shrink: 0; cursor: pointer; }
   .assign-room-id { font-family: 'DM Mono', monospace; font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
   .assign-room-name { font-size: 13px; font-weight: 500; flex: 1; }
   .assign-zone-badge { font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 500; }
@@ -243,7 +244,7 @@
   .tmpl-device-row { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
   .tmpl-device-row:hover { background: var(--surface2); }
   .tmpl-device-row.added { opacity: 0.5; }
-  .tmpl-device-row input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0; }
+  .tmpl-device-row input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--check); flex-shrink: 0; }
   .tmpl-item-list { flex: 1; overflow-y: auto; }
   .tmpl-item-row { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border); min-width: 0; }
   .tmpl-item-info { flex: 1; min-width: 0; }
@@ -371,16 +372,17 @@
   .ga-disp-panel h5 { margin: 0 0 4px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); font-weight: 700; }
   .ga-disp-panel h5 + h5, .ga-disp-panel .vrow + h5 { margin-top: 10px; }
   .ga-disp-panel .vrow { display: flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; padding: 3px 0; }
-  .ga-disp-panel input[type=checkbox] { width: 15px; height: 15px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--accent); }
+  input[type=checkbox], input[type=radio] { accent-color: var(--check); }
+  .ga-disp-panel input[type=checkbox] { width: 15px; height: 15px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--check); }
   .ga-views-panel { width: 250px; flex: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; overflow-y: auto; height: calc(100vh - 310px); min-height: 380px; box-sizing: border-box; }
   .ga-views-panel h4 { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin: 10px 0 5px; }
   .ga-views-panel h4:first-child { margin-top: 0; }
   .ga-views-panel label.vrow { display: flex; align-items: center; gap: 7px; padding: 2px 0; cursor: pointer; font-size: 13px; }
-  .ga-views-panel label.vrow input { width: 15px; height: 15px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--accent); }
+  .ga-views-panel label.vrow input { width: 15px; height: 15px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--check); }
   .ga-grid-panel .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
   .ga-grid-panel label.chk { display: flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; }
   .ga-grid-panel input[type=number] { width: 86px; padding: 4px 8px; }
-  .ga-grid-panel input[type=checkbox] { width: 15px; height: 15px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--accent); }
+  .ga-grid-panel input[type=checkbox] { width: 15px; height: 15px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--check); }
   .ga-scale-dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); transform: scale(var(--ga-inv,1)); pointer-events: none; z-index: 2; }
   .ga-revlog { width: 272px; flex: none; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow-y: auto; height: calc(100vh - 310px); min-height: 380px; }
   .ga-revlog h3 { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin: 0; padding: 12px 14px 6px; }
@@ -1400,7 +1402,7 @@
       </div>
       <div class="form-section"><div class="form-section-title">Power</div>
         <div class="form-row form-row-3"><div><label>Power Supply</label><select id="gd-pwr-type"><option value="">— Select —</option><option value="12V">12V DC</option><option value="24V">24V DC</option><option value="120V">120V AC</option><option value="230V">230V AC</option><option value="100-240V">100–240V AC (Universal)</option><option value="POE-only">POE Only</option><option value="POE+mains">POE + Mains</option></select></div><div><label>Power Draw (W)</label><input type="number" id="gd-power-watts" placeholder="0" min="0"></div><div><label>Heat (BTU)</label><input type="number" id="gd-heat-btu" placeholder="0" min="0"></div></div>
-        <div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="gd-ups-protected" style="width:15px;height:15px;accent-color:var(--accent)"> Requires UPS protection</label></div>
+        <div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="gd-ups-protected" style="width:15px;height:15px;accent-color:var(--check)"> Requires UPS protection</label></div>
       </div>
       <div class="form-section"><div class="form-section-title">Network</div>
         <div class="form-row form-row-2" style="margin-bottom:10px"><div><label>Network Role</label><select id="gd-network-role" onchange="gdUpdateNetworkFields()"><option value="none">None</option><option value="endpoint">Requires LAN ports</option><option value="infrastructure">Provides LAN ports</option></select></div><div></div></div>
@@ -1461,7 +1463,7 @@
       <div class="form-row form-row-2"><div><label>Make <span class="required">*</span></label><input type="text" id="prod-make" placeholder="e.g. Samsung"></div><div><label>Model <span class="required">*</span></label><input type="text" id="prod-model" placeholder="e.g. QN65Q80C"></div></div>
       <div class="form-section"><div class="form-section-title">Power</div>
         <div class="form-row form-row-3"><div><label>Power Supply</label><select id="prod-pwr-type"><option value="">— Select —</option><option value="12V">12V DC</option><option value="24V">24V DC</option><option value="120V">120V AC</option><option value="230V">230V AC</option><option value="100-240V">100–240V AC (Universal)</option><option value="POE-only">POE Only</option><option value="POE+mains">POE + Mains</option></select></div><div><label>Power Draw (W)</label><input type="number" id="prod-power" placeholder="0" min="0"></div><div><label>Heat (BTU)</label><input type="number" id="prod-heat" placeholder="0" min="0"></div></div>
-        <div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="prod-ups-protected" style="width:15px;height:15px;accent-color:var(--accent)"> Requires UPS protection</label></div>
+        <div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="prod-ups-protected" style="width:15px;height:15px;accent-color:var(--check)"> Requires UPS protection</label></div>
       </div>
       <div class="form-section"><div class="form-section-title">Network</div>
         <div class="form-row form-row-2" style="margin-bottom:10px"><div><label>Network Role</label><select id="prod-network-role" onchange="prodUpdateNetworkFields()"><option value="none">None</option><option value="endpoint">Requires LAN ports</option><option value="infrastructure">Provides LAN ports</option></select></div><div></div></div>
@@ -1563,7 +1565,7 @@
       <div class="form-row form-row-3"><div><label>System Group</label><select id="pe-system-group" onchange="filterPeCategories()"><option value="">— Select —</option></select></div><div><label>Category</label><select id="pe-category"><option value="">— Select —</option></select></div><div><label>Spec Reference</label><input type="text" id="pe-spec"></div></div>
       <div class="form-section"><div class="form-section-title">Power</div>
         <div class="form-row form-row-3"><div><label>Power Supply</label><select id="pe-pwr-type"><option value="">— Select —</option><option value="12V">12V DC</option><option value="24V">24V DC</option><option value="120V">120V AC</option><option value="230V">230V AC</option><option value="100-240V">100–240V AC (Universal)</option><option value="POE-only">POE Only</option><option value="POE+mains">POE + Mains</option></select></div><div><label>Power Draw (W)</label><input type="number" id="pe-power-watts" placeholder="0" min="0"></div><div><label>Heat (BTU)</label><input type="number" id="pe-heat-btu" placeholder="0" min="0"></div></div>
-        <div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="pe-ups-protected" style="width:15px;height:15px;accent-color:var(--accent)"> Requires UPS protection</label></div>
+        <div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="pe-ups-protected" style="width:15px;height:15px;accent-color:var(--check)"> Requires UPS protection</label></div>
       </div>
       <div class="form-section"><div class="form-section-title">Network</div>
         <div class="form-row form-row-2" style="margin-bottom:10px"><div><label>Network Role</label><select id="pe-network-role" onchange="peUpdateNetworkFields()"><option value="none">None</option><option value="endpoint">Requires LAN ports</option><option value="infrastructure">Provides LAN ports</option></select></div><div></div></div>
@@ -6316,7 +6318,7 @@ function openEditProjectModal(p){
 }
 function modalRenderScope(scope){
   const allD=[...DEFAULT_DISCIPLINES,...(scope||[]).filter(s=>!DEFAULT_DISCIPLINES.includes(s))];
-  document.getElementById('modal-scope-list').innerHTML=allD.map(d=>'<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" '+(scope.includes(d)?'checked':'')+' onchange="modalToggleScope(\''+escHtml(escJs(d))+'\')" style="width:14px;height:14px;accent-color:var(--accent)"><span>'+escHtml(d)+'</span></label>').join('');
+  document.getElementById('modal-scope-list').innerHTML=allD.map(d=>'<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" '+(scope.includes(d)?'checked':'')+' onchange="modalToggleScope(\''+escHtml(escJs(d))+'\')" style="width:14px;height:14px;accent-color:var(--check)"><span>'+escHtml(d)+'</span></label>').join('');
 }
 function modalToggleScope(discipline){
   // The checkbox onchange fires AFTER the browser has already applied the tick/untick,
@@ -7141,7 +7143,7 @@ function fmRenderRightPanel(){
     +'<div style="flex:1"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3);display:block;margin-bottom:4px">Category</label>'
     +'<select id="fm-detail-cat" style="width:100%" onchange="fmAutoSaveCat(\''+feat.id+'\')">'+catOpts+'</select></div>'
     +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;padding-bottom:7px;font-size:13px;color:var(--text-2)">'
-    +'<input type="checkbox" id="fm-detail-qty" '+(feat.quantity_tracked?'checked':'')+' onchange="fmAutoSaveQty(\''+feat.id+'\')" style="accent-color:var(--accent);width:15px;height:15px;flex-shrink:0"> Track quantity</label>'
+    +'<input type="checkbox" id="fm-detail-qty" '+(feat.quantity_tracked?'checked':'')+' onchange="fmAutoSaveQty(\''+feat.id+'\')" style="accent-color:var(--check);width:15px;height:15px;flex-shrink:0"> Track quantity</label>'
     +'</div>'
     +'</div>'
     +'<div style="padding:8px 12px 6px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface2)">'
@@ -7167,7 +7169,7 @@ function fmRenderLinkerList(){
     const pe=projectEquipment.find(p=>p.device_type_id===d);
     const isLinked=linked.includes(d);
     return '<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);'+(isLinked?'background:var(--accent-light)':'')+'">'
-      +'<input type="checkbox" '+(isLinked?'checked':'')+' onchange="fmToggleDeviceTypeLink(\''+escHtml(escJs(fmSelectedFeatureId))+'\',\''+escHtml(escJs(d))+'\')" style="width:14px;height:14px;accent-color:var(--accent);flex-shrink:0">'
+      +'<input type="checkbox" '+(isLinked?'checked':'')+' onchange="fmToggleDeviceTypeLink(\''+escHtml(escJs(fmSelectedFeatureId))+'\',\''+escHtml(escJs(d))+'\')" style="width:14px;height:14px;accent-color:var(--check);flex-shrink:0">'
       +'<div style="min-width:0"><div style="font-size:13px;font-weight:500">'+escHtml(d)+'</div>'
       +(pe&&pe.description?'<div style="font-size:11px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(pe.description)+'</div>':'')
       +'</div></label>';
@@ -9145,7 +9147,7 @@ async function renderApplyRoomList(){
       if(!dr.length)return;
       html+='<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);margin-bottom:8px">'+escHtml(d.name)+'</div>';
       dr.forEach(r=>{
-        html+='<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;transition:background 0.1s" onmouseover="this.style.background=\'var(--surface-2)\'" onmouseout="this.style.background=\'\'"><input type="checkbox" value="'+r.id+'" onchange="toggleApplyRoom(\''+r.id+'\')" style="width:15px;height:15px;accent-color:var(--accent)"><span style="font-size:13px">'+escHtml(r.name)+(r.room_number?' <span style="color:var(--text-3);font-size:11px">#'+r.room_number+'</span>':'')+'</span></label>';
+        html+='<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;transition:background 0.1s" onmouseover="this.style.background=\'var(--surface-2)\'" onmouseout="this.style.background=\'\'"><input type="checkbox" value="'+r.id+'" onchange="toggleApplyRoom(\''+r.id+'\')" style="width:15px;height:15px;accent-color:var(--check)"><span style="font-size:13px">'+escHtml(r.name)+(r.room_number?' <span style="color:var(--text-3);font-size:11px">#'+r.room_number+'</span>':'')+'</span></label>';
       });
       html+='</div>';
     });
@@ -9515,7 +9517,7 @@ async function openGtPullModal(){
     if(!globalTemplates.length)globalTemplates=await dbGet('global_room_templates','order=sort_order.asc,name.asc');
     if(!globalTemplates.length){c.innerHTML='<div style="padding:16px;color:var(--text-3);font-size:13px">No global templates found.</div>';return;}
     c.innerHTML=globalTemplates.map(t=>'<label style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border);cursor:pointer">'
-      +'<input type="checkbox" value="'+t.id+'" onchange="toggleGtPull(\''+t.id+'\')" style="width:15px;height:15px;accent-color:var(--accent)">'
+      +'<input type="checkbox" value="'+t.id+'" onchange="toggleGtPull(\''+t.id+'\')" style="width:15px;height:15px;accent-color:var(--check)">'
       +'<div><div style="font-size:13px;font-weight:600">'+escHtml(t.name)+'</div>'
       +(t.description?'<div style="font-size:11px;color:var(--text-3)">'+escHtml(t.description)+'</div>':'')
       +'<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+(t.item_count||0)+' device type'+(t.item_count!==1?'s':'')+'</div>'
