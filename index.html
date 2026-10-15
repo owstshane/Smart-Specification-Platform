@@ -2659,7 +2659,6 @@ function renderGaPlans(){
       +gaTb('gaStartCloud()','Cloud','Rev cloud: drag a box around a changed area','<path d="M17.5 18a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.3 1.4A4 4 0 0 0 7 18z"/>')
       +gaTb('gaUndo()','Undo','Undo the last change (Ctrl+Z)',gaUndoSvg,false,'ga-btn-undo');
   }
-  if(showing)gaRight+=(gaRight?gaDiv:'')+'<span style="font-size:12px;color:var(--text-3);white-space:nowrap;padding:0 4px">'+escHtml(showing.revision)+(cur?' (current)':'')+' · <span id="ga-pin-count"></span></span>';
   if(gaRight)bar+='<span class="ga-tbgroup">'+gaRight+'</span>';
   bar+='</div>';
   const gaDispSvg='<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>';
