@@ -5026,9 +5026,9 @@ function gaAutoBox(x,y){
   return [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
 }
 function gaAutoCloudFor(instId){return gaClouds.find(c=>c.auto&&c.equipment_instance_id===instId);}
-async function _gaAutoCloudSet(inst,kind,x,y){
+async function _gaAutoCloudSet(inst,kind,x,y,extra){
   const plan=gaShownPlan();if(!plan)return;
-  const payload={points:gaAutoBox(x,y),label:(inst.device_id||'device')+' '+kind,cr_id:inst.change_cr_id||null,kind};
+  const payload=Object.assign({points:gaAutoBox(x,y),label:(inst.device_id||'device')+' '+kind,cr_id:inst.change_cr_id||null,kind},extra||{});
   const ex=gaAutoCloudFor(inst.id);
   // A CR link someone set by hand on the cloud wins over the stamp; the note is never touched
   if(ex&&ex.cr_id)payload.cr_id=ex.cr_id;
@@ -5063,7 +5063,15 @@ async function gaAutoCloudEval(inst,pin){
 async function gaAutoCloudOnRemove(inst){
   if(!gaAutoCloudsOn()||!inst)return;
   const base=gaPrevPins.find(p=>p.equipment_instance_id===inst.id);
-  if(base)await _gaAutoCloudSet(inst,'removed',base.x,base.y);
+  if(base){
+    // Snapshot the device so Revert can re-create it even after a hard delete
+    const pin=gaPins.find(p=>p.equipment_instance_id===inst.id);
+    const snapshot={
+      inst:{id:inst.id,project_id:inst.project_id,project_equipment_id:inst.project_equipment_id,device_id:inst.device_id,quantity:inst.quantity,room_id:inst.room_id,rack_zone_id:inst.rack_zone_id,installation_type:inst.installation_type,pre_wire:inst.pre_wire,notes:inst.notes},
+      pin:pin?{x:pin.x,y:pin.y}:{x:base.x,y:base.y}
+    };
+    await _gaAutoCloudSet(inst,'removed',base.x,base.y,{snapshot});
+  }
   else await _gaAutoCloudClear(inst.id);
 }
 // Full resync after an undo: re-evaluate every pinned device and drop stale clouds
@@ -5148,8 +5156,11 @@ function openGaCloudEdit(cloudId){
   document.getElementById('ga-cloud-cr').innerHTML=gaCrOptions(cl.cr_id||'');
   // Clouds on issued revisions are the historical record: no delete there (Shane's rule)
   document.getElementById('ga-cloud-delete').style.display=gaCloudIsLive(cl)?'':'none';
-  // Revert is only for automatic clouds whose device still exists, on the live revision
-  const canRevert=!!(cl.auto&&gaCloudIsLive(cl)&&cl.equipment_instance_id&&placedEquipment.find(i=>i.id===cl.equipment_instance_id));
+  // Revert needs either the device row (soft-removed or live) or, for a hard-deleted
+  // device, the snapshot taken when its 'removed' cloud was written
+  const canRevert=!!(cl.auto&&gaCloudIsLive(cl)&&(
+    (cl.equipment_instance_id&&placedEquipment.find(i=>i.id===cl.equipment_instance_id))
+    ||(cl.kind==='removed'&&cl.snapshot&&cl.snapshot.inst)));
   document.getElementById('ga-cloud-revert').style.display=canRevert?'':'none';
   document.getElementById('ga-cloud-overlay').classList.add('open');
 }
@@ -5176,12 +5187,13 @@ function gaRevertCloud(){
   if(!cl||!cl.auto)return;
   if(!gaCloudIsLive(cl)){showToast('Issued revisions are the historical record and cannot be changed','error');return;}
   const inst=placedEquipment.find(i=>i.id===cl.equipment_instance_id);
-  if(!inst){showToast('The device no longer exists, so this change cannot be reverted','error');return;}
+  const snap=(cl.kind==='removed'&&cl.snapshot&&cl.snapshot.inst)?cl.snapshot:null;
+  if(!inst&&!snap){showToast('The device no longer exists, so this change cannot be reverted','error');return;}
   closeGaCloudModal();
-  const kind=cl.kind,devName=inst.device_id||'device';
+  const kind=cl.kind,devName=(inst?inst.device_id:snap.inst.device_id)||'device';
   const msg=kind==='moved'?'Move '+devName+' back to its position on the previous revision? Its room and ID are restored by the normal move rules.'
     :kind==='added'?'Remove '+devName+' again? It was added on this revision, so reverting deletes it from the schedule and the plan. If a CR cost line was added when it was placed, remove that from the cost schedule too.'
-    :'Restore '+devName+'? It returns to the schedule and its pin reappears on the plan'+(inst.change_cr_id?'; the Removed mark from its CR is cleared':'')+'.';
+    :'Restore '+devName+'? It returns to the schedule and its pin reappears on the plan'+(inst&&inst.change_cr_id?'; the Removed mark from its CR is cleared':'')+'.';
   openConfirm('Revert Change',msg,async()=>{
     try{
       if(kind==='moved'){
@@ -5224,7 +5236,8 @@ function gaRevertCloud(){
         });
         renderGaPins();renderGaBounds();renderGaRevLog();renderGaPalette();
         showToast(devName+' removed again','success');
-      }else{
+      }else if(inst){
+        // Soft-removed (under a CR): clear the Removed mark; pin reappears
         const before={change_status:inst.change_status,change_cr_id:inst.change_cr_id,change_cr_ref:inst.change_cr_ref};
         const payload={change_status:null,change_cr_id:null,change_cr_ref:null};
         await dbUpdate('equipment_instances',inst.id,payload);
@@ -5237,6 +5250,25 @@ function gaRevertCloud(){
         });
         renderGaPins();renderGaBounds();renderGaRevLog();
         showToast(devName+' restored','success');
+      }else{
+        // Hard-deleted: re-create the device and its pin from the cloud's snapshot
+        const cloudCopy={id:cl.id,deck_plan_id:cl.deck_plan_id,points:cl.points,label:cl.label,cr_id:cl.cr_id,auto:true,kind:cl.kind,note:cl.note,snapshot:cl.snapshot};
+        const rows=await dbInsert('equipment_instances',snap.inst);
+        placedEquipment.push(rows[0]);
+        const pr=await dbInsert('plan_equipment_pins',{deck_plan_id:cl.deck_plan_id,equipment_instance_id:rows[0].id,x:snap.pin.x,y:snap.pin.y});
+        gaPins.push(pr[0]);
+        await dbDelete('plan_rev_clouds',cl.id);
+        gaClouds=gaClouds.filter(c=>c.id!==cl.id);gaDeckClouds=gaDeckClouds.filter(c=>c.id!==cl.id);
+        logChange('equipment','added','Reverted GA removal: '+devName+' re-created');
+        gaUndoPush('revert removal '+devName,async()=>{
+          await dbDelete('equipment_instances',rows[0].id);
+          placedEquipment=placedEquipment.filter(i=>i.id!==rows[0].id);
+          gaPins=gaPins.filter(p=>p.equipment_instance_id!==rows[0].id);
+          const back=await dbInsert('plan_rev_clouds',cloudCopy);
+          gaClouds.push(back[0]);gaDeckClouds.push(back[0]);
+        });
+        renderGaPins();renderGaBounds();renderGaRevLog();renderGaPalette();
+        showToast(devName+' re-created and pinned back','success');
       }
     }catch(e){showToast('Could not revert: '+e.message,'error');}
   },'Revert','btn-danger');
